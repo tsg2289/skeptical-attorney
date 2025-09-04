@@ -188,7 +188,7 @@ Defendant: ${caseInfo.defendant}
                     type="text"
                     value={caseInfo.caseTitle}
                     onChange={(e) => setCaseInfo({...caseInfo, caseTitle: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     placeholder="Smith v. Jones"
                   />
                 </div>
@@ -198,7 +198,7 @@ Defendant: ${caseInfo.defendant}
                     type="text"
                     value={caseInfo.caseNumber}
                     onChange={(e) => setCaseInfo({...caseInfo, caseNumber: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     placeholder="CV-2024-001234"
                   />
                 </div>
@@ -208,7 +208,7 @@ Defendant: ${caseInfo.defendant}
                     type="text"
                     value={caseInfo.court}
                     onChange={(e) => setCaseInfo({...caseInfo, court: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     placeholder="Superior Court of California, County of Los Angeles"
                   />
                 </div>
@@ -218,7 +218,7 @@ Defendant: ${caseInfo.defendant}
                     type="text"
                     value={caseInfo.plaintiff}
                     onChange={(e) => setCaseInfo({...caseInfo, plaintiff: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     placeholder="John Smith"
                   />
                 </div>
@@ -228,7 +228,7 @@ Defendant: ${caseInfo.defendant}
                     type="text"
                     value={caseInfo.defendant}
                     onChange={(e) => setCaseInfo({...caseInfo, defendant: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     placeholder="Jane Jones"
                   />
                 </div>
@@ -245,7 +245,7 @@ Defendant: ${caseInfo.defendant}
                     type="text"
                     value={caseInfo.attorneyName}
                     onChange={(e) => setCaseInfo({...caseInfo, attorneyName: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   />
                 </div>
                 <div>
@@ -254,7 +254,7 @@ Defendant: ${caseInfo.defendant}
                     type="text"
                     value={caseInfo.barNumber}
                     onChange={(e) => setCaseInfo({...caseInfo, barNumber: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -262,7 +262,7 @@ Defendant: ${caseInfo.defendant}
                   <textarea
                     value={caseInfo.address}
                     onChange={(e) => setCaseInfo({...caseInfo, address: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                     rows={2}
                   />
                 </div>
@@ -272,7 +272,7 @@ Defendant: ${caseInfo.defendant}
                     type="text"
                     value={caseInfo.phone}
                     onChange={(e) => setCaseInfo({...caseInfo, phone: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   />
                 </div>
                 <div>
@@ -281,7 +281,7 @@ Defendant: ${caseInfo.defendant}
                     type="email"
                     value={caseInfo.email}
                     onChange={(e) => setCaseInfo({...caseInfo, email: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   />
                 </div>
               </div>
@@ -336,7 +336,7 @@ Defendant: ${caseInfo.defendant}
                     <textarea
                       value={request}
                       onChange={(e) => updateCustomRequest(index, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                       placeholder="Enter custom request..."
                       rows={2}
                     />
