@@ -1,4 +1,4 @@
-# Skeptical Attorney - Legal Practice Automation
+# Skeptical Attorney - Legal Automation Platform - Legal Practice Automation
 
 A modern, professional website for legal practice automation services, built with Next.js, TypeScript, and Tailwind CSS.
 
