@@ -17,7 +17,7 @@ const Header = () => {
       href: '/services/discovery',
       hasSubMenu: true,
       subItems: [
-        { name: 'Written Discovery', href: 'https://discovery-app-weld.vercel.app', external: true },
+        { name: 'Written Discovery', href: '/services/discovery/written-discovery' },
         { name: 'Oral Discovery', href: '/services/discovery/oral-discovery' },
       ]
     },
@@ -74,7 +74,7 @@ const Header = () => {
                           {isDiscoveryOpen && (
                             <div className="absolute left-full top-0 ml-1 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2">
                               {service.subItems?.map((subItem) => (
-                                subItem.external ? (
+                                (subItem as any).external ? (
                                   <a
                                     key={subItem.name}
                                     href={subItem.href}
@@ -195,7 +195,7 @@ const Header = () => {
                             {isDiscoveryOpen && (
                               <div className="ml-4 mt-1 space-y-1">
                                 {service.subItems?.map((subItem) => (
-                                  subItem.external ? (
+                                  (subItem as any).external ? (
                                     <a
                                       key={subItem.name}
                                       href={subItem.href}
