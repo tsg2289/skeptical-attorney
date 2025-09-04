@@ -244,7 +244,7 @@ const WrittenDiscoveryGenerator = () => {
     }
 
     // Remove duplicates and limit to reasonable number
-    return [...new Set(requests)].slice(0, 15)
+    return Array.from(new Set(requests)).slice(0, 15)
   }
 
   const generateDocument = () => {
