@@ -28,6 +28,9 @@ const WrittenDiscoveryGenerator = () => {
   const [customRequests, setCustomRequests] = useState<string[]>([''])
   const [generatedDocument, setGeneratedDocument] = useState('')
   const [copied, setCopied] = useState(false)
+  const [caseFactsInput, setCaseFactsInput] = useState('')
+  const [factsBasedRequests, setFactsBasedRequests] = useState<string[]>([])
+  const [isGeneratingFromFacts, setIsGeneratingFromFacts] = useState(false)
 
   const predefinedRequests = {
     interrogatory: [
@@ -82,6 +85,168 @@ const WrittenDiscoveryGenerator = () => {
     setCustomRequests(customRequests.filter((_, i) => i !== index))
   }
 
+  const generateRequestsFromFacts = async () => {
+    if (!caseFactsInput.trim()) return
+
+    setIsGeneratingFromFacts(true)
+    
+    try {
+      // This is a client-side AI-powered discovery generation based on facts
+      const factsBasedDiscovery = generateDiscoveryFromFacts(caseFactsInput, selectedType)
+      setFactsBasedRequests(factsBasedDiscovery)
+    } catch (error) {
+      console.error('Error generating discovery from facts:', error)
+    } finally {
+      setIsGeneratingFromFacts(false)
+    }
+  }
+
+  const generateDiscoveryFromFacts = (facts: string, type: string): string[] => {
+    const lowerFacts = facts.toLowerCase()
+    const requests: string[] = []
+
+    // Common fact patterns and corresponding discovery requests
+    const discoveryPatterns = {
+      interrogatory: {
+        // Accident/Incident patterns
+        'accident|collision|crash|incident': [
+          "Describe in detail your recollection of the events leading up to, during, and immediately following the incident described in the complaint.",
+          "Identify all persons present at the scene of the incident and describe what each person witnessed.",
+          "State the speed at which you were traveling at the time of the incident.",
+          "Describe the weather and road conditions at the time of the incident.",
+          "Identify any traffic control devices present at the location of the incident."
+        ],
+        // Medical/Injury patterns
+        'injury|medical|hospital|doctor|treatment': [
+          "Identify all healthcare providers who have examined or treated you in connection with this incident.",
+          "Describe all injuries you claim to have sustained as a result of the incident.",
+          "List all medications you were taking at the time of the incident.",
+          "Identify all medical records, reports, and bills related to your claimed injuries."
+        ],
+        // Employment patterns
+        'employment|work|job|employer|fired|terminated': [
+          "Describe your job duties and responsibilities at the time of the alleged incident.",
+          "Identify all supervisors and managers who had authority over you during your employment.",
+          "Describe any complaints you made to management prior to the incident.",
+          "List all disciplinary actions taken against you during your employment."
+        ],
+        // Contract/Business patterns
+        'contract|agreement|business|payment|breach': [
+          "Identify all parties to the contract or agreement that is the subject of this lawsuit.",
+          "Describe all communications regarding the terms and conditions of the agreement.",
+          "List all payments made or received under the agreement.",
+          "Identify all documents relating to the formation of the agreement."
+        ],
+        // Property/Real Estate patterns
+        'property|real estate|lease|rent|landlord|tenant': [
+          "Describe the condition of the property at the time you took possession.",
+          "Identify all repairs or maintenance performed on the property.",
+          "List all communications with the landlord/tenant regarding the property.",
+          "Describe any defects or problems with the property."
+        ]
+      },
+      request_for_production: {
+        'accident|collision|crash|incident': [
+          "All photographs, videos, or other visual documentation of the accident scene.",
+          "All police reports, accident reports, or incident reports relating to the occurrence.",
+          "All insurance policies providing coverage for the incident.",
+          "All repair estimates and invoices for damage to vehicles or property."
+        ],
+        'injury|medical|hospital|doctor|treatment': [
+          "All medical records, reports, and bills relating to your claimed injuries.",
+          "All insurance claims and correspondence relating to medical treatment.",
+          "All photographs of your alleged injuries.",
+          "All expert medical reports or opinions regarding your condition."
+        ],
+        'employment|work|job|employer|fired|terminated': [
+          "Your complete personnel file including all performance evaluations.",
+          "All documents relating to the termination or adverse employment action.",
+          "All employee handbooks, policies, and procedures in effect during your employment.",
+          "All communications between you and management regarding workplace issues."
+        ],
+        'contract|agreement|business|payment|breach': [
+          "The original contract or agreement that is the subject of this lawsuit.",
+          "All amendments, modifications, or addenda to the agreement.",
+          "All invoices, receipts, and payment records relating to the agreement.",
+          "All correspondence regarding the performance or breach of the agreement."
+        ],
+        'property|real estate|lease|rent|landlord|tenant': [
+          "The lease agreement or rental contract for the property.",
+          "All photographs of the property showing its condition.",
+          "All receipts for repairs, maintenance, or improvements to the property.",
+          "All communications regarding rent payments or lease violations."
+        ]
+      },
+      request_for_admission: {
+        'accident|collision|crash|incident': [
+          "Admit that you were operating a motor vehicle at the time of the incident.",
+          "Admit that you failed to maintain a proper lookout at the time of the incident.",
+          "Admit that the incident occurred as a result of your negligence.",
+          "Admit that you were cited for a traffic violation in connection with the incident."
+        ],
+        'injury|medical|hospital|doctor|treatment': [
+          "Admit that you sustained injuries as a result of the incident.",
+          "Admit that you sought medical treatment following the incident.",
+          "Admit that your medical expenses were reasonable and necessary.",
+          "Admit that the incident was a substantial factor in causing your injuries."
+        ],
+        'employment|work|job|employer|fired|terminated': [
+          "Admit that you were an employee of the defendant at the time of the incident.",
+          "Admit that you were terminated from your employment.",
+          "Admit that you received notice of the company's policies and procedures.",
+          "Admit that you violated company policy as alleged in the complaint."
+        ],
+        'contract|agreement|business|payment|breach': [
+          "Admit that you entered into the contract that is the subject of this lawsuit.",
+          "Admit that you failed to perform your obligations under the contract.",
+          "Admit that you received consideration for entering into the contract.",
+          "Admit that the contract was breached as alleged in the complaint."
+        ],
+        'property|real estate|lease|rent|landlord|tenant': [
+          "Admit that you entered into a lease agreement for the subject property.",
+          "Admit that you failed to pay rent as required by the lease.",
+          "Admit that you received notice of lease violations.",
+          "Admit that the property was damaged during your tenancy."
+        ]
+      }
+    }
+
+    // Check for patterns and add relevant requests
+    for (const [pattern, patternRequests] of Object.entries(discoveryPatterns[type as keyof typeof discoveryPatterns])) {
+      const regex = new RegExp(pattern, 'i')
+      if (regex.test(facts)) {
+        requests.push(...patternRequests)
+      }
+    }
+
+    // Add some general requests based on common legal themes
+    if (requests.length === 0) {
+      // Fallback general requests if no specific patterns match
+      if (type === 'interrogatory') {
+        requests.push(
+          "Describe in detail the facts and circumstances that form the basis of your claims in this lawsuit.",
+          "Identify all witnesses who have knowledge of the facts alleged in your complaint.",
+          "List all documents that support the allegations in your complaint."
+        )
+      } else if (type === 'request_for_production') {
+        requests.push(
+          "All documents relating to the claims alleged in the complaint.",
+          "All communications regarding the subject matter of this lawsuit.",
+          "All photographs, videos, or other evidence relating to the incident."
+        )
+      } else if (type === 'request_for_admission') {
+        requests.push(
+          "Admit that the facts alleged in the complaint are true and correct.",
+          "Admit that you have personal knowledge of the events described in the complaint.",
+          "Admit that the incident occurred as described in the complaint."
+        )
+      }
+    }
+
+    // Remove duplicates and limit to reasonable number
+    return [...new Set(requests)].slice(0, 15)
+  }
+
   const generateDocument = () => {
     const typeTitle = {
       interrogatory: 'INTERROGATORIES',
@@ -96,7 +261,11 @@ const WrittenDiscoveryGenerator = () => {
     }
 
     const selectedRequests = predefinedRequests[selectedType]
-    const allRequests = [...selectedRequests, ...customRequests.filter(req => req.trim())]
+    const allRequests = [
+      ...selectedRequests, 
+      ...factsBasedRequests,
+      ...customRequests.filter(req => req.trim())
+    ]
 
     const document = `
 ${typeTitle[selectedType]} TO DEFENDANT
@@ -324,6 +493,72 @@ Defendant: ${caseInfo.defendant}
                   />
                   <span className="ml-3 text-gray-900">Request for Admissions</span>
                 </label>
+              </div>
+            </div>
+
+            {/* Case Facts Section */}
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                Case Facts & AI Discovery Generation
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter the key facts of your case
+                  </label>
+                  <textarea
+                    value={caseFactsInput}
+                    onChange={(e) => setCaseFactsInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                    placeholder="Example: On January 15, 2024, plaintiff was involved in a car accident at the intersection of Main St and Oak Ave. Defendant ran a red light and collided with plaintiff's vehicle. Plaintiff sustained injuries to neck and back, requiring medical treatment at City Hospital. Defendant was cited for running a red light..."
+                    rows={6}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Describe the key facts, circumstances, and details of your case. The AI will analyze these facts and generate targeted discovery requests.
+                  </p>
+                </div>
+                
+                <button
+                  onClick={generateRequestsFromFacts}
+                  disabled={!caseFactsInput.trim() || isGeneratingFromFacts}
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-medium shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {isGeneratingFromFacts ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Analyzing Facts...
+                    </>
+                  ) : (
+                    `Generate ${selectedType === 'interrogatory' ? 'Interrogatories' : 
+                       selectedType === 'request_for_production' ? 'Document Requests' : 
+                       'Admission Requests'} from Facts`
+                  )}
+                </button>
+
+                {factsBasedRequests.length > 0 && (
+                  <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h3 className="font-medium text-green-800 mb-2">
+                      Generated {factsBasedRequests.length} fact-based discovery requests:
+                    </h3>
+                    <div className="max-h-40 overflow-y-auto">
+                      <ul className="text-sm text-green-700 space-y-1">
+                        {factsBasedRequests.map((request, index) => (
+                          <li key={index} className="flex items-start">
+                            <span className="font-medium mr-2">{index + 1}.</span>
+                            <span>{request}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <button
+                      onClick={() => setFactsBasedRequests([])}
+                      className="mt-2 text-sm text-green-600 hover:text-green-800 underline"
+                    >
+                      Clear generated requests
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
