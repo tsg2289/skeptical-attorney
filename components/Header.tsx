@@ -11,7 +11,7 @@ const Header = () => {
 
   const services = [
     { name: 'Demand Letters', href: '/services/demand-letters' },
-    { name: 'Pleadings', href: 'https://legal-complaint-generator.vercel.app', external: true },
+    { name: 'Pleadings', href: 'https://employment-law-infraction-tracker.vercel.app', external: true },
     { 
       name: 'Discovery', 
       href: '/services/discovery',
