@@ -1,0 +1,103 @@
+{
+  "id": "protective-order",
+  "name": "Protective Order Motion",
+  "description": "Templates for drafting motions for protective orders regarding deposition notices and document requests",
+  "category": "Motion Practice",
+  "templates": [
+    {
+      "id": "analyze-deposition-categories",
+      "time": "0.6",
+      "description": "Analyze categories included in plaintiff's deposition notice of Person Most Knowledgeable at [client's name] to draft a motion for a protective order regarding the same."
+    },
+    {
+      "id": "analyze-document-requests",
+      "time": "1.4",
+      "description": "Analyze plaintiff's lengthy request for documents included in the deposition notice for Person Most Knowledgeable at [client's name] to draft motion for a protective order regarding the same."
+    },
+    {
+      "id": "analyze-case-law-deposition",
+      "time": "0.7",
+      "description": "Analyze case and statutory law regarding protecting categories noticed by plaintiff regarding [client's name] motion for a protective order to draft motions for a protective order regarding the same."
+    },
+    {
+      "id": "analyze-case-law-production",
+      "time": "0.9",
+      "description": "Analyze case and statutory law regarding protecting productions requests noticed by plaintiff regarding [client's name] motion for a protective order to draft motions for a protective order regarding the same."
+    },
+    {
+      "id": "draft-notice-motion",
+      "time": "0.6",
+      "description": "Draft [client's name] notice of motion for a protective order regarding deposition categories noticed by plaintiff."
+    },
+    {
+      "id": "draft-memo-deposition-categories",
+      "time": "0.5",
+      "description": "Draft [client's name] motions for protective order's memorandum of points and authorities regarding legal authority for protecting deposition categories noticed by plaintiff."
+    },
+    {
+      "id": "draft-memo-production-requests",
+      "time": "0.3",
+      "description": "Draft [client's name] motions for protective order's memorandum of points and authorities regarding legal authority for protecting production requests included in the deposition notice."
+    },
+    {
+      "id": "draft-memo-mutual-date",
+      "time": "0.4",
+      "description": "Draft [client's name] motions for protective order's memorandum of points and authorities regarding legal argument for mutually agreeable date."
+    },
+    {
+      "id": "draft-memo-narrowly-tailoring",
+      "time": "1.6",
+      "description": "Draft [client's name] motions for protective order's memorandum of points and authorities regarding legal argument regarding narrowly tailoring plaintiff deposition categories."
+    },
+    {
+      "id": "further-draft-memo-deposition-8",
+      "time": "0.8",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding plaintiff deposition categories for [client name] person most knowledgeable."
+    },
+    {
+      "id": "further-draft-memo-deposition-6",
+      "time": "0.6",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding plaintiff deposition categories for [client name] person most knowledgeable."
+    },
+    {
+      "id": "further-draft-memo-sanctions-4",
+      "time": "0.4",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding sanctions sections."
+    },
+    {
+      "id": "further-draft-memo-meet-confer-4",
+      "time": "0.4",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding meet and confer section."
+    },
+    {
+      "id": "further-draft-memo-attorney-declaration-4",
+      "time": "0.4",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding attorney declaration."
+    },
+    {
+      "id": "further-draft-memo-deposition-4",
+      "time": "0.4",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding plaintiff deposition categories for [client name] person most knowledgeable."
+    },
+    {
+      "id": "further-draft-memo-deposition-3",
+      "time": "0.3",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding plaintiff deposition categories for [client name] person most knowledgeable."
+    },
+    {
+      "id": "further-draft-memo-sanctions-2",
+      "time": "0.2",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding sanctions sections."
+    },
+    {
+      "id": "further-draft-memo-meet-confer-2",
+      "time": "0.2",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding meet and confer section."
+    },
+    {
+      "id": "further-draft-memo-attorney-declaration-2",
+      "time": "0.2",
+      "description": "Further draft [client name] motion for a protective order regarding memorandum of points and authorities regarding attorney declaration."
+    }
+  ]
+}

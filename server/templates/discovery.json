@@ -1,0 +1,43 @@
+{
+  "id": "discovery",
+  "name": "Discovery Practice",
+  "description": "Templates for various discovery-related billing entries including document review, interrogatories, and depositions",
+  "category": "Discovery",
+  "templates": [
+    {
+      "id": "review-documents",
+      "time": "2.5",
+      "description": "Review and analyze [X] pages of documents produced by plaintiff in response to discovery requests to identify relevant information and potential evidence."
+    },
+    {
+      "id": "draft-interrogatories",
+      "time": "1.8",
+      "description": "Draft [X] interrogatories to plaintiff regarding [specific topic] to obtain relevant information and admissions."
+    },
+    {
+      "id": "prepare-deposition",
+      "time": "3.0",
+      "description": "Prepare for deposition of [witness name] by reviewing relevant documents, case law, and preparing comprehensive outline of questions."
+    },
+    {
+      "id": "conduct-deposition",
+      "time": "4.0",
+      "description": "Conduct deposition of [witness name] regarding [specific topics] and obtain sworn testimony for use in litigation."
+    },
+    {
+      "id": "review-deposition-transcript",
+      "time": "1.2",
+      "description": "Review and analyze transcript of [witness name] deposition to identify key testimony and prepare for summary judgment motion."
+    },
+    {
+      "id": "draft-requests-production",
+      "time": "1.0",
+      "description": "Draft requests for production of documents from plaintiff regarding [specific categories] to obtain relevant evidence."
+    },
+    {
+      "id": "respond-discovery-requests",
+      "time": "2.0",
+      "description": "Review and respond to plaintiff's discovery requests by preparing objections and responses to interrogatories and requests for production."
+    }
+  ]
+}

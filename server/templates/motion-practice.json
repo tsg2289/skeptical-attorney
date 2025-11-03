@@ -1,0 +1,43 @@
+{
+  "id": "motion-practice",
+  "name": "Motion Practice",
+  "description": "Templates for various motion practice billing entries including summary judgment, discovery motions, and procedural motions",
+  "category": "Motion Practice",
+  "templates": [
+    {
+      "id": "draft-summary-judgment",
+      "time": "8.0",
+      "description": "Draft motion for summary judgment on behalf of [client's name] by analyzing facts, applicable law, and preparing comprehensive brief with supporting evidence."
+    },
+    {
+      "id": "oppose-summary-judgment",
+      "time": "6.0",
+      "description": "Draft opposition to plaintiff's motion for summary judgment by identifying disputed material facts and legal issues requiring trial."
+    },
+    {
+      "id": "draft-motion-compel",
+      "time": "3.5",
+      "description": "Draft motion to compel discovery responses from plaintiff regarding [specific discovery requests] due to inadequate responses."
+    },
+    {
+      "id": "draft-motion-strike",
+      "time": "2.0",
+      "description": "Draft motion to strike [specific pleading/evidence] as [grounds] pursuant to [applicable rule]."
+    },
+    {
+      "id": "draft-motion-continue",
+      "time": "1.0",
+      "description": "Draft motion to continue [hearing/trial] due to [specific reasons] and coordinate with opposing counsel on new dates."
+    },
+    {
+      "id": "prepare-oral-argument",
+      "time": "2.5",
+      "description": "Prepare for oral argument on [motion name] by reviewing briefs, case law, and preparing comprehensive argument outline."
+    },
+    {
+      "id": "research-motion-law",
+      "time": "3.0",
+      "description": "Research applicable case law and statutory authority for [motion type] to support legal arguments and cite relevant precedent."
+    }
+  ]
+}

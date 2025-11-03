@@ -46,6 +46,9 @@ export default function Home() {
                       </Link>
                     </div>
                   </div>
+                  <Link href="/services/deposition" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                    Deposition
+                  </Link>
                   <Link href="/services/law-and-motion" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                     Law and Motion
                   </Link>
@@ -170,6 +173,19 @@ export default function Home() {
               </div>
             </Link>
 
+            <Link href="/services/deposition" className="group">
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all hover-lift h-full">
+                <div className="text-blue-600 mb-6 text-5xl">📝</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors">
+                  Deposition
+                </h3>
+                <p className="text-gray-600 leading-relaxed mb-6">Prepare and manage depositions with automated scheduling, preparation, and documentation tools.</p>
+                <div className="flex items-center text-blue-600 font-semibold group-hover:translate-x-2 transition-transform">
+                  Learn More →
+                </div>
+              </div>
+            </Link>
+
             <Link href="/services/law-and-motion" className="group">
               <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all hover-lift h-full">
                 <div className="text-blue-600 mb-6 text-5xl">✍️</div>
@@ -262,6 +278,7 @@ export default function Home() {
                 <li><Link href="/services/demand-letters" className="text-gray-400 hover:text-white transition-colors">Demand Letters</Link></li>
                 <li><Link href="/services/pleadings" className="text-gray-400 hover:text-white transition-colors">Pleadings</Link></li>
                 <li><Link href="/services/discovery" className="text-gray-400 hover:text-white transition-colors">Discovery</Link></li>
+                <li><Link href="/services/deposition" className="text-gray-400 hover:text-white transition-colors">Deposition</Link></li>
                 <li><Link href="/services/law-and-motion" className="text-gray-400 hover:text-white transition-colors">Law and Motion</Link></li>
                 <li><Link href="/services/settlement-agreements" className="text-gray-400 hover:text-white transition-colors">Settlement Agreements</Link></li>
                 <li><Link href="/services/billing-comparison" className="text-gray-400 hover:text-white transition-colors">Billing Comparison</Link></li>

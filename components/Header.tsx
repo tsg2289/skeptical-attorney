@@ -21,6 +21,7 @@ const Header = () => {
         { name: 'Oral Discovery', href: '/services/discovery/oral-discovery' },
       ]
     },
+    { name: 'Deposition', href: '/services/deposition' },
     { name: 'Law and Motion', href: '/services/law-and-motion' },
     { name: 'Settlement Agreements', href: '/services/settlement-agreements' },
     { name: 'Billing Comparison', href: '/services/billing-comparison' },
@@ -48,7 +49,11 @@ const Header = () => {
             </Link>
             
             {/* Services Dropdown */}
-            <div className="relative">
+            <div 
+              className="relative"
+              onMouseEnter={() => setIsServicesOpen(true)}
+              onMouseLeave={() => setIsServicesOpen(false)}
+            >
               <button
                 onClick={() => setIsServicesOpen(!isServicesOpen)}
                 className="flex items-center space-x-1 text-gray-700 hover:text-blue-600 transition-colors font-medium"

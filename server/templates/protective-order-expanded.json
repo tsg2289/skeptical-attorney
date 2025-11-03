@@ -1,0 +1,93 @@
+{
+  "id": "protective-order-expanded",
+  "name": "Protective Order Motion (Expanded)",
+  "description": "Comprehensive templates for drafting motions for protective orders including meet and confer, sanctions, and declarations",
+  "category": "Motion Practice",
+  "templates": [
+    {
+      "id": "draft-memo-narrowly-tailoring-production",
+      "time": "1.2",
+      "description": "Draft [client name] motions for protective order's memorandum of points and authorities regarding legal argument regarding narrowly tailoring plaintiff's production requests including in deposition notice of [client name] person most knowledgeable."
+    },
+    {
+      "id": "draft-meet-confer",
+      "time": "0.6",
+      "description": "Draft [client name] regarding meet and confer efforts with plaintiff's counsel."
+    },
+    {
+      "id": "draft-sanctions-argument",
+      "time": "0.4",
+      "description": "Draft [client name] sanctions argument in its motion for a protective order regarding plaintiff's deposition categories and productions requests."
+    },
+    {
+      "id": "draft-declaration",
+      "time": "0.6",
+      "description": "Draft declaration included with [client name] motions for a protective order regarding plaintiff's deposition categories and productions requests."
+    },
+    {
+      "id": "analyze-deposition-categories",
+      "time": "0.3",
+      "description": "Analyze categories included in plaintiff's deposition notice of Person Most knowledgeable at [client name] to draft a motion for a protective order regarding the same."
+    },
+    {
+      "id": "analyze-document-requests",
+      "time": "0.7",
+      "description": "Analyze plaintiff's lengthy request for documents included in the deposition notice for Person Most Knowledgeable at [client name] to draft motion for a protective order regarding the same."
+    },
+    {
+      "id": "analyze-case-law-deposition",
+      "time": "0.4",
+      "description": "Analyze case and statutory law regarding protecting categories noticed by plaintiff regarding [client name] motion for a protective order to draft motions for a protective order regarding the same."
+    },
+    {
+      "id": "analyze-case-law-production",
+      "time": "0.5",
+      "description": "Analyze case and statutory law regarding protecting productions requests noticed by plaintiff regarding [client name] motion for a protective order to draft motions for a protective order regarding the same."
+    },
+    {
+      "id": "draft-notice-motion",
+      "time": "0.3",
+      "description": "Draft [client name] notice of motion for a protective order regarding deposition categories noticed by plaintiff."
+    },
+    {
+      "id": "draft-memo-deposition-categories",
+      "time": "0.3",
+      "description": "Draft [client name] motions for protective order's memorandum of points and authorities regarding legal authority for protecting deposition categories noticed by plaintiff."
+    },
+    {
+      "id": "draft-memo-production-requests",
+      "time": "0.2",
+      "description": "Draft [client name] motions for protective order's memorandum of points and authorities regarding legal authority for protecting production requests included in the deposition notice."
+    },
+    {
+      "id": "draft-memo-mutual-date",
+      "time": "0.2",
+      "description": "Draft [client name] motions for protective order's memorandum of points and authorities regarding legal argument for mutually agreeable date."
+    },
+    {
+      "id": "draft-memo-narrowly-tailoring-deposition",
+      "time": "0.8",
+      "description": "Draft [client name] motions for protective order's memorandum of points and authorities regarding legal argument regarding narrowly tailoring plaintiff deposition categories."
+    },
+    {
+      "id": "draft-memo-narrowly-tailoring-production-notice",
+      "time": "0.6",
+      "description": "Draft [client name] motions for protective order's memorandum of points and authorities regarding legal argument regarding narrowly tailoring plaintiff's production requests including in deposition notice of [client name] person most knowledgeable."
+    },
+    {
+      "id": "draft-meet-confer-efforts",
+      "time": "0.3",
+      "description": "Draft [client name] regarding meet and confer efforts with plaintiff's counsel."
+    },
+    {
+      "id": "draft-sanctions-argument-motion",
+      "time": "0.2",
+      "description": "Draft [client name] sanctions argument in its motion for a protective order regarding plaintiff's deposition categories and productions requests."
+    },
+    {
+      "id": "draft-declaration-motion",
+      "time": "0.3",
+      "description": "Draft declaration included with [client name] motions for a protective order regarding plaintiff's deposition categories and productions requests."
+    }
+  ]
+}

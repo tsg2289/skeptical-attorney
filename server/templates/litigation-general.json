@@ -1,0 +1,58 @@
+{
+  "id": "litigation-general",
+  "name": "General Litigation Practice",
+  "description": "Templates for general litigation tasks including case analysis, client communications, and court filings",
+  "category": "Litigation",
+  "templates": [
+    {
+      "id": "analyze-case-facts",
+      "time": "2.0",
+      "description": "Analyze case facts and legal issues to develop litigation strategy and identify key arguments."
+    },
+    {
+      "id": "research-case-law",
+      "time": "3.0",
+      "description": "Research applicable case law and statutory authority to support legal arguments and cite relevant precedent."
+    },
+    {
+      "id": "draft-client-letter",
+      "time": "1.5",
+      "description": "Draft correspondence to client regarding case status, legal advice, and next steps."
+    },
+    {
+      "id": "prepare-case-summary",
+      "time": "2.5",
+      "description": "Prepare comprehensive case summary including facts, legal issues, and recommended strategy."
+    },
+    {
+      "id": "review-documents",
+      "time": "4.0",
+      "description": "Review and analyze case documents to identify relevant evidence and potential issues."
+    },
+    {
+      "id": "draft-pleadings",
+      "time": "3.5",
+      "description": "Draft initial pleadings including complaint, answer, or other responsive documents."
+    },
+    {
+      "id": "prepare-discovery-plan",
+      "time": "2.0",
+      "description": "Prepare comprehensive discovery plan including interrogatories, requests for production, and deposition strategy."
+    },
+    {
+      "id": "draft-settlement-agreement",
+      "time": "4.5",
+      "description": "Draft settlement agreement including terms, conditions, and release provisions."
+    },
+    {
+      "id": "prepare-trial-brief",
+      "time": "6.0",
+      "description": "Prepare trial brief including statement of facts, legal arguments, and proposed jury instructions."
+    },
+    {
+      "id": "draft-appellate-brief",
+      "time": "8.0",
+      "description": "Draft appellate brief including statement of issues, legal arguments, and request for relief."
+    }
+  ]
+}

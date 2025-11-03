@@ -1,0 +1,148 @@
+{
+  "id": "subpoena-deposition",
+  "name": "Subpoena and Deposition Practice",
+  "description": "Templates for subpoena practice, medical records, employment records, and deposition preparation",
+  "category": "Discovery",
+  "templates": [
+    {
+      "id": "analyze-motion-quash-medical-subpoenas",
+      "time": "0.8",
+      "description": "Analyze plaintiff's motion to quash medical record subpoenas in contemplation of further case handling strategy regarding the same."
+    },
+    {
+      "id": "analyze-motion-quash-employment-subpoenas",
+      "time": "0.6",
+      "description": "Analyze plaintiff's motion to quash employment record subpoenas in contemplation of further case handling strategy regarding the same."
+    },
+    {
+      "id": "analyze-separate-statement-medical-subpoenas",
+      "time": "0.5",
+      "description": "Analyze plaintiff's separate statement in support of its motion to quash medical record subpoenas to determine further case handling."
+    },
+    {
+      "id": "analyze-separate-statement-employment-subpoenas",
+      "time": "0.4",
+      "description": "Analyze plaintiff's separate statement in support of its motion to quash employment record subpoenas to determine further case handling."
+    },
+    {
+      "id": "analyze-injuries-revised-medical-subpoenas",
+      "time": "0.6",
+      "description": "Analyze plaintiff alleged injuries to draft revised narrowly tailored subpoenas regarding [CLIENT NAME] medical records."
+    },
+    {
+      "id": "analyze-loss-earnings-revised-employment-subpoenas",
+      "time": "0.3",
+      "description": "Analyze plaintiff's loss of earning claim to draft revised narrowly tailored subpoenas regarding [CLIENT NAME] employment records."
+    },
+    {
+      "id": "draft-modified-medical-subpoena-language",
+      "time": "0.6",
+      "description": "Draft modified document request language with subpoena for medical records and billing to [MEDICAL FACILITY] regarding plaintiff's alleged injuries."
+    },
+    {
+      "id": "draft-modified-employment-medical-subpoena-language",
+      "time": "0.4",
+      "description": "Draft modified document request language with subpoena for [PLACE OF EMPLOYMENT] medical records and billing to [MEDICAL FACILITY] regarding plaintiff's alleged injuries."
+    },
+    {
+      "id": "draft-modified-facility-subpoena-language",
+      "time": "0.3",
+      "description": "Draft modified document request language with subpoena for facility regarding plaintiff's alleged injuries and damages."
+    },
+    {
+      "id": "draft-modified-employment-subpoena-language",
+      "time": "0.3",
+      "description": "Draft modified document request language with subpoena for [PLACE OF EMPLOYMENT] regarding plaintiff's alleged injuries and damages."
+    },
+    {
+      "id": "draft-modified-employment-subpoena-language-2",
+      "time": "0.3",
+      "description": "Draft modified document request language with subpoena for [PLACE OF EMPLOYMENT] regarding plaintiff's alleged injuries and damages."
+    },
+    {
+      "id": "draft-meet-confer-subpoena-letter",
+      "time": "0.5",
+      "description": "Draft meet and confer letter with subpoenas request."
+    },
+    {
+      "id": "analyze-case-facts-deposition-outline",
+      "time": "0.4",
+      "description": "Analyze facts of case in contemplation for drafting plaintiff's deposition outline regarding the same."
+    },
+    {
+      "id": "draft-deposition-questions-case-facts",
+      "time": "0.6",
+      "description": "Draft lines of questioning regarding facts of case in preparation for plaintiff's deposition."
+    },
+    {
+      "id": "analyze-physical-injury-allegations",
+      "time": "0.4",
+      "description": "Analyze plaintiff's physical injury allegations in preparation for drafting lines of questioning concerning the same."
+    },
+    {
+      "id": "draft-deposition-questions-physical-injuries",
+      "time": "0.6",
+      "description": "Draft lines of questioning regarding plaintiff physical injury allegations in preparation for [CLIENT NAME] deposition."
+    },
+    {
+      "id": "analyze-mental-injury-allegations",
+      "time": "0.3",
+      "description": "Analyze plaintiff's mental injury allegations in preparation for drafting lines of questioning concerning the same."
+    },
+    {
+      "id": "draft-deposition-questions-mental-injuries",
+      "time": "0.4",
+      "description": "Draft lines of questioning regarding plaintiff mental injury allegations in preparation for [CLIENT NAME] deposition."
+    },
+    {
+      "id": "analyze-california-strict-liability-code",
+      "time": "0.4",
+      "description": "Analyze California's strict liability code sections in preparation for drafting lines of questioning concerning the same."
+    },
+    {
+      "id": "draft-deposition-questions-strict-liability",
+      "time": "0.5",
+      "description": "Draft lines of questioning regarding California's strict liability code sections in preparation for plaintiff's deposition."
+    },
+    {
+      "id": "analyze-plaintiff-damages",
+      "time": "0.3",
+      "description": "Analyze plaintiff's damages in preparation for drafting lines of questioning concerning the same."
+    },
+    {
+      "id": "draft-deposition-questions-damages",
+      "time": "0.4",
+      "description": "Draft lines of questioning regarding plaintiff damages in preparation for [CLIENT NAME] deposition."
+    },
+    {
+      "id": "analyze-loss-earnings-claim",
+      "time": "0.2",
+      "description": "Analyze plaintiff's loss of earnings claim in preparation for drafting lines of questioning concerning the same."
+    },
+    {
+      "id": "draft-deposition-questions-loss-earnings",
+      "time": "0.4",
+      "description": "Draft lines of questioning regarding plaintiff loss of earnings claim in preparation for [CLIENT NAME] deposition."
+    },
+    {
+      "id": "begin-exhibit-preparation",
+      "time": "1.2",
+      "description": "Begin exhibit preparation regarding documents to be used at plaintiff's deposition."
+    },
+    {
+      "id": "analyze-injuries-discovery-set-one",
+      "time": "0.6",
+      "description": "Analyze plaintiff's injuries in contemplation of drafting [CLIENT NAME] discovery set one to plaintiff."
+    },
+    {
+      "id": "analyze-damages-discovery-set-one",
+      "time": "0.4",
+      "description": "Analyze plaintiff's damages in contemplation of drafting [CLIENT NAME] discovery set one to plaintiff."
+    },
+    {
+      "id": "begin-drafting-special-interrogatories",
+      "time": "0.8",
+      "description": "Begin drafting [CLIENT NAME] special interrogatories to plaintiff."
+    }
+  ]
+}
