@@ -118,20 +118,28 @@ body {
 
 /* Glass Components */
 .glass {
-  background: var(--glass-gradient);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(37, 99, 235, 0.2);
   border-radius: 20px;
-  box-shadow: 0 8px 32px var(--glass-shadow);
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass:hover {
-  background: var(--glass-gradient-hover);
-  border-color: var(--glass-border-hover);
-  box-shadow: 0 12px 40px var(--glass-shadow-hover);
+  background: rgba(255, 255, 255, 0.98);
+  border-color: rgba(37, 99, 235, 0.3);
+  box-shadow: 0 12px 40px rgba(37, 99, 235, 0.15);
   transform: translateY(-2px);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.15);
 }
 
 .glass-input {

@@ -38,17 +38,23 @@ export default function Home() {
                       <span>▶</span>
                     </div>
                     <div className="absolute left-full top-0 ml-1 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 opacity-0 invisible group-hover/sub:opacity-100 group-hover/sub:visible transition-all">
-                      <Link href="/services/discovery/written-discovery" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                        Written Discovery
+                      <Link href="/services/discovery/propound-discovery" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        Propound Discovery
                       </Link>
-                      <Link href="/services/discovery/oral-discovery" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                        Oral Discovery
+                      <Link href="/services/discovery/respond-to-discovery" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        Respond to Discovery
+                      </Link>
+                      <Link href="/services/discovery/subpoena" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        Subpoena
+                      </Link>
+                      <Link href="/services/discovery/meet-and-confer" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        Meet and Confer
+                      </Link>
+                      <Link href="/services/deposition" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                        Deposition
                       </Link>
                     </div>
                   </div>
-                  <Link href="/services/deposition" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                    Deposition
-                  </Link>
                   <Link href="/services/law-and-motion" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
                     Law and Motion
                   </Link>
@@ -277,8 +283,16 @@ export default function Home() {
               <ul className="space-y-2 text-sm">
                 <li><Link href="/services/demand-letters" className="text-gray-400 hover:text-white transition-colors">Demand Letters</Link></li>
                 <li><Link href="/services/pleadings" className="text-gray-400 hover:text-white transition-colors">Pleadings</Link></li>
-                <li><Link href="/services/discovery" className="text-gray-400 hover:text-white transition-colors">Discovery</Link></li>
-                <li><Link href="/services/deposition" className="text-gray-400 hover:text-white transition-colors">Deposition</Link></li>
+                <li>
+                  <Link href="/services/discovery" className="text-gray-400 hover:text-white transition-colors">Discovery</Link>
+                  <ul className="ml-4 mt-1 space-y-1">
+                    <li><Link href="/services/discovery/propound-discovery" className="text-gray-500 hover:text-gray-300 transition-colors text-xs">Propound Discovery</Link></li>
+                    <li><Link href="/services/discovery/respond-to-discovery" className="text-gray-500 hover:text-gray-300 transition-colors text-xs">Respond to Discovery</Link></li>
+                    <li><Link href="/services/discovery/subpoena" className="text-gray-500 hover:text-gray-300 transition-colors text-xs">Subpoena</Link></li>
+                    <li><Link href="/services/discovery/meet-and-confer" className="text-gray-500 hover:text-gray-300 transition-colors text-xs">Meet and Confer</Link></li>
+                    <li><Link href="/services/deposition" className="text-gray-500 hover:text-gray-300 transition-colors text-xs">Deposition</Link></li>
+                  </ul>
+                </li>
                 <li><Link href="/services/law-and-motion" className="text-gray-400 hover:text-white transition-colors">Law and Motion</Link></li>
                 <li><Link href="/services/settlement-agreements" className="text-gray-400 hover:text-white transition-colors">Settlement Agreements</Link></li>
                 <li><Link href="/services/billing-comparison" className="text-gray-400 hover:text-white transition-colors">Billing Comparison</Link></li>

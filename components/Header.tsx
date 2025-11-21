@@ -8,20 +8,31 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isServicesOpen, setIsServicesOpen] = useState(false)
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false)
+  const [isPleadingsOpen, setIsPleadingsOpen] = useState(false)
 
   const services = [
     { name: 'Demand Letters', href: '/services/demand-letters' },
-    { name: 'Pleadings', href: 'https://employment-law-infraction-tracker.vercel.app', external: true },
+    { 
+      name: 'Pleadings', 
+      href: '/services/pleadings',
+      hasSubMenu: true,
+      subItems: [
+        { name: 'Complaint', href: '/services/pleadings/complaint' },
+        { name: 'Answer', href: '/services/pleadings/answer' },
+      ]
+    },
     { 
       name: 'Discovery', 
       href: '/services/discovery',
       hasSubMenu: true,
       subItems: [
-        { name: 'Written Discovery', href: '/services/discovery/written-discovery' },
-        { name: 'Oral Discovery', href: '/services/discovery/oral-discovery' },
+        { name: 'Propound Discovery', href: '/services/discovery/propound-discovery' },
+        { name: 'Respond to Discovery', href: '/services/discovery/respond-to-discovery' },
+        { name: 'Subpoena', href: '/services/discovery/subpoena' },
+        { name: 'Meet and Confer', href: '/services/discovery/meet-and-confer' },
+        { name: 'Deposition', href: '/services/deposition' },
       ]
     },
-    { name: 'Deposition', href: '/services/deposition' },
     { name: 'Law and Motion', href: '/services/law-and-motion' },
     { name: 'Settlement Agreements', href: '/services/settlement-agreements' },
     { name: 'Billing Comparison', href: '/services/billing-comparison' },
@@ -69,14 +80,21 @@ const Header = () => {
                       {service.hasSubMenu ? (
                         <div
                           className="group"
-                          onMouseEnter={() => setIsDiscoveryOpen(true)}
-                          onMouseLeave={() => setIsDiscoveryOpen(false)}
+                          onMouseEnter={() => {
+                            if (service.name === 'Discovery') setIsDiscoveryOpen(true)
+                            if (service.name === 'Pleadings') setIsPleadingsOpen(true)
+                          }}
+                          onMouseLeave={() => {
+                            if (service.name === 'Discovery') setIsDiscoveryOpen(false)
+                            if (service.name === 'Pleadings') setIsPleadingsOpen(false)
+                          }}
                         >
                           <div className="flex items-center justify-between px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors cursor-pointer">
                             <span>{service.name}</span>
                             <ChevronDown className="h-4 w-4 -rotate-90" />
                           </div>
-                          {isDiscoveryOpen && (
+                          {((service.name === 'Discovery' && isDiscoveryOpen) || 
+                            (service.name === 'Pleadings' && isPleadingsOpen)) && (
                             <div className="absolute left-full top-0 ml-1 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2">
                               {service.subItems?.map((subItem) => (
                                 (subItem as any).external ? (
@@ -89,6 +107,7 @@ const Header = () => {
                                     onClick={() => {
                                       setIsServicesOpen(false)
                                       setIsDiscoveryOpen(false)
+                                      setIsPleadingsOpen(false)
                                     }}
                                   >
                                     {subItem.name}
@@ -101,6 +120,7 @@ const Header = () => {
                                     onClick={() => {
                                       setIsServicesOpen(false)
                                       setIsDiscoveryOpen(false)
+                                      setIsPleadingsOpen(false)
                                     }}
                                   >
                                     {subItem.name}
@@ -191,13 +211,20 @@ const Header = () => {
                         {service.hasSubMenu ? (
                           <div>
                             <button
-                              onClick={() => setIsDiscoveryOpen(!isDiscoveryOpen)}
+                              onClick={() => {
+                                if (service.name === 'Discovery') setIsDiscoveryOpen(!isDiscoveryOpen)
+                                if (service.name === 'Pleadings') setIsPleadingsOpen(!isPleadingsOpen)
+                              }}
                               className="flex items-center justify-between w-full px-3 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
                             >
                               <span>{service.name}</span>
-                              <ChevronDown className={`h-3 w-3 transition-transform ${isDiscoveryOpen ? 'rotate-180' : ''}`} />
+                              <ChevronDown className={`h-3 w-3 transition-transform ${
+                                (service.name === 'Discovery' && isDiscoveryOpen) || 
+                                (service.name === 'Pleadings' && isPleadingsOpen) ? 'rotate-180' : ''
+                              }`} />
                             </button>
-                            {isDiscoveryOpen && (
+                            {((service.name === 'Discovery' && isDiscoveryOpen) || 
+                              (service.name === 'Pleadings' && isPleadingsOpen)) && (
                               <div className="ml-4 mt-1 space-y-1">
                                 {service.subItems?.map((subItem) => (
                                   (subItem as any).external ? (
@@ -211,6 +238,7 @@ const Header = () => {
                                         setIsMenuOpen(false)
                                         setIsServicesOpen(false)
                                         setIsDiscoveryOpen(false)
+                                        setIsPleadingsOpen(false)
                                       }}
                                     >
                                       {subItem.name}
@@ -224,6 +252,7 @@ const Header = () => {
                                         setIsMenuOpen(false)
                                         setIsServicesOpen(false)
                                         setIsDiscoveryOpen(false)
+                                        setIsPleadingsOpen(false)
                                       }}
                                     >
                                       {subItem.name}

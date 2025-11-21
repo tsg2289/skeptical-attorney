@@ -56,13 +56,28 @@ const Footer = () => {
                 </Link>
                 <ul className="ml-4 mt-1 space-y-1">
                   <li>
-                    <Link href="/services/discovery/written-discovery" className="text-gray-500 hover:text-gray-300 transition-colors text-sm">
-                      Written Discovery
+                    <Link href="/services/discovery/propound-discovery" className="text-gray-500 hover:text-gray-300 transition-colors text-sm">
+                      Propound Discovery
                     </Link>
                   </li>
                   <li>
-                    <Link href="/services/discovery/oral-discovery" className="text-gray-500 hover:text-gray-300 transition-colors text-sm">
-                      Oral Discovery
+                    <Link href="/services/discovery/respond-to-discovery" className="text-gray-500 hover:text-gray-300 transition-colors text-sm">
+                      Respond to Discovery
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/services/discovery/subpoena" className="text-gray-500 hover:text-gray-300 transition-colors text-sm">
+                      Subpoena
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/services/discovery/meet-and-confer" className="text-gray-500 hover:text-gray-300 transition-colors text-sm">
+                      Meet and Confer
+                    </Link>
+                  </li>
+                  <li>
+                    <Link href="/services/deposition" className="text-gray-500 hover:text-gray-300 transition-colors text-sm">
+                      Deposition
                     </Link>
                   </li>
                 </ul>
