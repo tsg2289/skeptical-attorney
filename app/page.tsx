@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Scale } from 'lucide-react'
 
 export default function Home() {
   return (
@@ -8,7 +9,7 @@ export default function Home() {
           <div className="flex justify-between items-center h-16">
             <Link href="/" className="flex items-center space-x-2">
               <div className="bg-gradient-to-br from-blue-600 to-blue-800 p-2 rounded-xl">
-                <div className="h-6 w-6 text-white">⚖️</div>
+                <Scale className="h-6 w-6 text-white" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xl font-bold gradient-text">Skeptical Attorney</span>
@@ -62,7 +63,7 @@ export default function Home() {
                     Settlement Agreements
                   </Link>
                   <Link href="/services/billing-comparison" className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                    Billing Comparison
+                    Billing Generator
                   </Link>
                 </div>
               </div>
@@ -75,8 +76,8 @@ export default function Home() {
               <Link href="/contact" className="text-gray-700 hover:text-blue-600 transition-colors font-medium">
                 Contact
               </Link>
-              <Link href="/get-started" className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium">
-                Get Started
+              <Link href="/login" className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium">
+                Log In
               </Link>
             </nav>
           </div>
@@ -88,7 +89,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-8 leading-tight">
-              <span className="gradient-text">Automate</span> Your Legal Practice
+              <span className="gradient-text">Automate</span> <span className="text-gray-700">Your Legal Practice</span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 mb-12 leading-relaxed">
               Streamline your workflow with AI-powered legal document automation. 
@@ -96,32 +97,17 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
               <Link
-                href="/get-started"
+                href="/login"
                 className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all hover-lift flex items-center justify-center"
               >
                 Get Started Free →
               </Link>
               <Link
-                href="/demo"
-                className="border-2 border-blue-600 text-blue-600 px-8 py-4 rounded-2xl text-lg font-semibold hover:bg-blue-50 transition-all hover-lift"
+                href="/dashboard"
+                className="bg-white border-2 border-blue-600 text-blue-600 px-8 py-4 rounded-2xl text-lg font-semibold hover:bg-blue-50 transition-all hover-lift flex items-center justify-center"
               >
-                Watch Demo
+                Dashboard
               </Link>
-            </div>
-            
-            <div className="flex flex-wrap justify-center items-center gap-8 text-sm text-gray-500">
-              <div className="flex items-center">
-                <span className="text-green-500 mr-2">✓</span>
-                SOC 2 Compliant
-              </div>
-              <div className="flex items-center">
-                <span className="text-green-500 mr-2">✓</span>
-                HIPAA Ready
-              </div>
-              <div className="flex items-center">
-                <span className="text-green-500 mr-2">✓</span>
-                Bank-Level Security
-              </div>
             </div>
           </div>
         </div>
@@ -222,7 +208,7 @@ export default function Home() {
               <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all hover-lift h-full">
                 <div className="text-blue-600 mb-6 text-5xl">💰</div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors">
-                  Billing Comparison
+                  Billing Generator
                 </h3>
                 <p className="text-gray-600 leading-relaxed mb-6">Compare traditional billing methods with our automated approach and see the savings.</p>
                 <div className="flex items-center text-blue-600 font-semibold group-hover:translate-x-2 transition-transform">
@@ -241,20 +227,14 @@ export default function Home() {
             Ready to Revolutionize Your Practice?
           </h2>
           <p className="text-xl text-blue-100 mb-10">
-            Join thousands of attorneys who have already streamlined their workflow with our automation platform.
+            Join the growing list of attorneys who have already streamlined their workflow with our automation platform.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/get-started"
+              href="/login"
               className="bg-white text-blue-600 px-8 py-4 rounded-2xl text-lg font-semibold hover:bg-gray-50 transition-all hover-lift"
             >
-              Start Free Trial
-            </Link>
-            <Link
-              href="/contact"
-              className="border-2 border-white text-white px-8 py-4 rounded-2xl text-lg font-semibold hover:bg-white hover:text-blue-600 transition-all hover-lift"
-            >
-              Contact Sales
+              Join the Community
             </Link>
           </div>
         </div>
@@ -295,7 +275,7 @@ export default function Home() {
                 </li>
                 <li><Link href="/services/law-and-motion" className="text-gray-400 hover:text-white transition-colors">Law and Motion</Link></li>
                 <li><Link href="/services/settlement-agreements" className="text-gray-400 hover:text-white transition-colors">Settlement Agreements</Link></li>
-                <li><Link href="/services/billing-comparison" className="text-gray-400 hover:text-white transition-colors">Billing Comparison</Link></li>
+                <li><Link href="/services/billing-comparison" className="text-gray-400 hover:text-white transition-colors">Billing Generator</Link></li>
               </ul>
             </div>
 

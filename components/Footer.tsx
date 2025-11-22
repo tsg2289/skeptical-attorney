@@ -94,7 +94,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link href="/services/billing-comparison" className="text-gray-400 hover:text-white transition-colors">
-                  Billing Comparison
+                  Billing Generator
                 </Link>
               </li>
             </ul>

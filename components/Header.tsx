@@ -35,7 +35,7 @@ const Header = () => {
     },
     { name: 'Law and Motion', href: '/services/law-and-motion' },
     { name: 'Settlement Agreements', href: '/services/settlement-agreements' },
-    { name: 'Billing Comparison', href: '/services/billing-comparison' },
+    { name: 'Billing Generator', href: '/services/billing-comparison' },
   ]
 
   return (
@@ -74,12 +74,16 @@ const Header = () => {
               </button>
               
               {isServicesOpen && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+                <div 
+                  className="absolute top-full left-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50"
+                  onMouseEnter={() => setIsServicesOpen(true)}
+                  onMouseLeave={() => setIsServicesOpen(false)}
+                >
                   {services.map((service) => (
                     <div key={service.name} className="relative">
                       {service.hasSubMenu ? (
                         <div
-                          className="group"
+                          className="group relative"
                           onMouseEnter={() => {
                             if (service.name === 'Discovery') setIsDiscoveryOpen(true)
                             if (service.name === 'Pleadings') setIsPleadingsOpen(true)
@@ -95,7 +99,17 @@ const Header = () => {
                           </div>
                           {((service.name === 'Discovery' && isDiscoveryOpen) || 
                             (service.name === 'Pleadings' && isPleadingsOpen)) && (
-                            <div className="absolute left-full top-0 ml-1 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2">
+                            <div 
+                              className="absolute left-full top-0 ml-1 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50"
+                              onMouseEnter={() => {
+                                if (service.name === 'Discovery') setIsDiscoveryOpen(true)
+                                if (service.name === 'Pleadings') setIsPleadingsOpen(true)
+                              }}
+                              onMouseLeave={() => {
+                                if (service.name === 'Discovery') setIsDiscoveryOpen(false)
+                                if (service.name === 'Pleadings') setIsPleadingsOpen(false)
+                              }}
+                            >
                               {service.subItems?.map((subItem) => (
                                 (subItem as any).external ? (
                                   <a
