@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, Clock, Plus, Trash2, Edit2, Save, X } from 'lucide-react'
+import { ArrowLeft, Calendar, Clock, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { userStorage, CurrentUser } from '@/lib/utils/userStorage'
 import { caseStorage, Case, Deadline } from '@/lib/utils/caseStorage'
+import { calculateDeadlinesFromTrialDate, generateDeadlineId } from '@/lib/utils/deadlineCalculator'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
@@ -20,6 +21,7 @@ export default function CaseDetailPage() {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showDeadlineForm, setShowDeadlineForm] = useState(false)
+  const [showAllDeadlines, setShowAllDeadlines] = useState(false)
   
   const [formData, setFormData] = useState({
     facts: '',
@@ -67,7 +69,77 @@ export default function CaseDetailPage() {
       })
       
       if (updated) {
-        setCaseItem(updated)
+        // Auto-generate deadlines when trial date is set or changed
+        if (formData.trialDate) {
+          const calculatedDeadlines = calculateDeadlinesFromTrialDate(formData.trialDate, {
+            juryTrial: updated.juryTrial,
+            courtCounty: updated.courtCounty,
+            mscDate: updated.mscDate
+          })
+          
+          // Get existing deadlines to preserve manually added ones and completion status
+          const existingDeadlines = updated.deadlines || []
+          const existingDescriptions = new Set(existingDeadlines.map(d => d.description))
+          
+          // Preserve completion status for existing deadlines
+          const completedDescriptions = new Set(
+            existingDeadlines
+              .filter(d => d.completed)
+              .map(d => d.description)
+          )
+          
+          // Create new calculated deadlines with IDs and preserve completion status
+          const newCalculatedDeadlines = calculatedDeadlines.map(deadline => {
+            const existing = existingDeadlines.find(d => d.description === deadline.description)
+            return {
+              ...deadline,
+              id: existing?.id || generateDeadlineId(),
+              completed: existing?.completed || completedDescriptions.has(deadline.description) || false
+            }
+          })
+          
+          // Keep manually added deadlines that aren't in the calculated list
+          const calculatedDescriptions = new Set(calculatedDeadlines.map(d => d.description))
+          const manualDeadlines = existingDeadlines.filter(d => 
+            !calculatedDescriptions.has(d.description)
+          )
+          
+          // Combine manual and calculated deadlines
+          const allDeadlines = [...manualDeadlines, ...newCalculatedDeadlines]
+          
+          const updatedWithDeadlines = caseStorage.updateCase(user.username, caseItem.id, {
+            deadlines: allDeadlines
+          })
+          
+          if (updatedWithDeadlines) {
+            setCaseItem(updatedWithDeadlines)
+          } else {
+            setCaseItem(updated)
+          }
+        } else {
+          // If trial date was removed, keep manually added deadlines but remove calculated ones
+          const calculatedDescriptions = new Set(
+            calculateDeadlinesFromTrialDate(caseItem.trialDate || '', {
+              juryTrial: caseItem.juryTrial,
+              courtCounty: caseItem.courtCounty,
+              mscDate: caseItem.mscDate
+            }).map(d => d.description)
+          )
+          const remainingDeadlines = (updated.deadlines || []).filter(d => 
+            !calculatedDescriptions.has(d.description)
+          )
+          
+          const updatedWithoutCalculated = caseStorage.updateCase(user.username, caseItem.id, {
+            deadlines: remainingDeadlines
+          })
+          
+          if (updatedWithoutCalculated) {
+            setCaseItem(updatedWithoutCalculated)
+          } else {
+            setCaseItem(updated)
+          }
+        }
+        
         setIsEditing(false)
       }
     } catch (err) {
@@ -138,6 +210,8 @@ export default function CaseDetailPage() {
   }
 
   const upcomingDeadlines = getUpcomingDeadlines(caseItem.deadlines)
+  const displayedDeadlines = showAllDeadlines ? upcomingDeadlines : upcomingDeadlines.slice(0, 10)
+  const hasMoreDeadlines = upcomingDeadlines.length > 10
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
@@ -228,12 +302,17 @@ export default function CaseDetailPage() {
               </div>
               {isEditing ? (
                 <div className="space-y-4">
-                  <input
-                    type="date"
-                    value={formData.trialDate}
-                    onChange={(e) => setFormData({ ...formData, trialDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
-                  />
+                  <div>
+                    <input
+                      type="date"
+                      value={formData.trialDate}
+                      onChange={(e) => setFormData({ ...formData, trialDate: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
+                    />
+                    <p className="text-sm text-gray-500 mt-2">
+                      Deadlines will be automatically calculated based on this trial date.
+                    </p>
+                  </div>
                   <button
                     onClick={handleSave}
                     disabled={isSaving}
@@ -327,68 +406,91 @@ export default function CaseDetailPage() {
                 <p>No upcoming deadlines</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {upcomingDeadlines.map((deadline) => {
-                  const deadlineDate = new Date(deadline.date)
-                  const daysUntil = Math.ceil((deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-                  const isOverdue = daysUntil < 0
-                  const isUrgent = daysUntil <= 7 && daysUntil >= 0
-                  
-                  return (
-                    <div
-                      key={deadline.id}
-                      className={`p-4 rounded-xl border ${
-                        isOverdue
-                          ? 'bg-red-50 border-red-200'
-                          : isUrgent
-                          ? 'bg-yellow-50 border-yellow-200'
-                          : 'bg-gray-50 border-gray-200'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <input
-                              type="checkbox"
-                              checked={deadline.completed || false}
-                              onChange={(e) => handleToggleDeadline(deadline.id, e.target.checked)}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                            />
-                            <span className={`font-medium ${deadline.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                              {deadline.description}
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-600 ml-6">
-                            {deadlineDate.toLocaleDateString('en-US', {
-                              weekday: 'short',
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric'
-                            })}
-                            {isOverdue && (
-                              <span className="ml-2 text-red-600 font-semibold">
-                                ({Math.abs(daysUntil)} days overdue)
+              <>
+                <div className="space-y-3">
+                  {displayedDeadlines.map((deadline) => {
+                    const deadlineDate = new Date(deadline.date)
+                    const daysUntil = Math.ceil((deadlineDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                    const isOverdue = daysUntil < 0
+                    const isUrgent = daysUntil <= 7 && daysUntil >= 0
+                    
+                    return (
+                      <div
+                        key={deadline.id}
+                        className={`p-4 rounded-xl border ${
+                          isOverdue
+                            ? 'bg-red-50 border-red-200'
+                            : isUrgent
+                            ? 'bg-yellow-50 border-yellow-200'
+                            : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <input
+                                type="checkbox"
+                                checked={deadline.completed || false}
+                                onChange={(e) => handleToggleDeadline(deadline.id, e.target.checked)}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              />
+                              <span className={`font-medium ${deadline.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                {deadline.description}
                               </span>
-                            )}
-                            {isUrgent && !isOverdue && (
-                              <span className="ml-2 text-yellow-600 font-semibold">
-                                ({daysUntil} days remaining)
-                              </span>
-                            )}
+                            </div>
+                            <div className="text-sm text-gray-600 ml-6">
+                              {deadlineDate.toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                              {isOverdue && (
+                                <span className="ml-2 text-red-600 font-semibold">
+                                  ({Math.abs(daysUntil)} days overdue)
+                                </span>
+                              )}
+                              {isUrgent && !isOverdue && (
+                                <span className="ml-2 text-yellow-600 font-semibold">
+                                  ({daysUntil} days remaining)
+                                </span>
+                              )}
+                            </div>
                           </div>
+                          <button
+                            onClick={() => handleDeleteDeadline(deadline.id)}
+                            className="text-red-500 hover:text-red-700 transition-colors p-1"
+                            title="Delete deadline"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleDeleteDeadline(deadline.id)}
-                          className="text-red-500 hover:text-red-700 transition-colors p-1"
-                          title="Delete deadline"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+                
+                {/* Show More/Less Button */}
+                {hasMoreDeadlines && (
+                  <div className="mt-4 text-center">
+                    <button
+                      onClick={() => setShowAllDeadlines(!showAllDeadlines)}
+                      className="inline-flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors font-medium"
+                    >
+                      <span>
+                        {showAllDeadlines 
+                          ? `Show Less (${upcomingDeadlines.length} total)` 
+                          : `Show All ${upcomingDeadlines.length} Deadlines`}
+                      </span>
+                      {showAllDeadlines ? (
+                        <ChevronUp className="h-5 w-5" />
+                      ) : (
+                        <ChevronDown className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

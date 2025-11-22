@@ -276,62 +276,10 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
                   <span>Created: {new Date(caseItem.createdAt).toLocaleDateString()}</span>
                 </div>
-                
-                <div className="flex space-x-2">
-                  <Link
-                    href={`/services/demand-letters?case=${encodeURIComponent(caseItem.caseName)}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex-1 text-center bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-                  >
-                    Demand Letter
-                  </Link>
-                  <Link
-                    href={`/services/deposition/dashboard?matter=${caseItem.id}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex-1 text-center bg-blue-50 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-                  >
-                    Deposition
-                  </Link>
-                </div>
               </Link>
             ))}
           </div>
         )}
-
-        {/* Quick Access to Services */}
-        <div className="mt-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Access to Services</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Link
-              href="/services/demand-letters"
-              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
-            >
-              <div className="text-3xl mb-2">📄</div>
-              <div className="text-sm font-medium text-gray-700">Demand Letters</div>
-            </Link>
-            <Link
-              href="/services/pleadings"
-              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
-            >
-              <div className="text-3xl mb-2">⚖️</div>
-              <div className="text-sm font-medium text-gray-700">Pleadings</div>
-            </Link>
-            <Link
-              href="/services/discovery"
-              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
-            >
-              <div className="text-3xl mb-2">🔍</div>
-              <div className="text-sm font-medium text-gray-700">Discovery</div>
-            </Link>
-            <Link
-              href="/services/deposition"
-              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
-            >
-              <div className="text-3xl mb-2">📝</div>
-              <div className="text-sm font-medium text-gray-700">Deposition</div>
-            </Link>
-          </div>
-        </div>
       </main>
 
       <Footer />

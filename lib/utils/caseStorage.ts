@@ -14,6 +14,9 @@ export interface Case {
   description?: string
   facts?: string
   trialDate?: string
+  mscDate?: string  // Mandatory Settlement Conference date
+  juryTrial?: boolean  // Whether client favors jury trial
+  courtCounty?: string  // e.g., "Orange County", "LA County", "Riverside County", etc.
   deadlines?: Deadline[]
   createdAt: string
   userId: string
