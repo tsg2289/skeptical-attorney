@@ -144,7 +144,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { plaintiffName, defendantName, complaintText } = await request.json()
+    const { plaintiffName, defendantName, complaintText, caseId } = await request.json()
+
+    // CRITICAL: Log case ID for audit trail (but don't send to AI)
+    if (caseId) {
+      console.log(`[AUDIT] Generating answer for case: ${caseId}`)
+    }
 
     // Validate input data
     const validation = validateAnswerInput({ plaintiffName, defendantName, complaintText })
@@ -171,7 +176,11 @@ export async function POST(request: NextRequest) {
           messages: [
             {
               role: "system",
-              content: `You are a California civil litigation attorney assistant. Your task is to analyze the complaint and suggest improvements or additional considerations for the standard California civil answer template. Focus on:
+              content: `You are a California civil litigation attorney assistant. Your task is to analyze the complaint and suggest improvements or additional considerations for the standard California civil answer template.
+
+IMPORTANT: You are working with a SINGLE, ISOLATED case. Only use the information provided below. Do not reference, infer, or incorporate information from any other cases.
+
+Focus on:
 1. Identifying specific defenses that may be particularly relevant
 2. Suggesting case-specific language modifications
 3. Highlighting any unique aspects of the complaint

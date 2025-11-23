@@ -22,6 +22,8 @@ export default function CaseDetailPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [showDeadlineForm, setShowDeadlineForm] = useState(false)
   const [showAllDeadlines, setShowAllDeadlines] = useState(false)
+  const [isPleadingsHovered, setIsPleadingsHovered] = useState(false)
+  const [isDiscoveryHovered, setIsDiscoveryHovered] = useState(false)
   
   const [formData, setFormData] = useState({
     facts: '',
@@ -500,26 +502,114 @@ export default function CaseDetailPage() {
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Access to Services</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Link
-              href={`/services/demand-letters?case=${encodeURIComponent(caseItem.caseName)}`}
+              href={`/services/demand-letters?caseId=${caseItem.id}`}
               className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
             >
               <div className="text-3xl mb-2">📄</div>
               <div className="text-sm font-medium text-gray-700">Demand Letters</div>
             </Link>
-            <Link
-              href="/services/pleadings"
-              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
+            {/* Pleadings Dropdown */}
+            <div
+              className="relative"
+              onMouseEnter={() => setIsPleadingsHovered(true)}
+              onMouseLeave={() => setIsPleadingsHovered(false)}
             >
-              <div className="text-3xl mb-2">⚖️</div>
-              <div className="text-sm font-medium text-gray-700">Pleadings</div>
-            </Link>
-            <Link
-              href="/services/discovery"
-              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center cursor-pointer">
+                <div className="text-3xl mb-2">⚖️</div>
+                <div className="text-sm font-medium text-gray-700">Pleadings</div>
+              </div>
+              
+              {isPleadingsHovered && (
+                <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 min-w-[160px]">
+                  <Link
+                    href={`/services/pleadings/complaint?caseId=${caseItem.id}`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsPleadingsHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">📝</span>
+                      <span>Complaint</span>
+                    </div>
+                  </Link>
+                  <Link
+                    href={`/services/pleadings/answer?caseId=${caseItem.id}`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsPleadingsHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">⚖️</span>
+                      <span>Answer</span>
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
+            {/* Discovery Dropdown */}
+            <div
+              className="relative"
+              onMouseEnter={() => setIsDiscoveryHovered(true)}
+              onMouseLeave={() => setIsDiscoveryHovered(false)}
             >
-              <div className="text-3xl mb-2">🔍</div>
-              <div className="text-sm font-medium text-gray-700">Discovery</div>
-            </Link>
+              <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center cursor-pointer">
+                <div className="text-3xl mb-2">🔍</div>
+                <div className="text-sm font-medium text-gray-700">Discovery</div>
+              </div>
+              
+              {isDiscoveryHovered && (
+                <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 min-w-[200px]">
+                  <Link
+                    href={`/services/discovery/propound-discovery?caseId=${caseItem.id}`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsDiscoveryHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">📤</span>
+                      <span>Propound Discovery</span>
+                    </div>
+                  </Link>
+                  <Link
+                    href={`/services/discovery/respond-to-discovery?caseId=${caseItem.id}`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsDiscoveryHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">📥</span>
+                      <span>Respond to Discovery</span>
+                    </div>
+                  </Link>
+                  <Link
+                    href={`/services/discovery/subpoena?caseId=${caseItem.id}`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsDiscoveryHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">⚖️</span>
+                      <span>Subpoena</span>
+                    </div>
+                  </Link>
+                  <Link
+                    href={`/services/discovery/meet-and-confer?caseId=${caseItem.id}`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsDiscoveryHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">🤝</span>
+                      <span>Meet and Confer</span>
+                    </div>
+                  </Link>
+                  <Link
+                    href={`/services/discovery/written-discovery?caseId=${caseItem.id}`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsDiscoveryHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">📝</span>
+                      <span>Written Discovery</span>
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
             <Link
               href={`/services/deposition/dashboard?matter=${caseItem.id}`}
               className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
@@ -528,21 +618,21 @@ export default function CaseDetailPage() {
               <div className="text-sm font-medium text-gray-700">Deposition</div>
             </Link>
             <Link
-              href="/services/law-and-motion"
+              href={`/services/law-and-motion?caseId=${caseItem.id}`}
               className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
             >
               <div className="text-3xl mb-2">✍️</div>
               <div className="text-sm font-medium text-gray-700">Law and Motion</div>
             </Link>
             <Link
-              href="/services/settlement-agreements"
+              href={`/services/settlement-agreements?caseId=${caseItem.id}`}
               className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
             >
               <div className="text-3xl mb-2">🤝</div>
               <div className="text-sm font-medium text-gray-700">Settlement Agreements</div>
             </Link>
             <Link
-              href="/services/billing-comparison"
+              href={`/services/billing-comparison?caseId=${caseItem.id}`}
               className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
             >
               <div className="text-3xl mb-2">💰</div>

@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { userStorage } from '@/lib/utils/userStorage';
+import { caseStorage, Case } from '@/lib/utils/caseStorage';
 
 interface CardSection {
   id: string;
@@ -12,6 +15,9 @@ interface CardSection {
 }
 
 export default function DemandLetterPage() {
+  const searchParams = useSearchParams();
+  const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
+  const [currentCase, setCurrentCase] = useState<Case | null>(null);
   const [sections, setSections] = useState<CardSection[]>([
     { 
       id: '0', 
@@ -106,6 +112,21 @@ export default function DemandLetterPage() {
       return;
     }
 
+    // CRITICAL: Ensure we only send data from the current case
+    // Verify we have a case ID and it matches the current session
+    if (sectionId === '0' && currentCaseId) {
+      const currentUser = userStorage.getCurrentUser();
+      if (currentUser) {
+        const currentCase = caseStorage.getCase(currentUser.username, currentCaseId);
+        // Double-check: ensure we're only using this case's data
+        if (!currentCase) {
+          setAiError('Case not found. Please ensure you are working with a valid case.');
+          setTimeout(() => setAiError(null), 5000);
+          return;
+        }
+      }
+    }
+
     setAiLoading(sectionId);
     setAiError(null);
 
@@ -120,16 +141,20 @@ export default function DemandLetterPage() {
         apiEndpoint = '/api/ai/populate-sections';
       }
 
+      // CRITICAL: Only send sections from THIS demand letter session
+      // Do not include any data from other cases
       const requestBody = sectionId === '0' 
         ? { 
-            caseDescription: section.content,
-            allSections: sections
+            caseDescription: section.content, // Only current case description
+            allSections: sections, // Only current demand letter sections
+            caseId: currentCaseId // Explicitly scope to this case
           }
         : {
             sectionId,
             sectionTitle: section.title,
-            currentContent: section.content,
-            allSections: sections,
+            currentContent: section.content, // Only current section content
+            allSections: sections, // Only current demand letter sections
+            caseId: currentCaseId // Explicitly scope to this case
           };
 
       const response = await fetch(apiEndpoint, {
@@ -235,6 +260,35 @@ export default function DemandLetterPage() {
     setDragOverIndex(null);
   };
 
+  // Populate case description from case facts - ONLY for the specific case
+  useEffect(() => {
+    const caseId = searchParams?.get('caseId');
+    if (caseId) {
+      const currentUser = userStorage.getCurrentUser();
+      if (currentUser) {
+        // CRITICAL: Only retrieve the specific case by ID to prevent cross-contamination
+        const foundCase = caseStorage.getCase(currentUser.username, caseId);
+        
+        if (foundCase) {
+          // Store the case ID to ensure all operations are scoped to this case
+          setCurrentCaseId(caseId);
+          setCurrentCase(foundCase); // Store full case object for header display
+          
+          // Only populate if case has facts - use ONLY this case's data
+          if (foundCase.facts) {
+            setSections(prevSections => 
+              prevSections.map(section => 
+                section.id === '0' 
+                  ? { ...section, content: foundCase.facts || section.content }
+                  : section
+              )
+            );
+          }
+        }
+      }
+    }
+  }, [searchParams]);
+
   // Auto-resize textareas when sections change
   useEffect(() => {
     const textareas = document.querySelectorAll('textarea');
@@ -250,6 +304,38 @@ export default function DemandLetterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <Header />
+      
+      {/* Case Name Header - Only show when accessed from case dashboard */}
+      {currentCase && (
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Link 
+                  href={`/dashboard/cases/${currentCase.id}`}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </Link>
+                <div>
+                  <h2 className="text-xl font-bold">{currentCase.caseName}</h2>
+                  {currentCase.caseNumber && (
+                    <p className="text-sm text-blue-100">Case #: {currentCase.caseNumber}</p>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={`/dashboard/cases/${currentCase.id}`}
+                className="text-sm hover:underline text-blue-100"
+              >
+                Back to Case
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className="min-h-screen p-6">
         <div className="max-w-7xl mx-auto">

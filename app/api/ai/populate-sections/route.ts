@@ -3,7 +3,12 @@ import { anonymizeData } from '@/lib/utils/anonymize';
 
 export async function POST(request: NextRequest) {
   try {
-    const { caseDescription, allSections } = await request.json();
+    const { caseDescription, allSections, caseId } = await request.json();
+
+    // CRITICAL: Log case ID for audit trail (but don't send to AI)
+    if (caseId) {
+      console.log(`[AUDIT] Processing demand letter for case: ${caseId}`);
+    }
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -13,9 +18,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // CRITICAL: Only anonymize and send the case description provided
+    // Do NOT fetch or include any other case data
     const anonymizedDescription = anonymizeData(caseDescription || '');
 
     const prompt = `You are a legal assistant helping to draft a demand letter. Analyze the following case description and determine the case type, then generate appropriate content for each section.
+
+IMPORTANT: You are working with a SINGLE, ISOLATED case. Only use the information provided below. Do not reference, infer, or incorporate information from any other cases.
 
 CASE DESCRIPTION:
 ${anonymizedDescription}

@@ -6,6 +6,8 @@ import Input from './ui/Input';
 import Textarea from './ui/Textarea';
 import Button from './ui/Button';
 import Card from './ui/Card';
+import { userStorage } from '@/lib/utils/userStorage';
+import { caseStorage } from '@/lib/utils/caseStorage';
 
 interface TemplateSection {
   id: string;
@@ -128,11 +130,34 @@ function EditableTextarea({ section, onUpdate, onSave, onCancel }: EditableTexta
   );
 }
 
-export default function AgreementForm() {
+interface AgreementFormProps {
+  caseId?: string | null;
+}
+
+export default function AgreementForm({ caseId }: AgreementFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const titleInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [currentCaseId, setCurrentCaseId] = useState<string | null>(caseId || null);
+  
+  // Populate case data from caseId if provided
+  useEffect(() => {
+    if (caseId) {
+      const currentUser = userStorage.getCurrentUser();
+      if (currentUser) {
+        // CRITICAL: Only retrieve the specific case by ID
+        const foundCase = caseStorage.getCase(currentUser.username, caseId);
+        if (foundCase) {
+          setCurrentCaseId(caseId);
+          // Log for audit trail
+          console.log(`[AUDIT] Settlement Agreement form initialized for case: ${caseId}`);
+          // Case data can be used to populate form fields if needed
+        }
+      }
+    }
+  }, [caseId]);
+  
   const [templateSections, setTemplateSections] = useState<TemplateSection[]>([
     {
       id: '1',

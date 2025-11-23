@@ -1,7 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { Scale, FileText, Download, Copy, Check } from 'lucide-react'
+import { userStorage } from '@/lib/utils/userStorage'
+import { caseStorage, Case } from '@/lib/utils/caseStorage'
 
 interface DiscoveryRequest {
   id: number
@@ -10,6 +14,10 @@ interface DiscoveryRequest {
 }
 
 const WrittenDiscoveryGenerator = () => {
+  const searchParams = useSearchParams()
+  const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
+  const [currentCase, setCurrentCase] = useState<Case | null>(null)
+  
   const [caseInfo, setCaseInfo] = useState({
     caseTitle: '',
     caseNumber: '',
@@ -31,6 +39,36 @@ const WrittenDiscoveryGenerator = () => {
   const [caseFactsInput, setCaseFactsInput] = useState('')
   const [factsBasedRequests, setFactsBasedRequests] = useState<string[]>([])
   const [isGeneratingFromFacts, setIsGeneratingFromFacts] = useState(false)
+
+  // Populate case data from caseId if provided
+  useEffect(() => {
+    const caseId = searchParams?.get('caseId')
+    if (caseId) {
+      const currentUser = userStorage.getCurrentUser()
+      if (currentUser) {
+        // CRITICAL: Only retrieve the specific case by ID to prevent cross-contamination
+        const foundCase = caseStorage.getCase(currentUser.username, caseId)
+        if (foundCase) {
+          setCurrentCaseId(caseId)
+          setCurrentCase(foundCase)
+          // Log for audit trail
+          console.log(`[AUDIT] Discovery page accessed for case: ${caseId}`)
+          // Populate case info from case data
+          setCaseInfo(prev => ({
+            ...prev,
+            caseTitle: foundCase.caseName || prev.caseTitle,
+            caseNumber: foundCase.caseNumber || prev.caseNumber,
+            client: foundCase.client || prev.plaintiff,
+            plaintiff: foundCase.client || prev.plaintiff
+          }))
+          // Populate case facts if available
+          if (foundCase.facts) {
+            setCaseFactsInput(foundCase.facts)
+          }
+        }
+      }
+    }
+  }, [searchParams])
 
   const predefinedRequests = {
     interrogatory: [
@@ -323,6 +361,38 @@ Defendant: ${caseInfo.defendant}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      {/* Case Name Header - Only show when accessed from case dashboard */}
+      {currentCase && (
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Link 
+                  href={`/dashboard/cases/${currentCase.id}`}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </Link>
+                <div>
+                  <h2 className="text-xl font-bold">{currentCase.caseName}</h2>
+                  {currentCase.caseNumber && (
+                    <p className="text-sm text-blue-100">Case #: {currentCase.caseNumber}</p>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={`/dashboard/cases/${currentCase.id}`}
+                className="text-sm hover:underline text-blue-100"
+              >
+                Back to Case
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Header */}
       <div className="bg-white/95 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">

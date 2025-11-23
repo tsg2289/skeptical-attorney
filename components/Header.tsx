@@ -1,14 +1,46 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronDown, Menu, X, Scale } from 'lucide-react'
+import { userStorage } from '@/lib/utils/userStorage'
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isServicesOpen, setIsServicesOpen] = useState(false)
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false)
   const [isPleadingsOpen, setIsPleadingsOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const router = useRouter()
+
+  useEffect(() => {
+    setIsLoggedIn(userStorage.isLoggedIn())
+    
+    // Listen for storage changes (when user logs in/out in another tab)
+    const handleStorageChange = () => {
+      setIsLoggedIn(userStorage.isLoggedIn())
+    }
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Check periodically for login state changes
+    const interval = setInterval(() => {
+      setIsLoggedIn(userStorage.isLoggedIn())
+    }, 1000)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
+  }, [])
+
+  const handleLogout = () => {
+    userStorage.clearCurrentUser()
+    setIsLoggedIn(false)
+    setIsMenuOpen(false)
+    router.push('/')
+    router.refresh()
+  }
 
   const services = [
     { name: 'Demand Letters', href: '/services/demand-letters' },
@@ -179,12 +211,29 @@ const Header = () => {
               Contact
             </Link>
             
-            <Link
-              href="/get-started"
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium"
-            >
-              Get Started
-            </Link>
+            {isLoggedIn ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium"
+                >
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium"
+              >
+                Log In
+              </Link>
+            )}
           </nav>
 
           {/* Mobile menu button */}
@@ -328,13 +377,31 @@ const Header = () => {
               >
                 Contact
               </Link>
-              <Link
-                href="/get-started"
-                className="block mx-3 mt-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-xl text-center font-medium"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Get Started
-              </Link>
+              {isLoggedIn ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className="block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="block mx-3 mt-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-xl text-center font-medium w-full"
+                  >
+                    Log Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  className="block mx-3 mt-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-xl text-center font-medium"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Log In
+                </Link>
+              )}
             </div>
           </div>
         )}

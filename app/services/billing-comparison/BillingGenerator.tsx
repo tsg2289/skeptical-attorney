@@ -1,5 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { userStorage } from '@/lib/utils/userStorage';
+import { caseStorage } from '@/lib/utils/caseStorage';
 
 interface BillingEntry {
   id?: number;
@@ -17,7 +20,13 @@ interface Description {
   case: string;
 }
 
-export default function BillingGenerator() {
+interface BillingGeneratorProps {
+  caseId?: string | null;
+}
+
+export default function BillingGenerator({ caseId: propCaseId }: BillingGeneratorProps) {
+  const searchParams = useSearchParams();
+  const [currentCaseId, setCurrentCaseId] = useState<string | null>(propCaseId || null);
   const [caseName, setCaseName] = useState('');
   const [description, setDescription] = useState('');
   const [descriptions, setDescriptions] = useState<Description[]>([]);
@@ -58,6 +67,27 @@ export default function BillingGenerator() {
   const [draggedGroup, setDraggedGroup] = useState<number | null>(null);
   const [dragOverGroup, setDragOverGroup] = useState<number | null>(null);
   const [draggedGroupCase, setDraggedGroupCase] = useState<string | null>(null);
+
+  // Populate case data from caseId if provided
+  useEffect(() => {
+    const caseId = propCaseId || searchParams?.get('caseId');
+    if (caseId) {
+      const currentUser = userStorage.getCurrentUser();
+      if (currentUser) {
+        // CRITICAL: Only retrieve the specific case by ID
+        const foundCase = caseStorage.getCase(currentUser.username, caseId);
+        if (foundCase) {
+          setCurrentCaseId(caseId);
+          // Log for audit trail
+          console.log(`[AUDIT] Billing Generator initialized for case: ${caseId}`);
+          // Populate case name from case data
+          if (foundCase.caseName) {
+            setCaseName(foundCase.caseName);
+          }
+        }
+      }
+    }
+  }, [propCaseId, searchParams]);
   const [dragOverEntryGroup, setDragOverEntryGroup] = useState<number | string | null>(null);
 
   // Load templates on component mount

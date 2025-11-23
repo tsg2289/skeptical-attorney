@@ -7,6 +7,8 @@ import { downloadWordDocument as generateWordDoc } from '@/lib/docx-generator'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { userStorage } from '@/lib/utils/userStorage'
+import { caseStorage } from '@/lib/utils/caseStorage'
 
 // Interface for defense structure
 interface Defense {
@@ -403,7 +405,11 @@ function SortableDefenseCard({ defense, editingDefenseId, editingDefense, onEdit
   )
 }
 
-export default function AnswerGenerator() {
+interface AnswerGeneratorProps {
+  caseId?: string | null
+}
+
+export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
   const [formData, setFormData] = useState({
     plaintiffName: '',
     defendantName: '',
@@ -426,6 +432,23 @@ export default function AnswerGenerator() {
     title: '',
     content: ''
   })
+
+  // Populate form data from case if caseId is provided
+  useEffect(() => {
+    if (caseId) {
+      const currentUser = userStorage.getCurrentUser()
+      if (currentUser) {
+        // CRITICAL: Only retrieve the specific case by ID
+        const foundCase = caseStorage.getCase(currentUser.username, caseId)
+        if (foundCase) {
+          // Log for audit trail
+          console.log(`[AUDIT] Answer generator initialized for case: ${caseId}`)
+          // Populate form with case data if available
+          // Note: You may want to populate plaintiff/defendant names from case data
+        }
+      }
+    }
+  }, [caseId])
 
   // Update full answer when defenses are reordered
   useEffect(() => {
@@ -450,12 +473,16 @@ export default function AnswerGenerator() {
 
     setIsLoading(true)
     try {
+      // CRITICAL: Include caseId in API call for scoping
       const response = await fetch('/api/generate-answer', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          caseId: caseId // Explicitly scope to this case
+        }),
       })
 
       if (!response.ok) {

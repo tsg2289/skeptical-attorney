@@ -3,7 +3,7 @@ import { anonymizeData } from '@/lib/utils/anonymize';
 
 export async function POST(request: NextRequest) {
   try {
-    const { sectionId, sectionTitle, currentContent, allSections } = await request.json();
+    const { sectionId, sectionTitle, currentContent, allSections, caseId } = await request.json();
 
     // Only allow AI for Introduction section (id: '1')
     if (sectionId !== '1') {
@@ -11,6 +11,11 @@ export async function POST(request: NextRequest) {
         { error: 'AI assist is only available for the Introduction section' },
         { status: 403 }
       );
+    }
+
+    // CRITICAL: Log case ID for audit trail
+    if (caseId) {
+      console.log(`[AUDIT] Processing section ${sectionId} for case: ${caseId}`);
     }
 
     // Check for API key
@@ -22,11 +27,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Anonymize all content before sending to AI
+    // CRITICAL: Only anonymize sections from THIS demand letter
+    // Do NOT include any data from other cases
     const anonymizedSections = allSections.map((section: { id: string; title: string; content: string }) => ({
       id: section.id,
       title: section.title,
-      content: anonymizeData(section.content)
+      content: anonymizeData(section.content) // Only anonymize current section content
     }));
 
     // Extract key information from sections
@@ -41,7 +47,9 @@ export async function POST(request: NextRequest) {
     );
 
     // Build context-aware prompt for Introduction section
-    const prompt = `You are a legal assistant helping to write a professional demand letter introduction. 
+    const prompt = `You are a legal assistant helping to write a professional demand letter introduction.
+
+IMPORTANT: You are working with a SINGLE, ISOLATED case. Only use the information provided below. Do not reference, infer, or incorporate information from any other cases.
 
 The introduction must follow this EXACT format:
 "This firm represents [Client Name] for injuries sustained in a collision on [Date] in [City, CA]. Based on the evidence—including police reports, photographs, witness statements, and property damage assessments—your insured, [Insured Name], is 100% liable for causing this collision."
