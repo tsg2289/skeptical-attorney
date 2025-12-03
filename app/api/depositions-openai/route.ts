@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { sanitizeForOpenAI, sanitizeAIContext, detectPII } from '@/app/services/deposition/utils/validation';
+import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
 
 // SECURE: OpenAI API key is server-side only (no NEXT_PUBLIC prefix)
 const openai = new OpenAI({
@@ -28,10 +29,29 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Sanitize all inputs before sending to OpenAI
-    const sanitizedQuestions = sanitizeForOpenAI(questions);
-    const sanitizedUserPrompt = sanitizeForOpenAI(userPrompt || '');
-    const sanitizedContext = sanitizeAIContext(context || '');
+    // Anonymize all inputs with mapping for re-identification
+    const questionsResult = anonymizeDataWithMapping(questions);
+    const userPromptResult = anonymizeDataWithMapping(userPrompt || '');
+    const contextResult = anonymizeDataWithMapping(context || '');
+
+    // Merge mappings
+    const combinedMapping: PIIMapping = {};
+    Object.keys(questionsResult.mapping).forEach(key => {
+      combinedMapping[key] = [...(combinedMapping[key] || []), ...questionsResult.mapping[key]];
+    });
+    Object.keys(userPromptResult.mapping).forEach(key => {
+      combinedMapping[key] = [...(combinedMapping[key] || []), ...userPromptResult.mapping[key]];
+    });
+    Object.keys(contextResult.mapping).forEach(key => {
+      combinedMapping[key] = [...(combinedMapping[key] || []), ...contextResult.mapping[key]];
+    });
+
+    // Merge contextual mappings
+    const combinedContextualMappings: ContextualMapping[] = [
+      ...questionsResult.contextualMappings,
+      ...userPromptResult.contextualMappings,
+      ...contextResult.contextualMappings
+    ];
 
     // Check if API key is configured
     if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your-openai-key-here')) {
@@ -70,12 +90,12 @@ Note: This is a mock response. Add your OpenAI API key to .env.local to get real
     if (context === 'notes_improvement') {
       basePrompt = `You are a legal deposition expert specializing in note-taking and documentation. Please review and improve the following deposition notes based on the user's specific instructions. Make them more professional, organized, and legally useful while maintaining all important information.
 
-Context: ${sanitizedContext || 'Deposition notes improvement'}
+Context: ${contextResult.anonymizedText || 'Deposition notes improvement'}
 
 Original Notes:
-${sanitizedQuestions}
+${questionsResult.anonymizedText}
 
-User Instructions: ${sanitizedUserPrompt || 'Improve these notes to be more professional and organized.'}
+User Instructions: ${userPromptResult.anonymizedText || 'Improve these notes to be more professional and organized.'}
 
 Please provide the improved notes following the user's specific instructions while ensuring:
 1. Notes are professionally written and organized
@@ -89,12 +109,12 @@ Return only the improved notes, no additional commentary.`;
     } else {
       basePrompt = `You are a legal deposition expert. Please review and improve the following deposition questions based on the user's specific instructions. Make them more precise, legally sound, and effective for gathering information. Maintain the same structure and numbering, but enhance clarity and legal effectiveness.
 
-Context: ${sanitizedContext || 'General deposition questions'}
+Context: ${contextResult.anonymizedText || 'General deposition questions'}
 
 Original Questions:
-${sanitizedQuestions}
+${questionsResult.anonymizedText}
 
-User Instructions: ${sanitizedUserPrompt || 'Improve these questions to be more legally precise and effective.'}
+User Instructions: ${userPromptResult.anonymizedText || 'Improve these questions to be more legally precise and effective.'}
 
 Please provide the improved questions in the same format, one per line. Follow the user's specific instructions while ensuring:
 1. Questions are legally sound and precise
@@ -125,7 +145,10 @@ Return only the improved questions, no additional commentary.`;
       temperature: 0.3,
     });
 
-    const improvedQuestions = completion.choices[0]?.message?.content || '';
+    let improvedQuestions = completion.choices[0]?.message?.content || '';
+
+    // Re-identify placeholders in the AI response
+    improvedQuestions = reidentifyData(improvedQuestions, combinedMapping, combinedContextualMappings);
 
     return NextResponse.json({ 
       improvedQuestions,

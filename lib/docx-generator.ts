@@ -5,6 +5,7 @@ export interface AnswerData {
   plaintiffName: string
   defendantName: string
   generatedAnswer: string
+  isMultipleDefendants?: boolean
   attorneyName?: string
   stateBarNumber?: string
   email?: string
@@ -25,6 +26,7 @@ export function generateWordDocument(data: AnswerData): Document {
     plaintiffName, 
     defendantName, 
     generatedAnswer,
+    isMultipleDefendants = false,
     attorneyName = "[Attorney Name]",
     stateBarNumber = "[State Bar No.]",
     email = "[email@lawfirm.com]",
@@ -39,6 +41,21 @@ export function generateWordDocument(data: AnswerData): Document {
     actionFiled = "September 3, 2020",
     trialDate = "None"
   } = data
+
+  // Helper variables for singular/plural
+  const defendantLabel = isMultipleDefendants ? 'Defendants' : 'Defendant'
+  const defendantLabelLower = isMultipleDefendants ? 'defendants' : 'defendant'
+  const defendantPossessive = isMultipleDefendants ? "Defendants'" : "Defendant's"
+  const defendantPronoun = isMultipleDefendants ? 'Defendants' : 'Defendant'
+  const defendantPronounLower = isMultipleDefendants ? 'defendants' : 'defendant'
+  const defendantVerb = isMultipleDefendants ? 'answer' : 'answers'
+  const defendantVerb2 = isMultipleDefendants ? 'demand' : 'demands'
+  const defendantVerb3 = isMultipleDefendants ? 'deny' : 'denies'
+  const defendantVerb4 = isMultipleDefendants ? 'allege' : 'alleges'
+  const plaintiffLabel = isMultipleDefendants ? 'Plaintiffs' : 'Plaintiff'
+  const plaintiffPossessive = isMultipleDefendants ? "Plaintiffs'" : "Plaintiff's"
+  const plaintiffPronoun = isMultipleDefendants ? 'Plaintiffs' : 'Plaintiff'
+  const plaintiffPronounLower = isMultipleDefendants ? 'plaintiffs' : 'plaintiff'
   
   const children: (Paragraph | Table)[] = []
   let lineCount = 0
@@ -153,7 +170,7 @@ export function generateWordDocument(data: AnswerData): Document {
   addParagraph(
     createDoubleParagraph([
         new TextRun({
-          text: `Attorneys for Defendant ${defendantName}`,
+          text: `Attorneys for ${defendantLabel} ${defendantName}`,
           size: 24,
         }),
     ], { spacing: { after: 400 } })
@@ -221,7 +238,7 @@ export function generateWordDocument(data: AnswerData): Document {
                 ], { spacing: { after: 0 } }),
                 createDoubleParagraph([
         new TextRun({
-          text: "Plaintiffs,",
+          text: isMultipleDefendants ? "Plaintiffs," : "Plaintiff,",
           size: 24,
         }),
                 ], { spacing: { after: 100 } }),
@@ -233,7 +250,9 @@ export function generateWordDocument(data: AnswerData): Document {
                 ], { spacing: { after: 100 } }),
                 createDoubleParagraph([
         new TextRun({
-          text: `${defendantName.toUpperCase()}, an individual; and DOES 1 to 25, Inclusive`,
+          text: isMultipleDefendants 
+            ? `${defendantName.toUpperCase()}, an individual; and DOES 1 to 25, Inclusive`
+            : `${defendantName.toUpperCase()}, an individual`,
           size: 24,
         }),
                 ], { spacing: { after: 0 } }),
@@ -245,7 +264,7 @@ export function generateWordDocument(data: AnswerData): Document {
                 ], { spacing: { after: 0 } }),
                 createDoubleParagraph([
         new TextRun({
-          text: "Defendants.",
+          text: isMultipleDefendants ? "Defendants." : "Defendant.",
           size: 24,
         }),
                 ], { spacing: { after: 0 } }),
@@ -318,7 +337,7 @@ export function generateWordDocument(data: AnswerData): Document {
   addParagraph(
     createDoubleParagraph([
         new TextRun({
-          text: `DEFENDANT ${defendantName.toUpperCase()}'S ANSWER TO PLAINTIFFS' COMPLAINT; DEMAND FOR JURY TRIAL`,
+          text: `${defendantLabel.toUpperCase()} ${defendantName.toUpperCase()}'S ANSWER TO ${plaintiffPossessive.toUpperCase()} COMPLAINT; DEMAND FOR JURY TRIAL`,
           bold: true,
           size: 24,
         }),
@@ -348,7 +367,9 @@ export function generateWordDocument(data: AnswerData): Document {
   addParagraph(
     createDoubleParagraph([
         new TextRun({
-          text: "TO PLAINTIFFS AND TO THEIR ATTORNEYS OF RECORD:",
+          text: isMultipleDefendants 
+            ? "TO PLAINTIFFS AND TO THEIR ATTORNEYS OF RECORD:"
+            : "TO PLAINTIFF AND TO HIS ATTORNEY OF RECORD:",
           size: 24,
         }),
     ], { spacing: { after: 200 } })
@@ -357,7 +378,9 @@ export function generateWordDocument(data: AnswerData): Document {
   addParagraph(
     createDoubleParagraph([
         new TextRun({
-          text: `Defendant ${defendantName} ("Defendant") answers Plaintiffs ${plaintiffName} ("Plaintiffs") Complaint as follows:`,
+          text: isMultipleDefendants
+            ? `${defendantLabel} ${defendantName} ("${defendantLabel}") ${defendantVerb} ${plaintiffPronoun} ${plaintiffName} ("${plaintiffPronoun}") Complaint as follows:`
+            : `${defendantLabel} ${defendantName} ("${defendantLabel}") ${defendantVerb} ${plaintiffLabel} ${plaintiffName} ("${plaintiffLabel}")'s Complaint as follows:`,
           size: 24,
         }),
     ], { spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED })
@@ -367,7 +390,7 @@ export function generateWordDocument(data: AnswerData): Document {
   addParagraph(
     createDoubleParagraph([
         new TextRun({
-          text: "Defendant hereby demands a jury trial in the above-entitled action.",
+          text: `${defendantPronoun} hereby ${defendantVerb2} a jury trial in the above-entitled action.`,
           size: 24,
         }),
     ], { spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED })
@@ -377,7 +400,9 @@ export function generateWordDocument(data: AnswerData): Document {
   addParagraph(
     createDoubleParagraph([
         new TextRun({
-          text: "Pursuant to the provisions of Section 431.30, subdivision (d) of the Code of Civil Procedure, Defendant generally and specifically denies each and every allegation of Plaintiffs' Complaint, and the whole thereof, including each purported cause of action contained therein, and Defendant denies that Plaintiffs have been damaged in any sum, or sums, due to the conduct or omissions of Defendant.",
+          text: isMultipleDefendants
+            ? `Pursuant to the provisions of Section 431.30, subdivision (d) of the Code of Civil Procedure, ${defendantLabel} generally and specifically ${defendantVerb3} each and every allegation of ${plaintiffPossessive} Complaint, and the whole thereof, including each purported cause of action contained therein, and ${defendantLabel} ${defendantVerb3} that ${plaintiffPronoun} have been damaged in any sum, or sums, due to the conduct or omissions of ${defendantLabel}.`
+            : `Pursuant to the provisions of Section 431.30, subdivision (d) of the Code of Civil Procedure, ${defendantLabel} generally and specifically ${defendantVerb3} each and every allegation of ${plaintiffPossessive} Complaint, and the whole thereof, including each purported cause of action contained therein, and ${defendantLabel} ${defendantVerb3} that ${plaintiffLabel} has been damaged in any sum, or sums, due to the conduct or omissions of ${defendantLabel}.`,
           size: 24,
         }),
     ], { spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED })
@@ -387,7 +412,9 @@ export function generateWordDocument(data: AnswerData): Document {
   addParagraph(
     createDoubleParagraph([
         new TextRun({
-          text: "Defendant herein alleges and sets forth separately and distinctly the following affirmative defenses to each and every cause of action as alleged in Plaintiffs' Complaint as though pleaded separately to each and every such cause of action.",
+          text: isMultipleDefendants
+            ? `${defendantPronoun} herein ${defendantVerb4} and set forth separately and distinctly the following affirmative defenses to each and every cause of action as alleged in ${plaintiffPossessive} Complaint as though pleaded separately to each and every such cause of action.`
+            : `${defendantPronoun} herein ${defendantVerb4}s and sets forth separately and distinctly the following affirmative defenses to each and every cause of action as alleged in ${plaintiffPossessive} Complaint as though pleaded separately to each and every such cause of action.`,
           size: 24,
         }),
     ], { spacing: { after: 300 }, alignment: AlignmentType.JUSTIFIED })
@@ -670,7 +697,7 @@ export function generateWordDocument(data: AnswerData): Document {
         new Paragraph({
           children: [
             new TextRun({
-              text: "DEFENDANT'S ANSWER TO COMPLAINT",
+              text: `${defendantPossessive.toUpperCase()} ANSWER TO COMPLAINT`,
               size: 24,
             }),
           ],
@@ -719,7 +746,7 @@ export function generateWordDocument(data: AnswerData): Document {
         new Paragraph({
           children: [
             new TextRun({
-              text: "DEFENDANT'S ANSWER TO COMPLAINT",
+              text: `${defendantPossessive.toUpperCase()} ANSWER TO COMPLAINT`,
               size: 24,
             }),
           ],
@@ -815,6 +842,305 @@ export async function downloadWordDocument(data: AnswerData): Promise<void> {
   }
 }
 
+export interface DemandLetterData {
+  sections: Array<{
+    id: string;
+    title: string;
+    content: string;
+  }>;
+  attorneyName?: string;
+  stateBarNumber?: string;
+  email?: string;
+  lawFirmName?: string;
+  address?: string;
+  phone?: string;
+  fax?: string;
+  caseName?: string;
+  caseNumber?: string;
+}
 
+export function generateDemandLetterDocument(data: DemandLetterData): Document {
+  const {
+    sections,
+    attorneyName = "[Attorney Name]",
+    stateBarNumber = "[State Bar No.]",
+    email = "[email@lawfirm.com]",
+    lawFirmName = "[LAW FIRM NAME]",
+    address = "[Address]",
+    phone = "[Phone Number]",
+    fax = "[Fax Number]",
+    caseName,
+    caseNumber
+  } = data;
 
+  const children: (Paragraph | Table)[] = [];
+  let lineCount = 0;
 
+  // Helper function to add paragraph and track line count
+  const addParagraph = (paragraph: Paragraph) => {
+    children.push(paragraph);
+    lineCount++;
+    
+    // Add page break after every 28 lines
+    if (lineCount % 28 === 0) {
+      children.push(
+        new Paragraph({
+          children: [new PageBreak()],
+          spacing: { line: 240 },
+        })
+      );
+    }
+  };
+
+  // Helper function to create paragraph with proper spacing
+  const createParagraph = (textRuns: any[], options: any = {}) => {
+    return new Paragraph({
+      children: textRuns,
+      spacing: { 
+        line: 240, // 12 point line spacing
+        ...options.spacing 
+      },
+      ...options
+    });
+  };
+
+  // Attorney Header Information
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: `${attorneyName.toUpperCase()}, State Bar No. ${stateBarNumber}`,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: email,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: lawFirmName.toUpperCase(),
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: address,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: `Telephone: ${phone}`,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  if (fax) {
+    addParagraph(
+      createParagraph([
+        new TextRun({
+          text: `Facsimile: ${fax}`,
+          size: 24,
+        }),
+      ], { spacing: { after: 400 } })
+    );
+  } else {
+    addParagraph(
+      createParagraph([
+        new TextRun({
+          text: "",
+          size: 24,
+        }),
+      ], { spacing: { after: 400 } })
+    );
+  }
+
+  // Date
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: new Date().toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        size: 24,
+      }),
+    ], { alignment: AlignmentType.RIGHT, spacing: { after: 400 } })
+  );
+
+  // Filter out Case Description section
+  const letterSections = sections.filter(s => s.id !== '0');
+
+  // Add each section
+  letterSections.forEach((section, index) => {
+    // Section Title
+    addParagraph(
+      createParagraph([
+        new TextRun({
+          text: section.title.toUpperCase(),
+          size: 24,
+          bold: true,
+        }),
+      ], { spacing: { after: 200 } })
+    );
+
+    // Section Content - split by newlines to preserve formatting
+    const contentLines = section.content.split('\n');
+    contentLines.forEach((line, lineIndex) => {
+      if (line.trim() || lineIndex === 0 || lineIndex === contentLines.length - 1) {
+        addParagraph(
+          createParagraph([
+            new TextRun({
+              text: line || ' ',
+              size: 24,
+            }),
+          ], { 
+            spacing: { after: line.trim() ? 100 : 0 },
+            alignment: AlignmentType.JUSTIFIED 
+          })
+        );
+      }
+    });
+
+    // Add spacing between sections (except after last section)
+    if (index < letterSections.length - 1) {
+      addParagraph(
+        createParagraph([
+          new TextRun({
+            text: "",
+            size: 24,
+          }),
+        ], { spacing: { after: 400 } })
+      );
+    }
+  });
+
+  // Signature section
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: "",
+        size: 24,
+      }),
+    ], { spacing: { after: 400 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: "Respectfully submitted,",
+        size: 24,
+      }),
+    ], { spacing: { after: 400 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: attorneyName,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: lawFirmName,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: address,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: phone,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  addParagraph(
+    createParagraph([
+      new TextRun({
+        text: email,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  );
+
+  return new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              left: 1440,      // 1 inch left margin
+              right: 1440,     // 1 inch right margin
+              top: 1440,       // 1 inch top margin
+              bottom: 1440,    // 1 inch bottom margin
+            },
+          },
+        },
+        children: children,
+      },
+    ],
+  });
+}
+
+export async function downloadDemandLetterDocument(data: DemandLetterData): Promise<void> {
+  try {
+    const doc = generateDemandLetterDocument(data);
+    const blob = await Packer.toBlob(doc);
+    
+    const fileName = `Demand_Letter_${data.caseName ? data.caseName.replace(/[^a-zA-Z0-9]/g, '_') : 'Document'}_${new Date().toISOString().split('T')[0]}.docx`;
+    
+    if (typeof saveAs === 'function') {
+      saveAs(blob, fileName);
+      return;
+    }
+    
+    // Fallback to manual download
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+  } catch (error) {
+    console.error('Error generating Word document:', error);
+    throw new Error(`Failed to generate Word document: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}

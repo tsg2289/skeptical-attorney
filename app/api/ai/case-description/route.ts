@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { anonymizeData } from '@/lib/utils/anonymize';
+import { anonymizeDataWithMapping, reidentifyData } from '@/lib/utils/anonymize';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,12 +13,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const anonymizedContent = anonymizeData(currentContent || '');
+    const contentResult = anonymizeDataWithMapping(currentContent || '');
 
     const prompt = `You are a legal assistant helping to organize case information for a demand letter.
 
 Current Case Description:
-${anonymizedContent || '[Empty - user is starting fresh]'}
+${contentResult.anonymizedText || '[Empty - user is starting fresh]'}
 
 Please help improve and expand this case description. The description should include:
 - Client name and basic information
@@ -86,7 +86,7 @@ Generate an improved, well-organized case description that captures all essentia
     }
 
     const data = await response.json();
-    const generatedText = data.choices[0]?.message?.content?.trim() || '';
+    let generatedText = data.choices[0]?.message?.content?.trim() || '';
 
     if (!generatedText) {
       return NextResponse.json(
@@ -94,6 +94,9 @@ Generate an improved, well-organized case description that captures all essentia
         { status: 500 }
       );
     }
+
+    // Re-identify placeholders in the AI response
+    generatedText = reidentifyData(generatedText, contentResult.mapping, contentResult.contextualMappings);
 
     return NextResponse.json({ content: generatedText });
   } catch (error) {

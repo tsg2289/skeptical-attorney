@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -23,9 +24,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Anonymize all user inputs with mapping for re-identification
+    const caseNameResult = anonymizeDataWithMapping(caseName || 'General');
+    const descriptionResult = anonymizeDataWithMapping(description);
+
+    // Merge mappings
+    const combinedMapping: PIIMapping = {};
+    Object.keys(caseNameResult.mapping).forEach(key => {
+      combinedMapping[key] = [...(combinedMapping[key] || []), ...caseNameResult.mapping[key]];
+    });
+    Object.keys(descriptionResult.mapping).forEach(key => {
+      combinedMapping[key] = [...(combinedMapping[key] || []), ...descriptionResult.mapping[key]];
+    });
+
+    // Merge contextual mappings
+    const combinedContextualMappings: ContextualMapping[] = [
+      ...caseNameResult.contextualMappings,
+      ...descriptionResult.contextualMappings
+    ];
+
     const prompt = `Create a professional legal billing entry for the following work:
-Case: ${caseName || 'General'}
-Description: ${description}
+Case: ${caseNameResult.anonymizedText}
+Description: ${descriptionResult.anonymizedText}
 
 Respond with a single, detailed billing entry line without time estimates.`;
 
@@ -45,7 +65,10 @@ Respond with a single, detailed billing entry line without time estimates.`;
       temperature: parseFloat(process.env.OPENAI_TEMPERATURE || '0.7'),
     });
 
-    const billingEntry = response.choices[0]?.message?.content?.trim() || '';
+    let billingEntry = response.choices[0]?.message?.content?.trim() || '';
+
+    // Re-identify placeholders in the AI response
+    billingEntry = reidentifyData(billingEntry, combinedMapping, combinedContextualMappings);
 
     return NextResponse.json({
       success: true,

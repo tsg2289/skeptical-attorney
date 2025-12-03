@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { anonymizeData } from '@/lib/utils/anonymize';
+import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,11 +29,26 @@ export async function POST(request: NextRequest) {
 
     // CRITICAL: Only anonymize sections from THIS demand letter
     // Do NOT include any data from other cases
-    const anonymizedSections = allSections.map((section: { id: string; title: string; content: string }) => ({
-      id: section.id,
-      title: section.title,
-      content: anonymizeData(section.content) // Only anonymize current section content
-    }));
+    const anonymizedSections = allSections.map((section: { id: string; title: string; content: string }) => {
+      const result = anonymizeDataWithMapping(section.content);
+      return {
+        id: section.id,
+        title: section.title,
+        content: result.anonymizedText,
+        mapping: result.mapping,
+        contextualMappings: result.contextualMappings
+      };
+    });
+
+    // Merge all section mappings
+    const combinedMapping: PIIMapping = {};
+    const combinedContextualMappings: ContextualMapping[] = [];
+    anonymizedSections.forEach((section: any) => {
+      Object.keys(section.mapping).forEach(key => {
+        combinedMapping[key] = [...(combinedMapping[key] || []), ...section.mapping[key]];
+      });
+      combinedContextualMappings.push(...section.contextualMappings);
+    });
 
     // Extract key information from sections
     const caseDescriptionSection = anonymizedSections.find((s: { title: string; id?: string }) => 
@@ -155,7 +170,7 @@ Generate the introduction now:`;
     }
 
     const data = await response.json();
-    const generatedText = data.choices[0]?.message?.content?.trim() || '';
+    let generatedText = data.choices[0]?.message?.content?.trim() || '';
 
     if (!generatedText) {
       return NextResponse.json(
@@ -163,6 +178,9 @@ Generate the introduction now:`;
         { status: 500 }
       );
     }
+
+    // Re-identify placeholders in the AI response
+    generatedText = reidentifyData(generatedText, combinedMapping, combinedContextualMappings);
 
     return NextResponse.json({ content: generatedText });
   } catch (error) {

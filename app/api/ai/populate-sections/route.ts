@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { anonymizeData } from '@/lib/utils/anonymize';
+import { anonymizeDataWithMapping, reidentifyData, PIIMapping } from '@/lib/utils/anonymize';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,14 +20,14 @@ export async function POST(request: NextRequest) {
 
     // CRITICAL: Only anonymize and send the case description provided
     // Do NOT fetch or include any other case data
-    const anonymizedDescription = anonymizeData(caseDescription || '');
+    const descriptionResult = anonymizeDataWithMapping(caseDescription || '');
 
     const prompt = `You are a legal assistant helping to draft a demand letter. Analyze the following case description and determine the case type, then generate appropriate content for each section.
 
 IMPORTANT: You are working with a SINGLE, ISOLATED case. Only use the information provided below. Do not reference, infer, or incorporate information from any other cases.
 
 CASE DESCRIPTION:
-${anonymizedDescription}
+${descriptionResult.anonymizedText}
 
 FIRST: Determine the case type from the description. Is this:
 - PERSONAL INJURY (car accidents, slip and fall, product liability, etc.)
@@ -358,7 +358,7 @@ Generate the JSON response now. Only return valid JSON, no additional text.`;
     }
 
     const data = await response.json();
-    const generatedText = data.choices[0]?.message?.content?.trim() || '';
+    let generatedText = data.choices[0]?.message?.content?.trim() || '';
 
     if (!generatedText) {
       return NextResponse.json(
@@ -366,6 +366,9 @@ Generate the JSON response now. Only return valid JSON, no additional text.`;
         { status: 500 }
       );
     }
+
+    // Re-identify placeholders in the AI response before parsing
+    generatedText = reidentifyData(generatedText, descriptionResult.mapping, descriptionResult.contextualMappings);
 
     // Parse the JSON response
     let sectionsContent;
@@ -376,12 +379,13 @@ Generate the JSON response now. Only return valid JSON, no additional text.`;
       console.log('Generated sections:', Object.keys(sectionsContent));
       console.log('Has LIABILITY section (3):', '3' in sectionsContent);
       
-      // Normalize all section values to strings
+      // Normalize all section values to strings and re-identify placeholders
       // If AI returns an object (like for IRAC structure), convert it to a formatted string
       const normalizedSections: Record<string, string> = {};
       for (const [key, value] of Object.entries(sectionsContent)) {
         if (typeof value === 'string') {
-          normalizedSections[key] = value;
+          // Re-identify placeholders in each section's content
+          normalizedSections[key] = reidentifyData(value, descriptionResult.mapping, descriptionResult.contextualMappings);
         } else if (typeof value === 'object' && value !== null) {
           // If it's an object, convert it to a formatted string
           // Handle IRAC structure or other nested objects

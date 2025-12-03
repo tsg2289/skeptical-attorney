@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -23,9 +24,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Anonymize all user inputs with mapping for re-identification
+    const entryTextResult = anonymizeDataWithMapping(entryText);
+    const caseNameResult = anonymizeDataWithMapping(caseName || '');
+
+    // Merge mappings
+    const combinedMapping: PIIMapping = {};
+    Object.keys(entryTextResult.mapping).forEach(key => {
+      combinedMapping[key] = [...(combinedMapping[key] || []), ...entryTextResult.mapping[key]];
+    });
+    Object.keys(caseNameResult.mapping).forEach(key => {
+      combinedMapping[key] = [...(combinedMapping[key] || []), ...caseNameResult.mapping[key]];
+    });
+
+    // Merge contextual mappings
+    const combinedContextualMappings: ContextualMapping[] = [
+      ...entryTextResult.contextualMappings,
+      ...caseNameResult.contextualMappings
+    ];
+
     const prompt = `Given this billing entry, provide 3 enhancement suggestions that make it more professional, detailed, and comprehensive. Return as a JSON array:
 
-Original Entry: "${entryText}"
+Original Entry: "${entryTextResult.anonymizedText}"
 
 For each suggestion, provide this exact structure:
 {
@@ -54,7 +74,11 @@ Return ONLY a valid JSON array with 3 suggestions.`;
       temperature: 0.7,
     });
 
-    const content = response.choices[0]?.message?.content?.trim() || '';
+    let content = response.choices[0]?.message?.content?.trim() || '';
+    
+    // Re-identify placeholders in the AI response
+    content = reidentifyData(content, combinedMapping, combinedContextualMappings);
+    
     let suggestions;
     
     try {
@@ -62,6 +86,16 @@ Return ONLY a valid JSON array with 3 suggestions.`;
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       const jsonStr = jsonMatch ? jsonMatch[0] : content;
       suggestions = JSON.parse(jsonStr);
+      
+      // Re-identify placeholders in each suggestion's enhancedText
+      if (Array.isArray(suggestions)) {
+        suggestions = suggestions.map((suggestion: any) => {
+          if (suggestion.enhancedText) {
+            suggestion.enhancedText = reidentifyData(suggestion.enhancedText, combinedMapping, combinedContextualMappings);
+          }
+          return suggestion;
+        });
+      }
     } catch {
       // Fallback if JSON parsing fails
       suggestions = [{

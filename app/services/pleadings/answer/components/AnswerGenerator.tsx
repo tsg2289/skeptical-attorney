@@ -9,6 +9,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities'
 import { userStorage } from '@/lib/utils/userStorage'
 import { caseStorage } from '@/lib/utils/caseStorage'
+import AnswerPreviewModal from './AnswerPreviewModal'
 
 // Interface for defense structure
 interface Defense {
@@ -413,12 +414,14 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
   const [formData, setFormData] = useState({
     plaintiffName: '',
     defendantName: '',
-    complaintText: ''
+    complaintText: '',
+    isMultipleDefendants: false
   })
   const [generatedAnswer, setGeneratedAnswer] = useState('')
   const [answerSections, setAnswerSections] = useState<AnswerSections | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showAddDefense, setShowAddDefense] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
   const [newDefense, setNewDefense] = useState({
     number: '',
     causesOfAction: '',
@@ -481,7 +484,8 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
         },
         body: JSON.stringify({
           ...formData,
-          caseId: caseId // Explicitly scope to this case
+          caseId: caseId, // Explicitly scope to this case
+          isMultipleDefendants: formData.isMultipleDefendants
         }),
       })
 
@@ -528,7 +532,8 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
       await generateWordDoc({
         plaintiffName: formData.plaintiffName,
         defendantName: formData.defendantName,
-        generatedAnswer: generatedAnswer
+        generatedAnswer: generatedAnswer,
+        isMultipleDefendants: formData.isMultipleDefendants
       })
       toast.success('Word document downloaded!')
     } catch (error) {
@@ -815,6 +820,35 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  <Users className="w-4 h-4 mr-2 text-primary-600" />
+                  Defendant Representation
+                </label>
+                <div className="flex gap-6">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="isMultipleDefendants"
+                      checked={!formData.isMultipleDefendants}
+                      onChange={() => setFormData({ ...formData, isMultipleDefendants: false })}
+                      className="mr-2 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-700">Single Defendant</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      name="isMultipleDefendants"
+                      checked={formData.isMultipleDefendants}
+                      onChange={() => setFormData({ ...formData, isMultipleDefendants: true })}
+                      className="mr-2 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span className="text-gray-700">Multiple Defendants</span>
+                  </label>
+                </div>
+              </div>
+
               <button
                 onClick={generateAnswer}
                 disabled={isLoading}
@@ -846,6 +880,13 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
                     <h2 className="text-2xl font-semibold text-gray-800">Generated Answer</h2>
                   </div>
                   <div className="flex space-x-2">
+                    <button
+                      onClick={() => setShowPreview(true)}
+                      className="p-3 rounded-xl bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-110"
+                      title="Preview answer"
+                    >
+                      <FileText className="w-5 h-5" />
+                    </button>
                     <button
                       onClick={copyToClipboard}
                       className="p-3 rounded-xl bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-110"
@@ -1103,6 +1144,15 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
           )}
         </div>
       </div>
+      
+      {/* Preview Modal */}
+      <AnswerPreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        answerSections={answerSections}
+        formData={formData}
+        isMultipleDefendants={formData.isMultipleDefendants}
+      />
     </div>
   )
 }
