@@ -46,7 +46,7 @@ export function securityHeaders(request: NextRequest): NextResponse {
 }
 
 // Rate limiting middleware for Next.js API routes
-export function rateLimitMiddleware(request: NextRequest, limitType: 'general' | 'auth' | 'api' = 'general'): NextResponse | null {
+export function rateLimitMiddleware(request: NextRequest, limitType: 'general' | 'auth' | 'api' | 'strict' = 'general'): NextResponse | null {
   const ip = getRequestIP(request);
   const endpoint = request.nextUrl.pathname;
   
@@ -54,7 +54,8 @@ export function rateLimitMiddleware(request: NextRequest, limitType: 'general' |
   if (limitType === 'auth') {
     const { authRateLimit } = require('./rateLimiter');
     rateLimitResult = authRateLimit.isAllowed(ip);
-  } else if (limitType === 'api') {
+  } else if (limitType === 'api' || limitType === 'strict') {
+    // Map 'strict' to 'api' for stricter rate limiting
     const { apiRateLimit } = require('./rateLimiter');
     rateLimitResult = apiRateLimit.isAllowed(ip);
   } else {
