@@ -107,7 +107,7 @@ export function generateWordDocument(data: AnswerData): Document {
       ],
       spacing: { 
         line: lineSpacing,
-        before: paragraph.spacing?.before || 0,
+        before: (paragraph as any).spacing?.before || 0,
         after: 0, // No space after - content follows immediately
       },
       alignment: AlignmentType.LEFT,
@@ -132,8 +132,8 @@ export function generateWordDocument(data: AnswerData): Document {
       ...paragraph,
       spacing: {
         line: 240, // Double spacing for body text
-        before: paragraph.spacing?.before || 0,
-        after: paragraph.spacing?.after || 0,
+        before: (paragraph as any).spacing?.before || 0,
+        after: (paragraph as any).spacing?.after || 0,
       },
       indent: {
         left: 720, // Indent content to start after the margin area (0.5 inch = 720 twips)
