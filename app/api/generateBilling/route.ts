@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
-import { getOpenAIClient, getOpenAIModel } from '@/lib/openai/config';
-
-const openai = getOpenAIClient();
+// Use dynamic import to avoid loading config during build
 
 export async function POST(req: NextRequest) {
   try {
@@ -48,6 +46,9 @@ Description: ${descriptionResult.anonymizedText}
 
 Respond with a single, detailed billing entry line without time estimates.`;
 
+    // Dynamically import and initialize client inside handler to avoid build-time errors
+    const { getOpenAIClient, getOpenAIModel } = await import('@/lib/openai/config');
+    const openai = getOpenAIClient();
     const response = await openai.chat.completions.create({
       model: getOpenAIModel(),
       messages: [

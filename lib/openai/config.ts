@@ -13,15 +13,40 @@ import OpenAI from 'openai';
  * - OPENAI_TEMPERATURE: Temperature setting (default: 0.3)
  */
 
-// Get API key from environment
+// Check if we're in build mode - be very permissive to avoid build errors
+function isBuildTime(): boolean {
+  // Check multiple indicators of build time
+  return (
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.NEXT_PHASE === 'phase-development-build' ||
+    (typeof process.env.VERCEL === 'undefined' && process.env.NODE_ENV === 'production') ||
+    process.env.CI === 'true' ||
+    // If we're collecting page data during build
+    process.env.__NEXT_PRIVATE_ROUTER_BASEPATH !== undefined
+  );
+}
+
+// Get API key from environment - never throw during build
 export function getOpenAIApiKey(): string {
   const apiKey = process.env.OPENAI_API_KEY;
+  const isBuild = isBuildTime();
   
+  // During build or when key is missing, return empty string (will be validated at runtime)
+  // Never throw during build - this allows Next.js to statically analyze routes
   if (!apiKey) {
+    if (isBuild) {
+      return '';
+    }
+    // Only throw at runtime when key is actually needed
     throw new Error('OPENAI_API_KEY environment variable is not set');
   }
   
-  // Check for placeholder values
+  // During build, return the key as-is (even if it's a placeholder, we'll validate at runtime)
+  if (isBuild) {
+    return apiKey;
+  }
+  
+  // Check for placeholder values (only at runtime)
   if (apiKey.includes('your-openai-key-here') || apiKey.includes('your_openai_api_key_here')) {
     throw new Error('OPENAI_API_KEY appears to be a placeholder. Please set a valid API key.');
   }
@@ -48,9 +73,18 @@ export function getOpenAIConfig() {
 let openaiClient: OpenAI | null = null;
 
 export function getOpenAIClient(): OpenAI {
+  // During build, always return a dummy client that won't be used
+  if (isBuildTime()) {
+    return new OpenAI({ apiKey: 'dummy-key-for-build-time-only' });
+  }
+  
   if (!openaiClient) {
+    const apiKey = getOpenAIApiKey();
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
     openaiClient = new OpenAI({
-      apiKey: getOpenAIApiKey(),
+      apiKey,
     });
   }
   return openaiClient;
@@ -58,9 +92,21 @@ export function getOpenAIClient(): OpenAI {
 
 // Helper function for direct API calls (for routes that need fetch)
 export function getOpenAIHeaders(): Record<string, string> {
+  // During build, return dummy headers
+  if (isBuildTime()) {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer dummy-key-for-build-time-only',
+    };
+  }
+  
+  const apiKey = getOpenAIApiKey();
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY environment variable is not set');
+  }
   return {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${getOpenAIApiKey()}`,
+    'Authorization': `Bearer ${apiKey}`,
   };
 }
 

@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sanitizeForOpenAI, sanitizeAIContext, detectPII } from '@/app/services/deposition/utils/validation';
 import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
-import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai/config';
-
-// SECURE: OpenAI API key is server-side only (no NEXT_PUBLIC prefix)
-const openai = getOpenAIClient();
+// Use dynamic import to avoid loading config during build
 
 export async function POST(request: NextRequest) {
   try {
@@ -51,6 +48,9 @@ export async function POST(request: NextRequest) {
       ...contextResult.contextualMappings
     ];
 
+    // Dynamically import config to avoid build-time evaluation
+    const { isOpenAIConfigured } = await import('@/lib/openai/config');
+    
     // Check if API key is configured
     if (!isOpenAIConfigured()) {
       // Return mock response for testing
@@ -127,6 +127,9 @@ Return only the improved questions, no additional commentary.`;
       ? "You are a legal deposition expert specializing in note-taking, documentation, and legal writing. You help improve deposition notes to be more professional, organized, and legally useful."
       : "You are a legal deposition expert specializing in question optimization and legal strategy.";
 
+    // Dynamically import and initialize client inside handler to avoid build-time errors
+    const { getOpenAIClient, getOpenAIModel } = await import('@/lib/openai/config');
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       model: getOpenAIModel(),
       messages: [

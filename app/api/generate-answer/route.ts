@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sanitizeInput, validateAnswerInput, rateLimit, handleApiError } from '@/lib/utils/answerUtils'
 import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize'
-import { getOpenAIClient } from '@/lib/openai/config'
-
-const openai = getOpenAIClient()
+// Use dynamic import to avoid loading config during build
 
 // Standard California Civil Answer defenses - generated based on single/multiple defendants
 function generateStandardDefenses(isMultipleDefendants: boolean = false): string {
@@ -249,9 +247,11 @@ export async function POST(request: NextRequest) {
     const basicAnswer = generateBasicAnswer(plaintiffResult.anonymizedText, defendantResult.anonymizedText, complaintResult.anonymizedText, isMultipleDefendants || false)
 
     // If OpenAI API key is available, enhance the answer
-    const { isOpenAIConfigured } = await import('@/lib/openai/config');
+    const { isOpenAIConfigured, getOpenAIClient } = await import('@/lib/openai/config');
     if (isOpenAIConfigured()) {
       try {
+        // Dynamically import and initialize client inside handler to avoid build-time errors
+        const openai = getOpenAIClient();
         const completion = await openai.chat.completions.create({
           model: "gpt-4",
           messages: [
