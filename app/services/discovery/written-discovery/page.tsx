@@ -729,4 +729,3 @@ Defendant: ${caseInfo.defendant}
   )
 }
 
-export default WrittenDiscoveryGenerator
