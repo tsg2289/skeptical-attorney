@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       // Return mock response for testing
       let mockResponse;
       if (context === 'notes_improvement') {
-        mockResponse = `MOCK AI RESPONSE - Based on your prompt: "${sanitizedUserPrompt || 'Improve these notes'}"
+        mockResponse = `MOCK AI RESPONSE - Based on your prompt: "${userPrompt || 'Improve these notes'}"
 
 IMPROVED NOTES:
 - Key points have been summarized and organized
@@ -69,7 +69,7 @@ IMPROVED NOTES:
 
 Note: This is a mock response. Add your OpenAI API key to .env.local to get real AI suggestions.`;
       } else {
-        mockResponse = `MOCK AI RESPONSE - Based on your prompt: "${sanitizedUserPrompt || 'Improve these questions'}"
+        mockResponse = `MOCK AI RESPONSE - Based on your prompt: "${userPrompt || 'Improve these questions'}"
       
 1. Please state your full legal name for the record.
 2. What is your current occupation and place of employment?
