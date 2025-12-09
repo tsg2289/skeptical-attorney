@@ -232,7 +232,7 @@ export const DevDataProvider: React.FC<{ children: ReactNode }> = ({ children })
   const getDeposition = async (depositionId: string) => {
     await new Promise(resolve => setTimeout(resolve, 200));
     const stored = loadFromStorage<Record<string, Deposition>>(STORAGE_KEY_DEPOSITIONS + '_details', {});
-    const allDetails = { ...mockDepositionDetails, ...stored };
+    const allDetails = { ...mockDepositionDetails, ...stored } as unknown as Record<string, Deposition>;
     return allDetails[depositionId] || null;
   };
 
