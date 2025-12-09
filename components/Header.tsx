@@ -42,7 +42,13 @@ const Header = () => {
     router.refresh()
   }
 
-  const services = [
+  const services: Array<{
+    name: string
+    href: string
+    hasSubMenu?: boolean
+    subItems?: Array<{ name: string; href: string; external?: boolean }>
+    external?: boolean
+  }> = [
     { name: 'Demand Letters', href: '/services/demand-letters' },
     { 
       name: 'Pleadings', 
