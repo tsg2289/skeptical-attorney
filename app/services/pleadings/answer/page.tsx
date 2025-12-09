@@ -1,7 +1,7 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -11,6 +11,22 @@ import { userStorage } from '@/lib/utils/userStorage'
 import { caseStorage, Case } from '@/lib/utils/caseStorage'
 
 export default function AnswerPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white">
+          <Header />
+          <div className="p-6 text-gray-600">Loading answer generator...</div>
+          <Footer />
+        </div>
+      }
+    >
+      <AnswerPageContent />
+    </Suspense>
+  )
+}
+
+function AnswerPageContent() {
   const searchParams = useSearchParams()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
   const [currentCase, setCurrentCase] = useState<Case | null>(null)

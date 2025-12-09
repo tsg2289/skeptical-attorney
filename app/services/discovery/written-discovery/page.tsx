@@ -1,11 +1,25 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Scale, FileText, Download, Copy, Check } from 'lucide-react'
 import { userStorage } from '@/lib/utils/userStorage'
 import { caseStorage, Case } from '@/lib/utils/caseStorage'
+
+export default function WrittenDiscoveryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white">
+          <div className="p-6 text-gray-600">Loading written discovery...</div>
+        </div>
+      }
+    >
+      <WrittenDiscoveryGenerator />
+    </Suspense>
+  )
+}
 
 interface DiscoveryRequest {
   id: number
