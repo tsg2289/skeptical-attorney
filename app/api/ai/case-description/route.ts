@@ -5,8 +5,11 @@ export async function POST(request: NextRequest) {
   try {
     const { currentContent } = await request.json();
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    const { getOpenAIApiKey, getOpenAIHeaders } = await import('@/lib/openai/config');
+    let apiKey: string;
+    try {
+      apiKey = getOpenAIApiKey();
+    } catch (error) {
       return NextResponse.json(
         { error: 'OpenAI API key not configured' },
         { status: 500 }
@@ -29,12 +32,10 @@ Please help improve and expand this case description. The description should inc
 
 Generate an improved, well-organized case description that captures all essential information needed for drafting a demand letter. Be concise but comprehensive.`;
 
+    const headers = getOpenAIHeaders();
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
+import { getOpenAIClient, getOpenAIModel } from '@/lib/openai/config';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = getOpenAIClient();
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +15,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    const { isOpenAIConfigured } = await import('@/lib/openai/config');
+    if (!isOpenAIConfigured()) {
       return NextResponse.json(
         { error: 'OpenAI API key not configured' },
         { status: 500 }
@@ -50,7 +49,7 @@ Description: ${descriptionResult.anonymizedText}
 Respond with a single, detailed billing entry line without time estimates.`;
 
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || 'gpt-4',
+      model: getOpenAIModel(),
       messages: [
         {
           role: 'system',

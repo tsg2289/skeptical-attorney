@@ -19,8 +19,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check for API key
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    const { getOpenAIApiKey, getOpenAIHeaders } = await import('@/lib/openai/config');
+    let apiKey: string;
+    try {
+      apiKey = getOpenAIApiKey();
+    } catch (error) {
       return NextResponse.json(
         { error: 'OpenAI API key not configured' },
         { status: 500 }
@@ -113,12 +116,10 @@ Instructions:
 Generate the introduction now:`;
 
     // Call OpenAI API
+    const headers = getOpenAIHeaders();
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
         model: 'gpt-4o-mini', // Using cost-effective model
         messages: [

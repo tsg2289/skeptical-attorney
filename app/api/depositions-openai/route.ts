@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 import { sanitizeForOpenAI, sanitizeAIContext, detectPII } from '@/app/services/deposition/utils/validation';
 import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
+import { getOpenAIClient, getOpenAIModel, isOpenAIConfigured } from '@/lib/openai/config';
 
 // SECURE: OpenAI API key is server-side only (no NEXT_PUBLIC prefix)
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const openai = getOpenAIClient();
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,7 +52,7 @@ export async function POST(request: NextRequest) {
     ];
 
     // Check if API key is configured
-    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.includes('your-openai-key-here')) {
+    if (!isOpenAIConfigured()) {
       // Return mock response for testing
       let mockResponse;
       if (context === 'notes_improvement') {
@@ -130,7 +128,7 @@ Return only the improved questions, no additional commentary.`;
       : "You are a legal deposition expert specializing in question optimization and legal strategy.";
 
     const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4",
+      model: getOpenAIModel(),
       messages: [
         {
           role: "system",
