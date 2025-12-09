@@ -1,10 +1,25 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, PageBreak, Table, TableRow, TableCell, WidthType, BorderStyle as TableBorderStyle, Footer, SimpleField, Header } from 'docx'
 import { saveAs } from 'file-saver'
 
+export interface DefenseData {
+  number: string
+  causesOfAction?: string
+  title?: string
+  content: string
+}
+
+export interface AnswerSectionsData {
+  preamble?: string
+  defenses?: DefenseData[]
+  prayer?: string
+  signature?: string
+}
+
 export interface AnswerData {
   plaintiffName: string
   defendantName: string
   generatedAnswer: string
+  answerSections?: AnswerSectionsData  // Optional structured data for better Word output
   isMultipleDefendants?: boolean
   attorneyName?: string
   stateBarNumber?: string
@@ -26,6 +41,7 @@ export function generateWordDocument(data: AnswerData): Document {
     plaintiffName, 
     defendantName, 
     generatedAnswer,
+    answerSections,
     isMultipleDefendants = false,
     attorneyName = "[Attorney Name]",
     stateBarNumber = "[State Bar No.]",
@@ -59,18 +75,82 @@ export function generateWordDocument(data: AnswerData): Document {
   
   const children: (Paragraph | Table)[] = []
   let lineCount = 0
+  let lineNumber = 1 // Track current line number (1-28, resets per page)
+  let afterTitle = false // Track when we've passed the title - line numbers start here
 
-  // Helper function to add paragraph and track line count with double spacing
+  // Helper function to create TextRun with Times New Roman font
+  const createTextRun = (text: string, options: any = {}) => {
+    return new TextRun({
+      text,
+      size: 24, // 12 point font
+      font: "Times New Roman",
+      ...options,
+    })
+  }
+
+  // Helper function to add paragraph with line number in left margin
   const addParagraph = (paragraph: Paragraph) => {
-    children.push(paragraph)
-    lineCount++
+    // Only add line numbers after the title (body text)
+    if (!afterTitle) {
+      // Before title - add paragraph directly without line numbers
+      children.push(paragraph)
+      return
+    }
     
-    // Add page break after every 28 lines
+    // Body text uses double spacing (240 twips)
+    const lineSpacing = 240 // Double spacing for body text
+    
+    // Create paragraph for line number in left margin with vertical line
+    const lineNumberParagraph = new Paragraph({
+      children: [
+        createTextRun(lineNumber <= 28 ? lineNumber.toString() : ''),
+      ],
+      spacing: { 
+        line: lineSpacing,
+        before: paragraph.spacing?.before || 0,
+        after: 0, // No space after - content follows immediately
+      },
+      alignment: AlignmentType.LEFT,
+      indent: {
+        left: -1620, // Negative indent for 1.5 inch left margin (1.5 inch = 2160 twips, adjust for line number area)
+      },
+      border: {
+        right: {
+          color: "000000",
+          size: 4,
+          style: BorderStyle.SINGLE,
+          space: 0,
+        },
+      },
+    })
+    
+    // Add line number paragraph
+    children.push(lineNumberParagraph)
+    
+    // Add the content paragraph with left indent to account for margin
+    const contentParagraph = new Paragraph({
+      ...paragraph,
+      spacing: {
+        line: 240, // Double spacing for body text
+        before: paragraph.spacing?.before || 0,
+        after: paragraph.spacing?.after || 0,
+      },
+      indent: {
+        left: 720, // Indent content to start after the margin area (0.5 inch = 720 twips)
+      },
+    })
+    
+    children.push(contentParagraph)
+    lineCount++
+    lineNumber++
+    
+    // Reset line number after 28 lines and add page break
     if (lineCount % 28 === 0) {
+      lineNumber = 1 // Reset to 1 for next page
       children.push(
         new Paragraph({
           children: [new PageBreak()],
-          spacing: { line: 240 }, // Ensure page break has 12-point spacing
+          spacing: { line: 240, before: 0, after: 0 }, // Match double spacing
         })
       )
     }
@@ -78,8 +158,22 @@ export function generateWordDocument(data: AnswerData): Document {
 
   // Helper function to create 12-point line spaced paragraph
   const createDoubleParagraph = (textRuns: any[], options: any = {}) => {
+    // Ensure all TextRuns have Times New Roman font
+    const textRunsWithFont = textRuns.map(run => {
+      if (run instanceof TextRun) {
+        // Create new TextRun with font, preserving all other properties
+        return new TextRun({
+          text: (run as any).text,
+          size: (run as any).size || 24,
+          bold: (run as any).bold,
+          underline: (run as any).underline,
+          font: "Times New Roman",
+        })
+      }
+      return run
+    })
     return new Paragraph({
-      children: textRuns,
+      children: textRunsWithFont,
       spacing: { 
         line: 240, // Exactly 12 point line spacing
         ...options.spacing 
@@ -88,16 +182,50 @@ export function generateWordDocument(data: AnswerData): Document {
     })
   }
 
-  // Helper function to add table
+  // Helper function to create double spacing paragraph (12 point = 240 twips) for body text
+  const createOneAndHalfParagraph = (textRuns: any[], options: any = {}) => {
+    // Ensure all TextRuns have Times New Roman font
+    const textRunsWithFont = textRuns.map(run => {
+      if (run instanceof TextRun) {
+        // Create new TextRun with font, preserving all other properties
+        return new TextRun({
+          text: (run as any).text,
+          size: (run as any).size || 24,
+          bold: (run as any).bold,
+          underline: (run as any).underline,
+          font: "Times New Roman",
+        })
+      }
+      return run
+    })
+    return new Paragraph({
+      children: textRunsWithFont,
+      spacing: { 
+        line: 240, // Double spacing for body text (240 twips)
+        ...options.spacing 
+      },
+      ...options
+    })
+  }
+
+  // Helper function to add table (tables don't get line numbers, but we count their lines)
   const addTable = (table: Table, estimatedLines: number = 1) => {
     children.push(table)
     lineCount += estimatedLines
+    lineNumber += estimatedLines
+    
+    // Reset line number if it exceeds 28
+    if (lineNumber > 28) {
+      lineNumber = lineNumber - 28
+    }
     
     // Add page break after every 28 lines
     if (lineCount % 28 === 0) {
+      lineNumber = 1 // Reset to 1 for next page
       children.push(
         new Paragraph({
           children: [new PageBreak()],
+          spacing: { line: 360, before: 0, after: 0 }, // Match 1.5 spacing
         })
       )
     }
@@ -106,92 +234,62 @@ export function generateWordDocument(data: AnswerData): Document {
   // Attorney Header Information
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: `${attorneyName.toUpperCase()}, State Bar No. ${stateBarNumber}`,
-          size: 24,
-        }),
+        createTextRun(`${attorneyName.toUpperCase()}, State Bar No. ${stateBarNumber}`),
     ], { spacing: { after: 0 } })
   )
 
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: email,
-          size: 24,
-        }),
+        createTextRun(email),
     ], { spacing: { after: 0 } })
   )
 
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: lawFirmName.toUpperCase(),
-          size: 24,
-        }),
+        createTextRun(lawFirmName.toUpperCase()),
     ], { spacing: { after: 0 } })
   )
 
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: "Attorneys at Law",
-          size: 24,
-        }),
+        createTextRun("Attorneys at Law"),
     ], { spacing: { after: 0 } })
   )
 
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: address,
-          size: 24,
-        }),
+        createTextRun(address),
     ], { spacing: { after: 0 } })
   )
 
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: `Telephone: ${phone}`,
-          size: 24,
-        }),
+        createTextRun(`Telephone: ${phone}`),
     ], { spacing: { after: 0 } })
   )
 
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: `Facsimile: ${fax}`,
-          size: 24,
-        }),
+        createTextRun(`Facsimile: ${fax}`),
     ], { spacing: { after: 0 } })
   )
 
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: `Attorneys for ${defendantLabel} ${defendantName}`,
-          size: 24,
-        }),
+        createTextRun(`Attorneys for ${defendantLabel} ${defendantName}`),
     ], { spacing: { after: 400 } })
   )
 
   // Court Header
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: "SUPERIOR COURT OF THE STATE OF CALIFORNIA",
-          size: 24,
-        }),
+        createTextRun("SUPERIOR COURT OF THE STATE OF CALIFORNIA"),
     ], { alignment: AlignmentType.CENTER, spacing: { after: 0 } })
   )
 
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: `COUNTY OF ${county.toUpperCase()}`,
-          size: 24,
-        }),
+        createTextRun(`COUNTY OF ${county.toUpperCase()}`),
     ], { alignment: AlignmentType.CENTER, spacing: { after: 200 } })
   )
 
@@ -225,48 +323,27 @@ export function generateWordDocument(data: AnswerData): Document {
             },
       children: [
                 createDoubleParagraph([
-        new TextRun({
-          text: `${plaintiffName.toUpperCase()}, an individual,`,
-          size: 24,
-        }),
+        createTextRun(`${plaintiffName.toUpperCase()}, an individual,`),
                 ], { spacing: { after: 0 } }),
                 createDoubleParagraph([
-                  new TextRun({
-                    text: "",
-                    size: 24,
-                  }),
+                  createTextRun(""),
                 ], { spacing: { after: 0 } }),
                 createDoubleParagraph([
-        new TextRun({
-          text: isMultipleDefendants ? "Plaintiffs," : "Plaintiff,",
-          size: 24,
-        }),
+        createTextRun(isMultipleDefendants ? "Plaintiffs," : "Plaintiff,"),
                 ], { spacing: { after: 100 } }),
                 createDoubleParagraph([
-        new TextRun({
-          text: "v.",
-          size: 24,
-        }),
+        createTextRun("v."),
                 ], { spacing: { after: 100 } }),
                 createDoubleParagraph([
-        new TextRun({
-          text: isMultipleDefendants 
+        createTextRun(isMultipleDefendants 
             ? `${defendantName.toUpperCase()}, an individual; and DOES 1 to 25, Inclusive`
-            : `${defendantName.toUpperCase()}, an individual`,
-          size: 24,
-        }),
+            : `${defendantName.toUpperCase()}, an individual`),
                 ], { spacing: { after: 0 } }),
                 createDoubleParagraph([
-                  new TextRun({
-                    text: "",
-                    size: 24,
-                  }),
+                  createTextRun(""),
                 ], { spacing: { after: 0 } }),
                 createDoubleParagraph([
-        new TextRun({
-          text: isMultipleDefendants ? "Defendants." : "Defendant.",
-          size: 24,
-        }),
+        createTextRun(isMultipleDefendants ? "Defendants." : "Defendant."),
                 ], { spacing: { after: 0 } }),
               ],
           }),
@@ -283,46 +360,25 @@ export function generateWordDocument(data: AnswerData): Document {
             },
       children: [
               createDoubleParagraph([
-        new TextRun({
-          text: `Case No. ${caseNumber}`,
-          size: 24,
-        }),
+        createTextRun(`Case No. ${caseNumber}`),
               ], { spacing: { after: 100 } }),
               createDoubleParagraph([
-                new TextRun({
-                  text: "",
-                  size: 24,
-                }),
+                createTextRun(""),
               ], { spacing: { after: 0 } }),
               createDoubleParagraph([
-        new TextRun({
-          text: "Assigned for All Purposes to:",
-          size: 24,
-        }),
+        createTextRun("Assigned for All Purposes to:"),
               ], { spacing: { after: 0 } }),
               createDoubleParagraph([
-        new TextRun({
-          text: `Hon. ${judge}`,
-          size: 24,
-        }),
+        createTextRun(`Hon. ${judge}`),
               ], { spacing: { after: 0 } }),
               createDoubleParagraph([
-        new TextRun({
-          text: `Dept. ${department}`,
-          size: 24,
-                }),
+        createTextRun(`Dept. ${department}`),
               ], { spacing: { after: 100 } }),
               createDoubleParagraph([
-        new TextRun({
-          text: `Action Filed: ${actionFiled}`,
-          size: 24,
-        }),
+        createTextRun(`Action Filed: ${actionFiled}`),
               ], { spacing: { after: 0 } }),
               createDoubleParagraph([
-        new TextRun({
-          text: `Trial Date: ${trialDate}`,
-          size: 24,
-        }),
+        createTextRun(`Trial Date: ${trialDate}`),
               ], { spacing: { after: 0 } }),
             ],
           }),
@@ -336,17 +392,20 @@ export function generateWordDocument(data: AnswerData): Document {
   // Title
   addParagraph(
     createDoubleParagraph([
-        new TextRun({
-          text: `${defendantLabel.toUpperCase()} ${defendantName.toUpperCase()}'S ANSWER TO ${plaintiffPossessive.toUpperCase()} COMPLAINT; DEMAND FOR JURY TRIAL`,
+        createTextRun(`${defendantLabel.toUpperCase()} ${defendantName.toUpperCase()}'S ANSWER TO ${plaintiffPossessive.toUpperCase()} COMPLAINT; DEMAND FOR JURY TRIAL`, {
           bold: true,
-          size: 24,
         }),
     ], { alignment: AlignmentType.CENTER, spacing: { after: 200 } })
   )
 
-  // Filing information
+  // Mark that we're now after the title - start line numbering for body text
+  afterTitle = true
+  lineNumber = 1 // Start line numbering at 1
+  lineCount = 0 // Reset line count for body text
+
+  // Filing information - USE DOUBLE SPACING FROM HERE ON (body text)
   addParagraph(
-    createDoubleParagraph([
+    createOneAndHalfParagraph([
         new TextRun({
           text: `Action Filed: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`,
           size: 24,
@@ -355,7 +414,7 @@ export function generateWordDocument(data: AnswerData): Document {
   )
 
   addParagraph(
-    createDoubleParagraph([
+    createOneAndHalfParagraph([
         new TextRun({
           text: "Trial Date: None",
           size: 24,
@@ -365,7 +424,7 @@ export function generateWordDocument(data: AnswerData): Document {
 
   // Opening Statement
   addParagraph(
-    createDoubleParagraph([
+    createOneAndHalfParagraph([
         new TextRun({
           text: isMultipleDefendants 
             ? "TO PLAINTIFFS AND TO THEIR ATTORNEYS OF RECORD:"
@@ -376,7 +435,7 @@ export function generateWordDocument(data: AnswerData): Document {
   )
 
   addParagraph(
-    createDoubleParagraph([
+    createOneAndHalfParagraph([
         new TextRun({
           text: isMultipleDefendants
             ? `${defendantLabel} ${defendantName} ("${defendantLabel}") ${defendantVerb} ${plaintiffPronoun} ${plaintiffName} ("${plaintiffPronoun}") Complaint as follows:`
@@ -388,7 +447,7 @@ export function generateWordDocument(data: AnswerData): Document {
 
   // Jury Demand
   addParagraph(
-    createDoubleParagraph([
+    createOneAndHalfParagraph([
         new TextRun({
           text: `${defendantPronoun} hereby ${defendantVerb2} a jury trial in the above-entitled action.`,
           size: 24,
@@ -398,7 +457,7 @@ export function generateWordDocument(data: AnswerData): Document {
 
   // General Denial
   addParagraph(
-    createDoubleParagraph([
+    createOneAndHalfParagraph([
         new TextRun({
           text: isMultipleDefendants
             ? `Pursuant to the provisions of Section 431.30, subdivision (d) of the Code of Civil Procedure, ${defendantLabel} generally and specifically ${defendantVerb3} each and every allegation of ${plaintiffPossessive} Complaint, and the whole thereof, including each purported cause of action contained therein, and ${defendantLabel} ${defendantVerb3} that ${plaintiffPronoun} have been damaged in any sum, or sums, due to the conduct or omissions of ${defendantLabel}.`
@@ -408,9 +467,34 @@ export function generateWordDocument(data: AnswerData): Document {
     ], { spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED })
   )
 
+  // Add preamble if available (from structured data or parsed from text)
+  if (answerSections?.preamble) {
+    const preambleLines = answerSections.preamble.split('\n').filter(line => line.trim().length > 0)
+    preambleLines.forEach((line) => {
+      if (line.trim().length > 0) {
+        addParagraph(
+          createOneAndHalfParagraph([
+              new TextRun({
+                text: line.trim(),
+                size: 24,
+              }),
+          ], { spacing: { after: 100 }, alignment: AlignmentType.JUSTIFIED })
+        )
+      }
+    })
+    addParagraph(
+      createOneAndHalfParagraph([
+          new TextRun({
+            text: "",
+            size: 24,
+          }),
+      ], { spacing: { after: 200 } })
+    )
+  }
+
   // Affirmative Defenses Introduction
   addParagraph(
-    createDoubleParagraph([
+    createOneAndHalfParagraph([
         new TextRun({
           text: isMultipleDefendants
             ? `${defendantPronoun} herein ${defendantVerb4} and set forth separately and distinctly the following affirmative defenses to each and every cause of action as alleged in ${plaintiffPossessive} Complaint as though pleaded separately to each and every such cause of action.`
@@ -420,125 +504,211 @@ export function generateWordDocument(data: AnswerData): Document {
     ], { spacing: { after: 300 }, alignment: AlignmentType.JUSTIFIED })
   )
 
-  // Parse the generated answer to extract defenses
-  const defensePattern = /(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|THIRTEENTH|FOURTEENTH|FIFTEENTH|SIXTEENTH|SEVENTEENTH|EIGHTEENTH|NINETEENTH|TWENTIETH)\s+AFFIRMATIVE\s+DEFENSE/gi
-  const matches = [...generatedAnswer.matchAll(defensePattern)]
-  
-  if (matches.length > 0) {
-    for (let i = 0; i < matches.length; i++) {
-      const startIndex = matches[i].index!
-      const endIndex = i < matches.length - 1 ? matches[i + 1].index! : generatedAnswer.length
-      const defenseText = generatedAnswer.substring(startIndex, endIndex).trim()
-      const lines = defenseText.split('\n').map(line => line.trim()).filter(line => line.length > 0)
-      
-      const number = matches[i][1]
-      let title = ''
-      let content = ''
-      
-      // Extract title from parenthetical lines
-      for (let j = 1; j < lines.length; j++) {
-        const line = lines[j]
-        if (line.startsWith('(') && line.endsWith(')')) {
-          if (line.toLowerCase().includes('to all causes of action')) {
-            continue
-          }
-          if (!title) {
-            title = line.replace(/[()]/g, '').trim()
-          }
-        }
-      }
-      
-      // Get content (everything after header and title)
-      const contentStart = lines.findIndex((line, idx) => 
-        idx > 0 && !(line.startsWith('(') && line.endsWith(')'))
-      )
-      if (contentStart > 0) {
-        content = lines.slice(contentStart).join('\n').trim()
-      } else {
-        content = lines.slice(1).filter(line => !(line.startsWith('(') && line.endsWith(')'))).join('\n').trim()
-      }
-      
-      if (content) {
+  // Use structured defense data if available, otherwise parse from text
+  if (answerSections?.defenses && answerSections.defenses.length > 0) {
+    // Use structured data - more accurate and reliable
+    answerSections.defenses.forEach((defense) => {
+      if (defense.content && defense.content.trim().length > 0) {
         // Defense heading - BOLD and UNDERLINED
         addParagraph(
           new Paragraph({
             children: [
-              new TextRun({
-                text: `${number} AFFIRMATIVE DEFENSE`,
-                size: 24,
+              createTextRun(`${defense.number} AFFIRMATIVE DEFENSE`, {
                 bold: true,
                 underline: {},
               }),
             ],
-            spacing: { after: 0 },
+            spacing: { line: 240, after: 0 }, // Double spacing for body text
             alignment: AlignmentType.CENTER,
           })
         )
 
-        // Defense subtitle - BOLD and UNDERLINED
-        addParagraph(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `(To All Causes of Action)`,
-                size: 24,
-                bold: true,
-                underline: {},
-              }),
-            ],
-            spacing: { after: 0 },
-            alignment: AlignmentType.CENTER,
-          })
-        )
-
-        // Defense title - BOLD and UNDERLINED
-        if (title) {
+        // Defense subtitle - BOLD and UNDERLINED (if causes of action specified)
+        if (defense.causesOfAction && defense.causesOfAction.trim().length > 0) {
           addParagraph(
             new Paragraph({
               children: [
-                new TextRun({
-                  text: `(${title})`,
-                  size: 24,
+                createTextRun(`(${defense.causesOfAction})`, {
                   bold: true,
                   underline: {},
                 }),
               ],
-              spacing: { after: 100 },
+              spacing: { line: 240, after: 0 }, // Double spacing for body text
+              alignment: AlignmentType.CENTER,
+            })
+          )
+        } else {
+          // Default "To All Causes of Action" if not specified
+          addParagraph(
+            new Paragraph({
+              children: [
+                createTextRun(`(To All Causes of Action)`, {
+                  bold: true,
+                  underline: {},
+                }),
+              ],
+              spacing: { line: 240, after: 0 }, // Double spacing for body text
               alignment: AlignmentType.CENTER,
             })
           )
         }
 
-        // Defense content
-        addParagraph(
-          new Paragraph({
-            children: [
-              new TextRun({
-                text: `1. ${content}`,
-                size: 24,
-              }),
-            ],
-            spacing: { after: 200 },
-            alignment: AlignmentType.JUSTIFIED,
-          })
+        // Defense title - BOLD and UNDERLINED
+        if (defense.title && defense.title.trim().length > 0) {
+          addParagraph(
+            new Paragraph({
+              children: [
+                createTextRun(`(${defense.title})`, {
+                  bold: true,
+                  underline: {},
+                }),
+              ],
+              spacing: { line: 240, after: 100 }, // Double spacing for body text
+              alignment: AlignmentType.CENTER,
+            })
+          )
+        }
+
+        // Defense content - split by newlines to preserve formatting
+        const contentLines = defense.content.split('\n').filter(line => line.trim().length > 0)
+        if (contentLines.length > 0) {
+          const contentText = contentLines.join(' ').trim()
+          addParagraph(
+            new Paragraph({
+              children: [
+                createTextRun(contentText),
+              ],
+              spacing: { line: 240, after: 200 }, // Double spacing for body text
+              alignment: AlignmentType.JUSTIFIED,
+            })
+          )
+        }
+      }
+    })
+  } else {
+    // Fallback: Parse the generated answer to extract defenses from text
+    const defensePattern = /(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|THIRTEENTH|FOURTEENTH|FIFTEENTH|SIXTEENTH|SEVENTEENTH|EIGHTEENTH|NINETEENTH|TWENTIETH)\s+AFFIRMATIVE\s+DEFENSE/gi
+    const matches = [...generatedAnswer.matchAll(defensePattern)]
+    
+    if (matches.length > 0) {
+      for (let i = 0; i < matches.length; i++) {
+        const startIndex = matches[i].index!
+        const endIndex = i < matches.length - 1 ? matches[i + 1].index! : generatedAnswer.length
+        const defenseText = generatedAnswer.substring(startIndex, endIndex).trim()
+        const lines = defenseText.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+        
+        const number = matches[i][1]
+        let title = ''
+        let content = ''
+        
+        // Extract title from parenthetical lines
+        for (let j = 1; j < lines.length; j++) {
+          const line = lines[j]
+          if (line.startsWith('(') && line.endsWith(')')) {
+            if (line.toLowerCase().includes('to all causes of action')) {
+              continue
+            }
+            if (!title) {
+              title = line.replace(/[()]/g, '').trim()
+            }
+          }
+        }
+        
+        // Get content (everything after header and title)
+        const contentStart = lines.findIndex((line, idx) => 
+          idx > 0 && !(line.startsWith('(') && line.endsWith(')'))
         )
+        if (contentStart > 0) {
+          content = lines.slice(contentStart).join('\n').trim()
+        } else {
+          content = lines.slice(1).filter(line => !(line.startsWith('(') && line.endsWith(')'))).join('\n').trim()
+        }
+        
+        if (content) {
+          // Defense heading - BOLD and UNDERLINED
+          addParagraph(
+            new Paragraph({
+              children: [
+                createTextRun(`${number} AFFIRMATIVE DEFENSE`, {
+                  bold: true,
+                  underline: {},
+                }),
+              ],
+              spacing: { line: 240, after: 0 }, // Double spacing for body text
+              alignment: AlignmentType.CENTER,
+            })
+          )
+
+          // Defense subtitle - BOLD and UNDERLINED
+          addParagraph(
+            new Paragraph({
+              children: [
+                createTextRun(`(To All Causes of Action)`, {
+                  bold: true,
+                  underline: {},
+                }),
+              ],
+              spacing: { line: 240, after: 0 }, // Double spacing for body text
+              alignment: AlignmentType.CENTER,
+            })
+          )
+
+          // Defense title - BOLD and UNDERLINED
+          if (title) {
+            addParagraph(
+              new Paragraph({
+                children: [
+                  createTextRun(`(${title})`, {
+                    bold: true,
+                    underline: {},
+                  }),
+                ],
+                spacing: { line: 240, after: 100 }, // Double spacing for body text
+                alignment: AlignmentType.CENTER,
+              })
+            )
+          }
+
+          // Defense content
+          addParagraph(
+            new Paragraph({
+              children: [
+                createTextRun(content),
+              ],
+              spacing: { line: 240, after: 200 }, // Double spacing for body text
+              alignment: AlignmentType.JUSTIFIED,
+            })
+          )
+        }
       }
     }
   }
 
-  // Extract prayer section
-  const prayerMatch = generatedAnswer.match(/WHEREFORE/i)
-  if (prayerMatch) {
-    const prayerStart = prayerMatch.index!
-    const prayerText = generatedAnswer.substring(prayerStart).trim()
-    
-    // Remove AI analysis if present
-    const aiIndex = prayerText.indexOf('---')
-    const finalPrayerText = aiIndex > 0 ? prayerText.substring(0, aiIndex).trim() : prayerText
+  // Extract prayer section - use structured data if available
+  let prayerText = ''
+  if (data.answerSections?.prayer) {
+    prayerText = data.answerSections.prayer.trim()
+  } else {
+    // Fallback: parse from generated answer text
+    const prayerMatch = generatedAnswer.match(/WHEREFORE/i)
+    if (prayerMatch) {
+      const prayerStart = prayerMatch.index!
+      prayerText = generatedAnswer.substring(prayerStart).trim()
+      
+      // Remove AI analysis if present
+      const aiIndex = prayerText.indexOf('---')
+      if (aiIndex > 0) {
+        prayerText = prayerText.substring(0, aiIndex).trim()
+      }
+    }
+  }
+  
+  if (prayerText) {
+    const finalPrayerText = prayerText
     
     // Page break lines
     addParagraph(
-      createDoubleParagraph([
+      createOneAndHalfParagraph([
           new TextRun({
             text: "/ / /",
             size: 24,
@@ -547,7 +717,7 @@ export function generateWordDocument(data: AnswerData): Document {
     )
 
     addParagraph(
-      createDoubleParagraph([
+      createOneAndHalfParagraph([
           new TextRun({
             text: "/ / /",
             size: 24,
@@ -556,7 +726,7 @@ export function generateWordDocument(data: AnswerData): Document {
     )
 
     addParagraph(
-      createDoubleParagraph([
+      createOneAndHalfParagraph([
           new TextRun({
             text: "/ / /",
             size: 24,
@@ -569,7 +739,7 @@ export function generateWordDocument(data: AnswerData): Document {
     prayerLines.forEach((line, index) => {
       if (line.trim().toUpperCase().startsWith('WHEREFORE')) {
         addParagraph(
-          createDoubleParagraph([
+          createOneAndHalfParagraph([
               new TextRun({
                 text: line.trim(),
                 size: 24,
@@ -578,7 +748,7 @@ export function generateWordDocument(data: AnswerData): Document {
         )
       } else if (line.trim().toUpperCase().startsWith('DATED:')) {
         addParagraph(
-          createDoubleParagraph([
+          createOneAndHalfParagraph([
               new TextRun({
                 text: line.trim(),
                 size: 24,
@@ -587,7 +757,24 @@ export function generateWordDocument(data: AnswerData): Document {
         )
       } else if (line.trim().length > 0) {
         addParagraph(
-          createDoubleParagraph([
+          createOneAndHalfParagraph([
+              new TextRun({
+                text: line.trim(),
+                size: 24,
+              }),
+          ], { spacing: { after: 100 } })
+        )
+      }
+    })
+  }
+  
+  // Add signature section if available (from structured data)
+  if (data.answerSections?.signature && data.answerSections.signature.trim().length > 0) {
+    const signatureLines = data.answerSections.signature.split('\n').filter(line => line.trim().length > 0)
+    signatureLines.forEach((line) => {
+      if (line.trim().length > 0) {
+        addParagraph(
+          createOneAndHalfParagraph([
               new TextRun({
                 text: line.trim(),
                 size: 24,
@@ -598,64 +785,27 @@ export function generateWordDocument(data: AnswerData): Document {
     })
   }
 
-  // Create first page header with law firm info
+  // Create first page header (empty - line numbers are in document body)
   const createFirstPageHeader = () => {
     return new Header({
       children: [
         new Paragraph({
-          children: [
-            new TextRun({
-              text: lawFirmName.toUpperCase() || "[LAW FIRM NAME]",
-              size: 24,
-              bold: true,
-            }),
-          ],
-          alignment: AlignmentType.CENTER,
+          children: [],
           spacing: { line: 240, before: 0, after: 0 },
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: address || "[Address]",
-              size: 24,
-            }),
-          ],
-          alignment: AlignmentType.CENTER,
-          spacing: { line: 240, before: 0, after: 0 },
-        }),
-        new Paragraph({
-          children: [
-            new TextRun({
-              text: `Telephone: ${phone || "[Phone Number]"}  •  Facsimile: ${fax || "[Fax Number]"}`,
-              size: 24,
-            }),
-          ],
-          alignment: AlignmentType.CENTER,
-          spacing: { line: 240, before: 0, after: 200 },
         }),
       ],
     })
   }
 
-  // Create default header with line numbers 1-28
+  // Create default header (empty - line numbers are in document body)
   const createLineNumberHeader = () => {
-    const lineNumbers = Array.from({ length: 28 }, (_, i) => i + 1)
-    
     return new Header({
-      children: lineNumbers.map(num => 
+      children: [
         new Paragraph({
-          children: [
-            new TextRun({
-              text: num.toString(),
-              size: 24,
-            }),
-          ],
-          indent: {
-            left: -1080, // Position in left margin
-          },
+          children: [],
           spacing: { line: 240, before: 0, after: 0 },
-        })
-      ),
+        }),
+      ],
     })
   }
 
@@ -673,15 +823,9 @@ export function generateWordDocument(data: AnswerData): Document {
         }),
         new Paragraph({
           children: [
-            new TextRun({
-              text: "- ",
-              size: 24,
-            }),
+            createTextRun("- "),
             new SimpleField("PAGE"),
-            new TextRun({
-              text: " -",
-              size: 24,
-            }),
+            createTextRun(" -"),
           ],
           alignment: AlignmentType.CENTER,
           spacing: { line: 240, before: 0, after: 100 },
@@ -696,10 +840,7 @@ export function generateWordDocument(data: AnswerData): Document {
         }),
         new Paragraph({
           children: [
-            new TextRun({
-              text: `${defendantPossessive.toUpperCase()} ANSWER TO COMPLAINT`,
-              size: 24,
-            }),
+            createTextRun(`${defendantPossessive.toUpperCase()} ANSWER TO COMPLAINT; CASE No. ${caseNumber}`),
           ],
           alignment: AlignmentType.CENTER,
           spacing: { line: 240, before: 0, after: 0 },
@@ -722,15 +863,9 @@ export function generateWordDocument(data: AnswerData): Document {
         }),
         new Paragraph({
           children: [
-            new TextRun({
-              text: "- ",
-              size: 24,
-            }),
+            createTextRun("- "),
             new SimpleField("PAGE"),
-            new TextRun({
-              text: " -",
-              size: 24,
-            }),
+            createTextRun(" -"),
           ],
           alignment: AlignmentType.CENTER,
           spacing: { line: 240, before: 0, after: 100 },
@@ -745,10 +880,7 @@ export function generateWordDocument(data: AnswerData): Document {
         }),
         new Paragraph({
           children: [
-            new TextRun({
-              text: `${defendantPossessive.toUpperCase()} ANSWER TO COMPLAINT`,
-              size: 24,
-            }),
+            createTextRun(`${defendantPossessive.toUpperCase()} ANSWER TO COMPLAINT; CASE No. ${caseNumber}`),
           ],
           alignment: AlignmentType.CENTER,
           spacing: { line: 240, before: 0, after: 0 },
@@ -763,7 +895,7 @@ export function generateWordDocument(data: AnswerData): Document {
         properties: {
           page: {
             margin: {
-              left: 1440,      // 1 inch left margin in twips
+              left: 2160,      // 1.5 inch left margin in twips (California pleading requirement)
               right: 1440,     // 1 inch right margin in twips
               top: 1440,       // 1 inch top margin in twips
               bottom: 1440,    // 1 inch bottom margin in twips
@@ -874,22 +1006,10 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
   } = data;
 
   const children: (Paragraph | Table)[] = [];
-  let lineCount = 0;
 
-  // Helper function to add paragraph and track line count
+  // Helper function to add paragraph
   const addParagraph = (paragraph: Paragraph) => {
     children.push(paragraph);
-    lineCount++;
-    
-    // Add page break after every 28 lines
-    if (lineCount % 28 === 0) {
-      children.push(
-        new Paragraph({
-          children: [new PageBreak()],
-          spacing: { line: 240 },
-        })
-      );
-    }
   };
 
   // Helper function to create paragraph with proper spacing
@@ -993,7 +1113,7 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
     addParagraph(
       createParagraph([
         new TextRun({
-          text: section.title.toUpperCase(),
+          text: `${section.title.toUpperCase()}:`,
           size: 24,
           bold: true,
         }),
@@ -1095,6 +1215,57 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
     ], { spacing: { after: 0 } })
   );
 
+  // Create footer with title and page numbers
+  const createDemandLetterFooter = () => {
+    return new Footer({
+      children: [
+        new Paragraph({
+          children: [],
+          spacing: { line: 240, before: 0, after: 0 },
+        }),
+        // Line separator
+        new Paragraph({
+          children: [],
+          spacing: { line: 240, before: 0, after: 50 },
+          border: {
+            top: {
+              color: "000000",
+              size: 4,
+              style: BorderStyle.SINGLE,
+            },
+          },
+        }),
+        // Page number
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "- ",
+              size: 24,
+            }),
+            new SimpleField("PAGE"),
+            new TextRun({
+              text: " -",
+              size: 24,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { line: 240, before: 0, after: 50 },
+        }),
+        // Title
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "Demand Letter",
+              size: 24,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { line: 240, before: 0, after: 0 },
+        }),
+      ],
+    });
+  };
+
   return new Document({
     sections: [
       {
@@ -1107,6 +1278,10 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
               bottom: 1440,    // 1 inch bottom margin
             },
           },
+        },
+        footers: {
+          default: createDemandLetterFooter(),
+          even: createDemandLetterFooter(),
         },
         children: children,
       },

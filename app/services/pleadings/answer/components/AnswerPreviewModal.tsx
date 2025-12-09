@@ -58,10 +58,24 @@ export default function AnswerPreviewModal({
         .filter(Boolean)
         .join('\n\n');
 
+      // Prepare structured answer sections for better Word output
+      const answerSectionsData = {
+        preamble: answerSections.preamble || '',
+        defenses: answerSections.defenses.map(def => ({
+          number: def.number,
+          causesOfAction: def.causesOfAction || undefined,
+          title: def.title || undefined,
+          content: def.content
+        })),
+        prayer: answerSections.prayer || '',
+        signature: answerSections.signature || ''
+      };
+
       const answerData: AnswerData = {
         plaintiffName: formData.plaintiffName,
         defendantName: formData.defendantName,
         generatedAnswer: fullAnswer,
+        answerSections: answerSectionsData, // Pass structured data for better Word output
         isMultipleDefendants: isMultipleDefendants,
       };
 
