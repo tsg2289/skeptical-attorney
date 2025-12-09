@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -16,6 +16,22 @@ interface CardSection {
 }
 
 export default function DemandLetterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+          <Header />
+          <div className="p-6 text-gray-600">Loading demand letter...</div>
+          <Footer />
+        </div>
+      }
+    >
+      <DemandLetterPageContent />
+    </Suspense>
+  );
+}
+
+function DemandLetterPageContent() {
   const searchParams = useSearchParams();
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
   const [currentCase, setCurrentCase] = useState<Case | null>(null);
