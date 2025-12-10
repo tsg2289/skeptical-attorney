@@ -4779,7 +4779,10 @@ Dated: ${new Date().toLocaleDateString()}
             
             <div className="space-y-4">
               {attorneys.map((attorney, index) => (
-                <div key={attorney.id} className="glass rounded-xl p-4 border border-white/20">
+                <div
+                  key={attorney.id}
+                  className="rounded-2xl bg-white/30 border border-white/30 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)] backdrop-blur-xl backdrop-saturate-150 p-4"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4 text-gray-500" />
@@ -4811,7 +4814,7 @@ Dated: ${new Date().toLocaleDateString()}
                           value={attorney.name}
                           onChange={(e) => updateAttorney(attorney.id, 'name', e.target.value)}
                           placeholder="Full Name"
-                          className="input-field text-sm"
+                          className="input-field text-sm bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60"
                           disabled={isGenerating}
                         />
                       </div>
@@ -4825,7 +4828,7 @@ Dated: ${new Date().toLocaleDateString()}
                           value={attorney.email}
                           onChange={(e) => updateAttorney(attorney.id, 'email', e.target.value)}
                           placeholder="attorney@lawfirm.com"
-                          className="input-field text-sm"
+                          className="input-field text-sm bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60"
                           disabled={isGenerating}
                         />
                       </div>
@@ -4839,7 +4842,7 @@ Dated: ${new Date().toLocaleDateString()}
                           value={attorney.barNumber}
                           onChange={(e) => updateAttorney(attorney.id, 'barNumber', e.target.value)}
                           placeholder="123456"
-                          className="input-field text-sm"
+                          className="input-field text-sm bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60"
                           disabled={isGenerating}
                         />
                       </div>
@@ -4860,7 +4863,7 @@ Dated: ${new Date().toLocaleDateString()}
                             value={attorney.lawFirmName}
                             onChange={(e) => updateAttorney(attorney.id, 'lawFirmName', e.target.value)}
                             placeholder="Law Firm Name"
-                            className="input-field text-sm"
+                            className="input-field text-sm bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60"
                             disabled={isGenerating}
                           />
                         </div>
@@ -4874,7 +4877,7 @@ Dated: ${new Date().toLocaleDateString()}
                             value={attorney.lawFirmAddress}
                             onChange={(e) => updateAttorney(attorney.id, 'lawFirmAddress', e.target.value)}
                             placeholder="123 Main St, City, State ZIP"
-                            className="input-field text-sm"
+                            className="input-field text-sm bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60"
                             disabled={isGenerating}
                           />
                         </div>
@@ -4888,7 +4891,7 @@ Dated: ${new Date().toLocaleDateString()}
                             value={attorney.lawFirmPhone}
                             onChange={(e) => updateAttorney(attorney.id, 'lawFirmPhone', e.target.value)}
                             placeholder="(555) 123-4567"
-                            className="input-field text-sm"
+                            className="input-field text-sm bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60"
                             disabled={isGenerating}
                           />
                         </div>
@@ -4960,7 +4963,10 @@ Dated: ${new Date().toLocaleDateString()}
             
             <div className="space-y-3">
               {plaintiffs.map((plaintiff, index) => (
-                <div key={plaintiff.id} className="glass rounded-xl p-4 border border-white/20">
+                <div
+                  key={plaintiff.id}
+                  className="rounded-2xl bg-white/30 border border-white/30 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)] backdrop-blur-xl backdrop-saturate-150 p-4"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4 text-gray-500" />
@@ -4981,7 +4987,7 @@ Dated: ${new Date().toLocaleDateString()}
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Plaintiff Name
                     </label>
                     <input
@@ -4989,7 +4995,7 @@ Dated: ${new Date().toLocaleDateString()}
                       value={plaintiff.name}
                       onChange={(e) => updatePlaintiff(plaintiff.id, e.target.value)}
                       placeholder="Full Legal Name"
-                      className="input-field text-sm"
+                      className="input-field text-sm bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60"
                       disabled={isGenerating}
                     />
                   </div>
@@ -5026,7 +5032,10 @@ Dated: ${new Date().toLocaleDateString()}
             
             <div className="space-y-3">
               {defendants.map((defendant, index) => (
-                <div key={defendant.id} className="glass rounded-xl p-4 border border-white/20">
+                <div
+                  key={defendant.id}
+                  className="rounded-2xl bg-white/30 border border-white/30 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)] backdrop-blur-xl backdrop-saturate-150 p-4"
+                >
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4 text-gray-500" />
@@ -5047,7 +5056,7 @@ Dated: ${new Date().toLocaleDateString()}
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
                       Defendant Name
                     </label>
                     <input
@@ -5055,7 +5064,7 @@ Dated: ${new Date().toLocaleDateString()}
                       value={defendant.name}
                       onChange={(e) => updateDefendant(defendant.id, e.target.value)}
                       placeholder="Full Legal Name"
-                      className="input-field text-sm"
+                      className="input-field text-sm bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60"
                       disabled={isGenerating}
                     />
                   </div>
