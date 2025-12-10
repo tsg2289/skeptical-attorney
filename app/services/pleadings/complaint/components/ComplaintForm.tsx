@@ -4758,22 +4758,22 @@ Dated: ${new Date().toLocaleDateString()}
     <div className="glass-card rounded-2xl shadow-2xl border border-white/20">
       <div className="p-6">
         <div className="flex items-center space-x-3 mb-6">
-          <FileText className="w-6 h-6 text-white drop-shadow-lg" />
-          <h2 className="text-2xl font-bold text-white drop-shadow-lg">Generate Legal Complaint</h2>
+          <FileText className="w-6 h-6 text-blue-600" />
+          <h2 className="text-2xl font-bold text-gray-900">Generate Legal Complaint</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Attorney Information Section */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-medium text-white">
+              <label className="block text-sm font-medium text-gray-900">
                 Attorney Information
               </label>
-              <span className="text-xs text-gray-200 opacity-90">
+              <span className="text-xs text-gray-600">
                 {attorneys.length}/5 attorneys
               </span>
             </div>
-            <p className="text-gray-100 text-sm mb-4 opacity-90">
+            <p className="text-gray-700 text-sm mb-4">
               Enter attorney details for the complaint header. At least one attorney is required.
             </p>
             
@@ -4783,7 +4783,7 @@ Dated: ${new Date().toLocaleDateString()}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium text-white">
+                      <span className="text-sm font-medium text-gray-900">
                         Attorney {index + 1}
                       </span>
                     </div>
@@ -4803,7 +4803,7 @@ Dated: ${new Date().toLocaleDateString()}
                     {/* Attorney Personal Information */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-xs font-medium text-gray-200 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
                           Attorney Name
                         </label>
                         <input
@@ -4817,7 +4817,7 @@ Dated: ${new Date().toLocaleDateString()}
                       </div>
                       
                       <div>
-                        <label className="block text-xs font-medium text-gray-200 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
                           Email Address
                         </label>
                         <input
@@ -4831,7 +4831,7 @@ Dated: ${new Date().toLocaleDateString()}
                       </div>
                       
                       <div>
-                        <label className="block text-xs font-medium text-gray-200 mb-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
                           California State Bar Number
                         </label>
                         <input
@@ -4847,12 +4847,12 @@ Dated: ${new Date().toLocaleDateString()}
 
                     {/* Law Firm Information */}
                     <div className="border-t border-white/20 pt-3">
-                      <h4 className="text-xs font-semibold text-white mb-3 uppercase tracking-wide">
+                      <h4 className="text-xs font-semibold text-gray-900 mb-3 uppercase tracking-wide">
                         Law Firm Information
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-xs font-medium text-gray-200 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
                             Law Firm Name
                           </label>
                           <input
@@ -4866,7 +4866,7 @@ Dated: ${new Date().toLocaleDateString()}
                         </div>
                         
                         <div>
-                          <label className="block text-xs font-medium text-gray-200 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
                             Law Firm Address
                           </label>
                           <input
@@ -4880,7 +4880,7 @@ Dated: ${new Date().toLocaleDateString()}
                         </div>
                         
                         <div>
-                          <label className="block text-xs font-medium text-gray-200 mb-1">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
                             Telephone Number
                           </label>
                           <input
@@ -4914,10 +4914,10 @@ Dated: ${new Date().toLocaleDateString()}
 
           {/* County Selection */}
           <div>
-            <label htmlFor="county" className="block text-sm font-medium text-white mb-2">
+            <label htmlFor="county" className="block text-sm font-medium text-gray-900 mb-2">
               California County *
             </label>
-            <p className="text-gray-200 text-sm mb-3 opacity-90">
+            <p className="text-gray-700 text-sm mb-3">
               Select the county where the complaint will be filed.
             </p>
             <select
@@ -4947,14 +4947,14 @@ Dated: ${new Date().toLocaleDateString()}
           {/* Plaintiff Information Section */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-medium text-white">
+              <label className="block text-sm font-medium text-gray-900">
                 Plaintiff Information *
               </label>
               <span className="text-xs text-gray-500">
                 {plaintiffs.length}/10 plaintiffs
               </span>
             </div>
-            <p className="text-gray-200 text-sm mb-4 opacity-90">
+            <p className="text-gray-700 text-sm mb-4">
               Enter the name(s) of the plaintiff(s) in this case. At least one plaintiff is required.
             </p>
             
@@ -4964,7 +4964,7 @@ Dated: ${new Date().toLocaleDateString()}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium text-white">
+                      <span className="text-sm font-medium text-gray-900">
                         Plaintiff {index + 1}
                       </span>
                     </div>
@@ -5013,14 +5013,14 @@ Dated: ${new Date().toLocaleDateString()}
           {/* Defendant Information Section */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-medium text-white">
+              <label className="block text-sm font-medium text-gray-900">
                 Defendant Information *
               </label>
               <span className="text-xs text-gray-500">
                 {defendants.length}/10 defendants
               </span>
             </div>
-            <p className="text-gray-200 text-sm mb-4 opacity-90">
+            <p className="text-gray-700 text-sm mb-4">
               Enter the name(s) of the defendant(s) in this case. At least one defendant is required.
             </p>
             
@@ -5030,7 +5030,7 @@ Dated: ${new Date().toLocaleDateString()}
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center space-x-2">
                       <User className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm font-medium text-white">
+                      <span className="text-sm font-medium text-gray-900">
                         Defendant {index + 1}
                       </span>
                     </div>
@@ -5078,10 +5078,10 @@ Dated: ${new Date().toLocaleDateString()}
 
           {/* Case Number Section */}
           <div>
-            <label htmlFor="caseNumber" className="block text-sm font-medium text-white mb-2">
+            <label htmlFor="caseNumber" className="block text-sm font-medium text-gray-900 mb-2">
               Case Number
             </label>
-            <p className="text-gray-200 text-sm mb-3 opacity-90">
+            <p className="text-gray-700 text-sm mb-3">
               Enter the case number if already assigned by the court (optional).
             </p>
             <input
@@ -5106,7 +5106,7 @@ Dated: ${new Date().toLocaleDateString()}
             <label htmlFor="summary" className="block text-sm font-medium text-gray-700 mb-2">
               Case Summary *
             </label>
-            <p className="text-gray-200 text-sm mb-3 opacity-90">
+            <p className="text-gray-700 text-sm mb-3">
               Provide a detailed factual summary of the incident, including dates, locations, parties involved, 
               and the nature of damages or injuries.
             </p>
@@ -5135,7 +5135,7 @@ Dated: ${new Date().toLocaleDateString()}
           {/* Causes of Action Selection */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-medium text-white">
+              <label className="block text-sm font-medium text-gray-900">
                 Causes of Action (Optional)
               </label>
               <button
@@ -5146,7 +5146,7 @@ Dated: ${new Date().toLocaleDateString()}
                 {showCauseSelection ? 'Hide' : 'Select Specific'} Causes
               </button>
             </div>
-            <p className="text-gray-200 text-sm mb-3 opacity-90">
+            <p className="text-gray-700 text-sm mb-3">
               {showCauseSelection 
                 ? 'Select specific causes of action to include in your complaint. If none selected, the AI will automatically determine appropriate causes based on your case summary.'
                 : 'The AI will automatically determine appropriate causes of action based on your case summary, or you can select specific ones.'
