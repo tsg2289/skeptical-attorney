@@ -346,69 +346,69 @@ Executed on October 21, 2023, at Buena Park, California.
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <FileText className="w-6 h-6 text-white drop-shadow-lg" />
-            <h2 className="text-2xl font-bold text-white drop-shadow-lg">Generated Complaint</h2>
+            <FileText className="w-6 h-6 text-blue-600" />
+            <h2 className="text-2xl font-bold text-gray-900">Generated Complaint</h2>
           </div>
           <div className="flex items-center space-x-3">
             <button
               onClick={handleAddProofOfService}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl transition-all duration-300 ${
                 showProofOfService 
-                  ? 'glass-button text-white border border-white/40' 
-                  : 'glass text-white hover:bg-white/20 border border-white/20'
+                  ? 'glass-button text-gray-900 border border-white/40' 
+                  : 'glass text-gray-900 hover:bg-white/30 border border-white/40'
               }`}
             >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm font-medium">{showProofOfService ? 'Remove' : 'Add'} Proof of Service</span>
+              <Plus className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-900">{showProofOfService ? 'Remove' : 'Add'} Proof of Service</span>
             </button>
             <button
               onClick={handleDownloadWord}
-              className="flex items-center space-x-2 px-4 py-2 glass-button text-white rounded-xl transition-all duration-300"
+              className="flex items-center space-x-2 px-4 py-2 glass-button text-gray-900 rounded-xl transition-all duration-300 border border-white/40"
             >
-              <FileIcon className="w-4 h-4" />
-              <span className="text-sm font-medium">Download Word</span>
+              <FileIcon className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-900">Download Word</span>
             </button>
             <button
               onClick={onNewComplaint}
-              className="flex items-center space-x-2 px-4 py-2 glass-button text-white rounded-xl transition-all duration-300"
+              className="flex items-center space-x-2 px-4 py-2 glass-button text-gray-900 rounded-xl transition-all duration-300 border border-white/40"
             >
-              <RotateCcw className="w-4 h-4" />
-              <span className="text-sm font-medium">New Complaint</span>
+              <RotateCcw className="w-4 h-4 text-blue-600" />
+              <span className="text-sm font-medium text-gray-900">New Complaint</span>
             </button>
           </div>
         </div>
 
         {/* Success Message */}
-        <div className="glass border border-green-400/30 rounded-xl p-4 mb-6">
+        <div className="glass border border-green-200 rounded-xl p-4 mb-6 bg-white/60">
           <div className="flex items-center space-x-2">
-            <Check className="w-5 h-5 text-green-300" />
-            <span className="text-green-100 font-medium">
+            <Check className="w-5 h-5 text-green-600" />
+            <span className="text-green-800 font-medium">
               Complaint generated successfully with CACI-formatted causes of action!
             </span>
           </div>
-          <p className="text-green-100 text-sm mt-1 opacity-90">
+          <p className="text-green-700 text-sm mt-1">
             This complaint follows California Civil Jury Instructions (CACI) formatting standards. 
             Review the content below and make any necessary adjustments before filing.
           </p>
         </div>
 
         {/* CACI Information Panel */}
-        <div className="glass border border-blue-400/30 rounded-xl p-4 mb-6">
-          <h4 className="font-medium text-white mb-2">📖 CACI Formatting Features</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div className="glass border border-blue-200 rounded-xl p-4 mb-6 bg-white/60">
+          <h4 className="font-medium text-gray-900 mb-2">📖 CACI Formatting Features</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
             <div>
-              <h5 className="font-medium text-blue-100 mb-1">Cause of Action Structure:</h5>
-              <ul className="text-blue-50 space-y-1 opacity-90">
-                <li>• <span style={{backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 4px', borderLeft: '3px solid #60a5fa', borderRadius: '2px'}}>Highlighted headings</span> for each cause</li>
+              <h5 className="font-medium text-gray-800 mb-1">Cause of Action Structure:</h5>
+              <ul className="text-gray-700 space-y-1">
+                <li>• <span style={{backgroundColor: 'rgba(191, 219, 254, 0.5)', padding: '2px 4px', borderLeft: '3px solid #60a5fa', borderRadius: '2px'}}>Highlighted headings</span> for each cause</li>
                 <li>• Elements based on specific CACI instructions</li>
                 <li>• Proper incorporation by reference</li>
                 <li>• Sequential numbering throughout</li>
               </ul>
             </div>
             <div>
-              <h5 className="font-medium text-blue-100 mb-1">CACI References:</h5>
-              <ul className="text-blue-50 space-y-1 opacity-90">
-                <li>• <span style={{backgroundColor: 'rgba(255,255,255,0.2)', padding: '2px 4px', borderRadius: '3px'}}>CACI numbers</span> highlighted in yellow</li>
+              <h5 className="font-medium text-gray-800 mb-1">CACI References:</h5>
+              <ul className="text-gray-700 space-y-1">
+                <li>• <span style={{backgroundColor: 'rgba(254, 243, 199, 0.8)', padding: '2px 4px', borderRadius: '3px'}}>CACI numbers</span> highlighted in yellow</li>
                 <li>• Series-based organization (400, 700, 1000, etc.)</li>
                 <li>• Element-specific allegations</li>
                 <li>• California law compliance</li>
@@ -420,8 +420,8 @@ Executed on October 21, 2023, at Buena Park, California.
         {/* Complaint Content */}
         <div className="border border-white/20 rounded-xl glass">
           <div className="glass-dark px-4 py-2 border-b border-white/20 rounded-t-xl">
-            <h3 className="font-medium text-white">California Superior Court Document</h3>
-            <p className="text-gray-200 text-sm opacity-90">Generated: {new Date().toLocaleString()}</p>
+            <h3 className="font-medium text-gray-900">California Superior Court Document</h3>
+            <p className="text-gray-700 text-sm">Generated: {new Date().toLocaleString()}</p>
           </div>
           <div className="bg-white" style={{ padding: '0.75in 1in', fontFamily: 'Times New Roman, serif', fontSize: '12pt', lineHeight: '1.2' }}>
             {/* Court Document Container with proper margins */}
@@ -445,9 +445,9 @@ Executed on October 21, 2023, at Buena Park, California.
         </div>
 
         {/* Disclaimer */}
-        <div className="mt-6 glass border border-amber-400/30 rounded-xl p-4">
-          <h4 className="font-medium text-amber-100 mb-2">⚠️ Legal Disclaimer</h4>
-          <p className="text-amber-50 text-sm opacity-90">
+        <div className="mt-6 glass border border-amber-200 rounded-xl p-4 bg-white/60">
+          <h4 className="font-medium text-amber-800 mb-2">⚠️ Legal Disclaimer</h4>
+          <p className="text-amber-800 text-sm">
             This document is AI-generated and should be reviewed by a qualified attorney before filing. 
             The content may require modifications to meet specific jurisdictional requirements and 
             case-specific details. Always consult with legal counsel for proper legal advice.
