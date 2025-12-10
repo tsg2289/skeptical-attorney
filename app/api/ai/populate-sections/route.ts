@@ -1,36 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { anonymizeDataWithMapping, reidentifyData, PIIMapping } from '@/lib/utils/anonymize';
+import { anonymizeData } from '@/lib/utils/anonymize';
+
+function extractJsonObject(text: string) {
+  // If the model wrapped JSON in ```json fences, pull the inner block
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1].trim() : text.trim();
+
+  // Grab the first JSON object if extra prose surrounds it
+  const braceMatch = candidate.match(/\{[\s\S]*\}/);
+  const jsonString = braceMatch ? braceMatch[0] : candidate;
+
+  return JSON.parse(jsonString);
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { caseDescription, allSections, caseId } = await request.json();
+    const { caseDescription, allSections } = await request.json();
 
-    // CRITICAL: Log case ID for audit trail (but don't send to AI)
-    if (caseId) {
-      console.log(`[AUDIT] Processing demand letter for case: ${caseId}`);
-    }
-
-    const { getOpenAIApiKey, getOpenAIHeaders } = await import('@/lib/openai/config');
-    let apiKey: string;
-    try {
-      apiKey = getOpenAIApiKey();
-    } catch (error) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
       return NextResponse.json(
         { error: 'OpenAI API key not configured' },
         { status: 500 }
       );
     }
 
-    // CRITICAL: Only anonymize and send the case description provided
-    // Do NOT fetch or include any other case data
-    const descriptionResult = anonymizeDataWithMapping(caseDescription || '');
+    const anonymizedDescription = anonymizeData(caseDescription || '');
 
     const prompt = `You are a legal assistant helping to draft a demand letter. Analyze the following case description and determine the case type, then generate appropriate content for each section.
 
-IMPORTANT: You are working with a SINGLE, ISOLATED case. Only use the information provided below. Do not reference, infer, or incorporate information from any other cases.
-
 CASE DESCRIPTION:
-${descriptionResult.anonymizedText}
+${anonymizedDescription}
 
 FIRST: Determine the case type from the description. Is this:
 - PERSONAL INJURY (car accidents, slip and fall, product liability, etc.)
@@ -305,10 +305,12 @@ Section Requirements by Case Type:
 
 Generate the JSON response now. Only return valid JSON, no additional text.`;
 
-    const headers = getOpenAIHeaders();
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
@@ -359,7 +361,7 @@ Generate the JSON response now. Only return valid JSON, no additional text.`;
     }
 
     const data = await response.json();
-    let generatedText = data.choices[0]?.message?.content?.trim() || '';
+    const generatedText = data.choices[0]?.message?.content?.trim() || '';
 
     if (!generatedText) {
       return NextResponse.json(
@@ -368,25 +370,21 @@ Generate the JSON response now. Only return valid JSON, no additional text.`;
       );
     }
 
-    // Re-identify placeholders in the AI response before parsing
-    generatedText = reidentifyData(generatedText, descriptionResult.mapping, descriptionResult.contextualMappings);
-
     // Parse the JSON response
     let sectionsContent;
     try {
-      sectionsContent = JSON.parse(generatedText);
+      sectionsContent = extractJsonObject(generatedText);
       
       // Log which sections were generated for debugging
       console.log('Generated sections:', Object.keys(sectionsContent));
       console.log('Has LIABILITY section (3):', '3' in sectionsContent);
       
-      // Normalize all section values to strings and re-identify placeholders
+      // Normalize all section values to strings
       // If AI returns an object (like for IRAC structure), convert it to a formatted string
       const normalizedSections: Record<string, string> = {};
       for (const [key, value] of Object.entries(sectionsContent)) {
         if (typeof value === 'string') {
-          // Re-identify placeholders in each section's content
-          normalizedSections[key] = reidentifyData(value, descriptionResult.mapping, descriptionResult.contextualMappings);
+          normalizedSections[key] = value;
         } else if (typeof value === 'object' && value !== null) {
           // If it's an object, convert it to a formatted string
           // Handle IRAC structure or other nested objects
