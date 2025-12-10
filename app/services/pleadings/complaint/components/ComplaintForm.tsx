@@ -5111,8 +5111,8 @@ Dated: ${new Date().toLocaleDateString()}
             )}
           </div>
 
-          <div>
-            <label htmlFor="summary" className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="rounded-2xl bg-white/30 border border-white/30 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)] backdrop-blur-xl backdrop-saturate-150 p-4">
+            <label htmlFor="summary" className="block text-sm font-medium text-gray-900 mb-2">
               Case Summary *
             </label>
             <p className="text-gray-700 text-sm mb-3">
@@ -5127,12 +5127,12 @@ Dated: ${new Date().toLocaleDateString()}
                 setError('')
               }}
               placeholder="Enter your case summary here..."
-              className="textarea-field"
+              className="w-full rounded-lg bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60 textarea-field"
               disabled={isGenerating}
               rows={8}
             />
             <div className="flex justify-between items-center mt-2">
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-600">
                 {summary.length} characters (minimum 50)
               </span>
               {summary.length >= 50 && (
