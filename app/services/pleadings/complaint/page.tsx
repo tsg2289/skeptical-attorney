@@ -40,15 +40,15 @@ function ComplaintPageContent() {
       <Header />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        <div className="glass-card text-white p-8 rounded-2xl shadow-2xl border border-white/20">
+        <div className="glass-card p-8 rounded-2xl shadow-2xl border border-white/20">
           <div className="flex items-center space-x-3 mb-4">
-            <FileText className="w-8 h-8 text-white drop-shadow-lg" />
-            <h2 className="text-3xl font-bold text-white drop-shadow-lg">Professional Legal Complaint Generator</h2>
+            <FileText className="w-8 h-8 text-blue-600" />
+            <h2 className="text-3xl font-bold text-gray-900">Professional Legal Complaint Generator</h2>
           </div>
-          <p className="text-gray-100 text-lg opacity-95">
+          <p className="text-gray-700 text-lg">
             Create comprehensive California Superior Court complaints with AI assistance. Secure, professional, and efficient legal document generation.
           </p>
-          <div className="mt-6 flex items-center space-x-2 glass-button px-4 py-2 rounded-xl inline-flex border border-white/30">
+          <div className="mt-6 flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-xl inline-flex border border-blue-700 shadow-md">
             <Shield className="w-5 h-5 text-white" />
             <span className="text-white font-medium">Secure & Confidential</span>
           </div>
