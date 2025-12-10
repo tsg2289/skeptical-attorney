@@ -5391,24 +5391,24 @@ I. Jurisdiction
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Generating Complaint...</span>
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                  <span className="text-gray-900 font-semibold">Generating Complaint...</span>
                 </>
               ) : rateLimitCooldown > 0 ? (
                 <>
-                  <AlertCircle className="w-5 h-5" />
-                  <span>Please wait {rateLimitCooldown}s (Rate Limited)</span>
+                  <AlertCircle className="w-5 h-5 text-blue-600" />
+                  <span className="text-gray-900 font-semibold">Please wait {rateLimitCooldown}s (Rate Limited)</span>
                 </>
               ) : (
                 <>
-                  <Send className="w-5 h-5" />
-                  <span>Generate AI-Powered Complaint</span>
+                  <Send className="w-5 h-5 text-blue-600" />
+                  <span className="text-gray-900 font-semibold">Generate AI-Powered Complaint</span>
                 </>
               )}
             </button>
             
             <div className="text-center">
-              <span className="text-gray-500 text-sm">or</span>
+              <span className="text-gray-700 text-sm">or</span>
             </div>
             
             <button
@@ -5417,8 +5417,8 @@ I. Jurisdiction
               disabled={isGenerating}
               className="btn-secondary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <FileEdit className="w-5 h-5" />
-              <span>Use Manual Template</span>
+              <FileEdit className="w-5 h-5 text-blue-600" />
+              <span className="text-gray-900 font-semibold">Use Manual Template</span>
             </button>
           </div>
         </form>
