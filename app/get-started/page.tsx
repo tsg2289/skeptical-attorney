@@ -6,19 +6,10 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import Link from 'next/link'
 import { Lock, User, Mail, Building, Eye, EyeOff } from 'lucide-react'
-
-interface UserData {
-  username: string
-  email: string
-  password: string
-  fullName: string
-  firmName?: string
-  createdAt: string
-}
+import { createClient } from '@/lib/supabase/client'
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
-    username: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -28,17 +19,20 @@ export default function SignUp() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setSuccess(false)
     setLoading(true)
 
     try {
       // Validation
-      if (!formData.username || !formData.email || !formData.password || !formData.fullName) {
+      if (!formData.email || !formData.password || !formData.fullName) {
         setError('Please fill in all required fields')
         setLoading(false)
         return
@@ -56,51 +50,29 @@ export default function SignUp() {
         return
       }
 
-      // Check if username or email already exists
-      const existingUsers = JSON.parse(localStorage.getItem('users') || '[]')
-      const usernameExists = existingUsers.some((u: UserData) => u.username === formData.username)
-      const emailExists = existingUsers.some((u: UserData) => u.email === formData.email)
-
-      if (usernameExists) {
-        setError('Username already exists. Please choose a different one.')
-        setLoading(false)
-        return
-      }
-
-      if (emailExists) {
-        setError('Email already registered. Please use a different email or log in.')
-        setLoading(false)
-        return
-      }
-
-      // Create user data object
-      const userData: UserData = {
-        username: formData.username,
+      // Sign up with Supabase
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
-        password: formData.password, // In production, this should be hashed
-        fullName: formData.fullName,
-        firmName: formData.firmName || undefined,
-        createdAt: new Date().toISOString()
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.fullName,
+            firm_name: formData.firmName || null,
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+
+      if (signUpError) {
+        setError(signUpError.message || 'An error occurred during sign up')
+        setLoading(false)
+        return
       }
 
-      // Save to localStorage
-      existingUsers.push(userData)
-      localStorage.setItem('users', JSON.stringify(existingUsers))
-
-      // Set current user session
-      localStorage.setItem('currentUser', JSON.stringify({
-        username: userData.username,
-        email: userData.email,
-        fullName: userData.fullName,
-        firmName: userData.firmName,
-        loggedInAt: new Date().toISOString()
-      }))
-
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      // Redirect to home page
-      router.push('/')
+      if (data.user) {
+        setSuccess(true)
+        // Show success message and inform user to check email
+      }
     } catch (err: any) {
       setError(err.message || 'An error occurred during sign up')
     } finally {
@@ -113,6 +85,46 @@ export default function SignUp() {
       ...formData,
       [e.target.name]: e.target.value
     })
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <section className="py-20 bg-white">
+          <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 text-center">
+              <div className="mb-6">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100">
+                  <Mail className="h-6 w-6 text-green-600" />
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Check Your Email</h2>
+              <p className="text-gray-600 mb-6">
+                We've sent a verification link to <strong>{formData.email}</strong>. 
+                Please click the link in the email to verify your account and complete your registration.
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                Didn't receive the email? Check your spam folder or{' '}
+                <button
+                  onClick={() => setSuccess(false)}
+                  className="text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  try again
+                </button>
+              </p>
+              <Link
+                href="/login"
+                className="inline-block text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Back to Login
+              </Link>
+            </div>
+          </div>
+        </section>
+        <Footer />
+      </div>
+    )
   }
 
   return (
@@ -146,28 +158,6 @@ export default function SignUp() {
                     onChange={handleChange}
                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
                     placeholder="Enter your full name"
-                    required
-                  />
-                </div>
-              </div>
-
-              {/* Username Field */}
-              <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                  Username *
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="username"
-                    name="username"
-                    type="text"
-                    value={formData.username}
-                    onChange={handleChange}
-                    className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
-                    placeholder="Choose a username"
                     required
                   />
                 </div>
@@ -323,4 +313,3 @@ export default function SignUp() {
     </div>
   )
 }
-

@@ -1,5 +1,6 @@
-// Mock Supabase client - always uses localStorage for data persistence
-// This allows the app to work without a Supabase instance
+import { createBrowserClient } from '@supabase/ssr'
+
+// Mock Supabase client for fallback when Supabase is not configured
 function createMockClient() {
   return {
     auth: {
@@ -7,6 +8,7 @@ function createMockClient() {
       getUser: async () => ({ data: { user: null }, error: null }),
       signOut: async () => ({ error: null }),
       signInWithPassword: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
+      signUp: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
       signInWithOtp: async () => ({ data: null, error: { message: 'Supabase not configured' } }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       refreshSession: async () => ({ data: { session: null }, error: null }),
@@ -46,8 +48,6 @@ function createMockClient() {
       }),
     }),
     rpc: (functionName: string, params?: any) => {
-      // Always return success - data is saved to localStorage
-      // This allows components to work seamlessly with localStorage persistence
       return Promise.resolve({ 
         data: null, 
         error: null 
@@ -57,7 +57,18 @@ function createMockClient() {
 }
 
 export function createClient() {
-  // Always return mock client - app uses localStorage for data persistence
-  return createMockClient();
-}
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+  // Check if Supabase is properly configured
+  if (!supabaseUrl || !supabaseAnonKey || 
+      supabaseUrl.includes('placeholder') || 
+      supabaseAnonKey.includes('placeholder') ||
+      supabaseUrl.includes('your-project-id')) {
+    // Return mock client if Supabase is not configured
+    return createMockClient();
+  }
+
+  // Create real Supabase client
+  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+}

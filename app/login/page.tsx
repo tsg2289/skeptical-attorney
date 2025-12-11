@@ -5,15 +5,17 @@ import { useRouter } from 'next/navigation'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import Link from 'next/link'
-import { Lock, User, Eye, EyeOff } from 'lucide-react'
+import { Lock, Mail, Eye, EyeOff } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function Login() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,46 +23,33 @@ export default function Login() {
     setLoading(true)
 
     try {
-      if (!username || !password) {
-        setError('Please enter both username and password')
+      if (!email || !password) {
+        setError('Please enter both email and password')
         setLoading(false)
         return
       }
 
-      // Get users from localStorage
-      const users = JSON.parse(localStorage.getItem('users') || '[]')
-      
-      // Find user by username or email
-      const user = users.find((u: any) => 
-        u.username === username || u.email === username
-      )
+      // Sign in with Supabase
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-      if (!user) {
-        setError('Invalid username or password')
+      if (signInError) {
+        setError(signInError.message || 'Invalid email or password')
         setLoading(false)
         return
       }
 
-      // Check password (in production, this should compare hashed passwords)
-      if (user.password !== password) {
-        setError('Invalid username or password')
+      if (data.user && !data.user.email_confirmed_at) {
+        setError('Please verify your email before logging in. Check your inbox for the verification link.')
         setLoading(false)
         return
       }
 
-      // Set current user session
-      localStorage.setItem('currentUser', JSON.stringify({
-        username: user.username,
-        email: user.email,
-        fullName: user.fullName,
-        firmName: user.firmName,
-        loggedInAt: new Date().toISOString()
-      }))
-
-      // Simulate login delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-      
+      // Successfully logged in
       router.push('/')
+      router.refresh()
     } catch (err: any) {
       setError(err.message || 'An error occurred during login')
     } finally {
@@ -76,23 +65,28 @@ export default function Login() {
       <section className="py-20 bg-white">
         <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h1>
+              <p className="text-gray-600">Log in to your Skeptical Attorney account</p>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Username Field */}
+              {/* Email Field */}
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
+                    <Mail className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    id="username"
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
-                    placeholder="Enter your username"
+                    placeholder="Enter your email"
                     required
                   />
                 </div>
@@ -178,4 +172,3 @@ export default function Login() {
     </div>
   )
 }
-

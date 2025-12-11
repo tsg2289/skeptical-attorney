@@ -57,7 +57,18 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname === '/' ||
     request.nextUrl.pathname.startsWith('/services/deposition/debug') ||
     request.nextUrl.pathname.startsWith('/services/deposition/test') ||
-    request.nextUrl.pathname.startsWith('/services/deposition/admin-access')
+    request.nextUrl.pathname.startsWith('/services/deposition/admin-access') ||
+    request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/get-started') ||
+    request.nextUrl.pathname.startsWith('/auth/callback') ||
+    request.nextUrl.pathname.startsWith('/forgot-password') ||
+    request.nextUrl.pathname.startsWith('/about') ||
+    request.nextUrl.pathname.startsWith('/contact') ||
+    request.nextUrl.pathname.startsWith('/blog') ||
+    request.nextUrl.pathname.startsWith('/careers') ||
+    request.nextUrl.pathname.startsWith('/privacy') ||
+    request.nextUrl.pathname.startsWith('/terms') ||
+    request.nextUrl.pathname.startsWith('/cookies')
 
   // Check for dev bypass mode
   const isDevBypassEnabled = process.env.NODE_ENV === 'development' && 
@@ -84,4 +95,3 @@ export async function updateSession(request: NextRequest) {
 
   return supabaseResponse
 }
-

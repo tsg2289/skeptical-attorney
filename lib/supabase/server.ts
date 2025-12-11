@@ -1,11 +1,14 @@
-// Mock Supabase server client - always uses mock for demo mode
-// This allows the app to work without a Supabase instance
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+// Mock Supabase server client for fallback when Supabase is not configured
 function createMockServerClient() {
   return {
     auth: {
       getUser: async () => ({ data: { user: null }, error: null }),
       getSession: async () => ({ data: { session: null }, error: null }),
       signOut: async () => ({ error: null }),
+      exchangeCodeForSession: async () => ({ data: { session: null }, error: null }),
     },
     from: (table: string) => ({
       select: (columns?: string) => ({
@@ -51,7 +54,37 @@ function createMockServerClient() {
 }
 
 export async function createClient() {
-  // Always return mock client - app uses localStorage/demo mode for data persistence
-  return createMockServerClient();
-}
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
+  // Check if Supabase is properly configured
+  if (!supabaseUrl || !supabaseAnonKey || 
+      supabaseUrl.includes('placeholder') || 
+      supabaseAnonKey.includes('placeholder') ||
+      supabaseUrl.includes('your-project-id')) {
+    // Return mock client if Supabase is not configured
+    return createMockServerClient();
+  }
+
+  const cookieStore = await cookies()
+
+  // Create real Supabase server client
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll()
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        } catch {
+          // The `setAll` method was called from a Server Component.
+          // This can be ignored if you have middleware refreshing
+          // user sessions.
+        }
+      },
+    },
+  })
+}
