@@ -4,7 +4,12 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronDown, Menu, X, Scale } from 'lucide-react'
-import { userStorage } from '@/lib/utils/userStorage'
+import { createClient } from '@/lib/supabase/client'
+
+interface UserInfo {
+  email?: string
+  fullName?: string
+}
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -12,31 +17,50 @@ const Header = () => {
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false)
   const [isPleadingsOpen, setIsPleadingsOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const router = useRouter()
 
   useEffect(() => {
-    setIsLoggedIn(userStorage.isLoggedIn())
+    const supabase = createClient()
     
-    // Listen for storage changes (when user logs in/out in another tab)
-    const handleStorageChange = () => {
-      setIsLoggedIn(userStorage.isLoggedIn())
+    // Check initial auth state
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsLoggedIn(!!user)
+      if (user) {
+        setUserInfo({
+          email: user.email,
+          fullName: user.user_metadata?.full_name || user.user_metadata?.name
+        })
+      } else {
+        setUserInfo(null)
+      }
     }
-    window.addEventListener('storage', handleStorageChange)
+    checkUser()
     
-    // Check periodically for login state changes
-    const interval = setInterval(() => {
-      setIsLoggedIn(userStorage.isLoggedIn())
-    }, 1000)
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsLoggedIn(!!session?.user)
+      if (session?.user) {
+        setUserInfo({
+          email: session.user.email,
+          fullName: session.user.user_metadata?.full_name || session.user.user_metadata?.name
+        })
+      } else {
+        setUserInfo(null)
+      }
+    })
     
     return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      clearInterval(interval)
+      subscription.unsubscribe()
     }
   }, [])
 
-  const handleLogout = () => {
-    userStorage.clearCurrentUser()
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
     setIsLoggedIn(false)
+    setUserInfo(null)
     setIsMenuOpen(false)
     router.push('/')
     router.refresh()
@@ -225,12 +249,19 @@ const Header = () => {
                 >
                   Dashboard
                 </Link>
-                <button
-                  onClick={handleLogout}
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium"
-                >
-                  Log Out
-                </button>
+                <div className="flex flex-col items-center">
+                  <button
+                    onClick={handleLogout}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium"
+                  >
+                    Log Out
+                  </button>
+                  {userInfo && (
+                    <span className="text-xs text-gray-500 mt-1 truncate max-w-[120px]">
+                      {userInfo.fullName || userInfo.email}
+                    </span>
+                  )}
+                </div>
               </>
             ) : (
               <Link
@@ -385,6 +416,11 @@ const Header = () => {
               </Link>
               {isLoggedIn ? (
                 <>
+                  {userInfo && (
+                    <div className="px-3 py-2 text-sm text-gray-500">
+                      Signed in as: <span className="font-medium text-gray-700">{userInfo.fullName || userInfo.email}</span>
+                    </div>
+                  )}
                   <Link
                     href="/dashboard"
                     className="block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"

@@ -4,13 +4,19 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, FileText, LogOut, Trash2 } from 'lucide-react'
-import { userStorage, CurrentUser } from '@/lib/utils/userStorage'
 import { caseStorage, Case } from '@/lib/utils/caseStorage'
+import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 
+interface UserInfo {
+  id: string
+  email: string
+  fullName: string
+}
+
 export default function Dashboard() {
-  const [user, setUser] = useState<CurrentUser | null>(null)
+  const [user, setUser] = useState<UserInfo | null>(null)
   const [cases, setCases] = useState<Case[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -24,18 +30,30 @@ export default function Dashboard() {
   const router = useRouter()
 
   useEffect(() => {
-    const currentUser = userStorage.getCurrentUser()
-    setUser(currentUser)
-    
-    if (currentUser) {
-      const userCases = caseStorage.getUserCases(currentUser.username)
-      setCases(userCases)
-    } else {
-      // Redirect to login if not logged in
-      router.push('/login')
+    const checkAuth = async () => {
+      const supabase = createClient()
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser()
+      
+      if (supabaseUser) {
+        const userInfo: UserInfo = {
+          id: supabaseUser.id,
+          email: supabaseUser.email || '',
+          fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email || 'User'
+        }
+        setUser(userInfo)
+        
+        // Load cases using user ID
+        const userCases = caseStorage.getUserCases(supabaseUser.id)
+        setCases(userCases)
+      } else {
+        // Redirect to login if not logged in
+        router.push('/login')
+      }
+      
+      setLoading(false)
     }
     
-    setLoading(false)
+    checkAuth()
   }, [router])
 
   const handleAddCase = async (e: React.FormEvent) => {
@@ -56,7 +74,7 @@ export default function Dashboard() {
         caseNumber: formData.caseNumber.trim(),
         caseType: formData.caseType.trim() || undefined,
         client: formData.client.trim() || undefined,
-        userId: user.username
+        userId: user.id
       })
       
       setCases(prev => [newCase, ...prev])
@@ -77,17 +95,19 @@ export default function Dashboard() {
       return
     }
     
-    const deleted = caseStorage.deleteCase(user.username, caseId)
+    const deleted = caseStorage.deleteCase(user.id, caseId)
     if (deleted) {
       setCases(prev => prev.filter(c => c.id !== caseId))
     }
   }
 
-  const handleLogout = () => {
-    userStorage.clearCurrentUser()
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
     setUser(null)
     setCases([])
     router.push('/')
+    router.refresh()
   }
 
   // Show loading state
