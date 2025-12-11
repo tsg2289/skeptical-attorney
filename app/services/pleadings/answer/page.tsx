@@ -7,8 +7,8 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import AnswerGenerator from './components/AnswerGenerator'
 import { Toaster } from 'react-hot-toast'
-import { userStorage } from '@/lib/utils/userStorage'
-import { caseStorage, Case } from '@/lib/utils/caseStorage'
+import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
+import { createClient } from '@/lib/supabase/client'
 
 export default function AnswerPage() {
   return (
@@ -29,23 +29,30 @@ export default function AnswerPage() {
 function AnswerPageContent() {
   const searchParams = useSearchParams()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
-  const [currentCase, setCurrentCase] = useState<Case | null>(null)
+  const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
 
   useEffect(() => {
-    const caseId = searchParams?.get('caseId')
-    if (caseId) {
-      const currentUser = userStorage.getCurrentUser()
-      if (currentUser) {
-        // CRITICAL: Only retrieve the specific case by ID to prevent cross-contamination
-        const foundCase = caseStorage.getCase(currentUser.username, caseId)
-        if (foundCase) {
-          setCurrentCaseId(caseId)
-          setCurrentCase(foundCase)
-          // Log for audit trail
-          console.log(`[AUDIT] Answer page accessed for case: ${caseId}`)
+    const loadCase = async () => {
+      const caseId = searchParams?.get('caseId')
+      if (caseId) {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          // CRITICAL: Only retrieve the specific case by ID
+          // Row Level Security ensures user can only access their own cases
+          const foundCase = await supabaseCaseStorage.getCase(caseId)
+          if (foundCase) {
+            setCurrentCaseId(caseId)
+            setCurrentCase(foundCase)
+            // Log for audit trail
+            console.log(`[AUDIT] Answer page accessed for case: ${caseId}`)
+          }
         }
       }
     }
+    
+    loadCase()
   }, [searchParams])
   return (
     <div className="min-h-screen bg-white">

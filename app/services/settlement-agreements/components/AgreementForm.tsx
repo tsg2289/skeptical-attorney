@@ -6,8 +6,8 @@ import Input from './ui/Input';
 import Textarea from './ui/Textarea';
 import Button from './ui/Button';
 import Card from './ui/Card';
-import { userStorage } from '@/lib/utils/userStorage';
-import { caseStorage } from '@/lib/utils/caseStorage';
+import { supabaseCaseStorage } from '@/lib/supabase/caseStorage';
+import { createClient } from '@/lib/supabase/client';
 
 interface TemplateSection {
   id: string;
@@ -143,19 +143,22 @@ export default function AgreementForm({ caseId }: AgreementFormProps) {
   
   // Populate case data from caseId if provided
   useEffect(() => {
-    if (caseId) {
-      const currentUser = userStorage.getCurrentUser();
-      if (currentUser) {
-        // CRITICAL: Only retrieve the specific case by ID
-        const foundCase = caseStorage.getCase(currentUser.username, caseId);
-        if (foundCase) {
-          setCurrentCaseId(caseId);
-          // Log for audit trail
-          console.log(`[AUDIT] Settlement Agreement form initialized for case: ${caseId}`);
-          // Case data can be used to populate form fields if needed
+    const loadCase = async () => {
+      if (caseId) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const foundCase = await supabaseCaseStorage.getCase(caseId);
+          if (foundCase) {
+            setCurrentCaseId(caseId);
+            console.log(`[AUDIT] Settlement Agreement form initialized for case: ${caseId}`);
+          }
         }
       }
-    }
+    };
+    
+    loadCase();
   }, [caseId]);
   
   const [templateSections, setTemplateSections] = useState<TemplateSection[]>([

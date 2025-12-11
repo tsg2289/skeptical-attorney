@@ -4,8 +4,8 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Scale, FileText, Download, Copy, Check } from 'lucide-react'
-import { userStorage } from '@/lib/utils/userStorage'
-import { caseStorage, Case } from '@/lib/utils/caseStorage'
+import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
+import { createClient } from '@/lib/supabase/client'
 
 export default function WrittenDiscoveryPage() {
   return (
@@ -30,7 +30,7 @@ interface DiscoveryRequest {
 const WrittenDiscoveryGenerator = () => {
   const searchParams = useSearchParams()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
-  const [currentCase, setCurrentCase] = useState<Case | null>(null)
+  const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
   
   const [caseInfo, setCaseInfo] = useState({
     caseTitle: '',
@@ -56,32 +56,36 @@ const WrittenDiscoveryGenerator = () => {
 
   // Populate case data from caseId if provided
   useEffect(() => {
-    const caseId = searchParams?.get('caseId')
-    if (caseId) {
-      const currentUser = userStorage.getCurrentUser()
-      if (currentUser) {
-        // CRITICAL: Only retrieve the specific case by ID to prevent cross-contamination
-        const foundCase = caseStorage.getCase(currentUser.username, caseId)
-        if (foundCase) {
-          setCurrentCaseId(caseId)
-          setCurrentCase(foundCase)
-          // Log for audit trail
-          console.log(`[AUDIT] Discovery page accessed for case: ${caseId}`)
-          // Populate case info from case data
-          setCaseInfo(prev => ({
-            ...prev,
-            caseTitle: foundCase.caseName || prev.caseTitle,
-            caseNumber: foundCase.caseNumber || prev.caseNumber,
-            client: foundCase.client || prev.plaintiff,
-            plaintiff: foundCase.client || prev.plaintiff
-          }))
-          // Populate case facts if available
-          if (foundCase.facts) {
-            setCaseFactsInput(foundCase.facts)
+    const loadCase = async () => {
+      const caseId = searchParams?.get('caseId')
+      if (caseId) {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          const foundCase = await supabaseCaseStorage.getCase(caseId)
+          if (foundCase) {
+            setCurrentCaseId(caseId)
+            setCurrentCase(foundCase)
+            console.log(`[AUDIT] Discovery page accessed for case: ${caseId}`)
+            // Populate case info from case data
+            setCaseInfo(prev => ({
+              ...prev,
+              caseTitle: foundCase.caseName || prev.caseTitle,
+              caseNumber: foundCase.caseNumber || prev.caseNumber,
+              client: foundCase.client || prev.plaintiff,
+              plaintiff: foundCase.client || prev.plaintiff
+            }))
+            // Populate case facts if available
+            if (foundCase.facts) {
+              setCaseFactsInput(foundCase.facts)
+            }
           }
         }
       }
     }
+    
+    loadCase()
   }, [searchParams])
 
   const predefinedRequests = {

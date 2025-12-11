@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react'
 import { FileText, Copy, Download, Plus, Trash2, Sparkles, RefreshCw } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { userStorage } from '@/lib/utils/userStorage'
-import { caseStorage } from '@/lib/utils/caseStorage'
+import { supabaseCaseStorage } from '@/lib/supabase/caseStorage'
+import { createClient } from '@/lib/supabase/client'
 
 interface ComplaintGeneratorProps {
   caseId?: string | null
@@ -37,17 +37,24 @@ export default function ComplaintGenerator({ caseId }: ComplaintGeneratorProps) 
   const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (!caseId) return
-    const currentUser = userStorage.getCurrentUser()
-    if (!currentUser) return
-    const foundCase = caseStorage.getCase(currentUser.username, caseId)
-    if (foundCase) {
-      setFormData((prev) => ({
-        ...prev,
-        caseNumber: foundCase.caseNumber || prev.caseNumber,
-      }))
-      console.log(`[AUDIT] Complaint generator initialized for case: ${caseId}`)
+    const loadCase = async () => {
+      if (!caseId) return
+      
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      
+      const foundCase = await supabaseCaseStorage.getCase(caseId)
+      if (foundCase) {
+        setFormData((prev) => ({
+          ...prev,
+          caseNumber: foundCase.caseNumber || prev.caseNumber,
+        }))
+        console.log(`[AUDIT] Complaint generator initialized for case: ${caseId}`)
+      }
     }
+    
+    loadCase()
   }, [caseId])
 
   const updateField = (key: keyof FormState, value: string | boolean) => {

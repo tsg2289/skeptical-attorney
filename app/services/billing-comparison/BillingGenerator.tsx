@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { userStorage } from '@/lib/utils/userStorage';
-import { caseStorage } from '@/lib/utils/caseStorage';
+import { supabaseCaseStorage } from '@/lib/supabase/caseStorage';
+import { createClient } from '@/lib/supabase/client';
 
 interface BillingEntry {
   id?: number;
@@ -70,23 +70,26 @@ export default function BillingGenerator({ caseId: propCaseId }: BillingGenerato
 
   // Populate case data from caseId if provided
   useEffect(() => {
-    const caseId = propCaseId || searchParams?.get('caseId');
-    if (caseId) {
-      const currentUser = userStorage.getCurrentUser();
-      if (currentUser) {
-        // CRITICAL: Only retrieve the specific case by ID
-        const foundCase = caseStorage.getCase(currentUser.username, caseId);
-        if (foundCase) {
-          setCurrentCaseId(caseId);
-          // Log for audit trail
-          console.log(`[AUDIT] Billing Generator initialized for case: ${caseId}`);
-          // Populate case name from case data
-          if (foundCase.caseName) {
-            setCaseName(foundCase.caseName);
+    const loadCase = async () => {
+      const caseId = propCaseId || searchParams?.get('caseId');
+      if (caseId) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const foundCase = await supabaseCaseStorage.getCase(caseId);
+          if (foundCase) {
+            setCurrentCaseId(caseId);
+            console.log(`[AUDIT] Billing Generator initialized for case: ${caseId}`);
+            if (foundCase.caseName) {
+              setCaseName(foundCase.caseName);
+            }
           }
         }
       }
-    }
+    };
+    
+    loadCase();
   }, [propCaseId, searchParams]);
   const [dragOverEntryGroup, setDragOverEntryGroup] = useState<number | string | null>(null);
 

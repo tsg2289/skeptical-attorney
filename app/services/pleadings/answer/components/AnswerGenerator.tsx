@@ -7,8 +7,8 @@ import { downloadWordDocument as generateWordDoc } from '@/lib/docx-generator'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { userStorage } from '@/lib/utils/userStorage'
-import { caseStorage } from '@/lib/utils/caseStorage'
+import { supabaseCaseStorage } from '@/lib/supabase/caseStorage'
+import { createClient } from '@/lib/supabase/client'
 import AnswerPreviewModal from './AnswerPreviewModal'
 
 // Interface for defense structure
@@ -438,19 +438,22 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
 
   // Populate form data from case if caseId is provided
   useEffect(() => {
-    if (caseId) {
-      const currentUser = userStorage.getCurrentUser()
-      if (currentUser) {
-        // CRITICAL: Only retrieve the specific case by ID
-        const foundCase = caseStorage.getCase(currentUser.username, caseId)
-        if (foundCase) {
-          // Log for audit trail
-          console.log(`[AUDIT] Answer generator initialized for case: ${caseId}`)
-          // Populate form with case data if available
-          // Note: You may want to populate plaintiff/defendant names from case data
+    const loadCase = async () => {
+      if (caseId) {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          const foundCase = await supabaseCaseStorage.getCase(caseId)
+          if (foundCase) {
+            console.log(`[AUDIT] Answer generator initialized for case: ${caseId}`)
+            // Populate form with case data if available
+          }
         }
       }
     }
+    
+    loadCase()
   }, [caseId])
 
   // Update full answer when defenses are reordered

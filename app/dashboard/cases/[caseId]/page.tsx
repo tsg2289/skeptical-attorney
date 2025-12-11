@@ -32,6 +32,11 @@ export default function CaseDetailPage() {
   const [isDiscoveryHovered, setIsDiscoveryHovered] = useState(false)
   
   const [formData, setFormData] = useState({
+    caseName: '',
+    caseNumber: '',
+    caseType: '',
+    client: '',
+    description: '',
     facts: '',
     trialDate: ''
   })
@@ -63,6 +68,11 @@ export default function CaseDetailPage() {
         if (foundCase) {
           setCaseItem(foundCase)
           setFormData({
+            caseName: foundCase.caseName || '',
+            caseNumber: foundCase.caseNumber || '',
+            caseType: foundCase.caseType || '',
+            client: foundCase.client || '',
+            description: foundCase.description || '',
             facts: foundCase.facts || '',
             trialDate: foundCase.trialDate || ''
           })
@@ -80,9 +90,19 @@ export default function CaseDetailPage() {
   const handleSave = async () => {
     if (!user || !caseItem) return
     
+    if (!formData.caseName.trim() || !formData.caseNumber.trim()) {
+      alert('Case name and case number are required')
+      return
+    }
+    
     setIsSaving(true)
     try {
       const updated = await supabaseCaseStorage.updateCase(caseItem.id, {
+        caseName: formData.caseName.trim(),
+        caseNumber: formData.caseNumber.trim(),
+        caseType: formData.caseType.trim() || undefined,
+        client: formData.client.trim() || undefined,
+        description: formData.description.trim() || undefined,
         facts: formData.facts,
         trialDate: formData.trialDate
       })
@@ -249,17 +269,75 @@ export default function CaseDetailPage() {
         {/* Case Header */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 mb-8">
           <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">{caseItem.caseName}</h1>
-              <p className="text-lg text-gray-600">Case #: {caseItem.caseNumber}</p>
-              {caseItem.caseType && (
-                <p className="text-lg text-blue-600 mt-1">Type: {caseItem.caseType}</p>
-              )}
-              {caseItem.client && (
-                <p className="text-lg text-gray-700 mt-1">Client: {caseItem.client}</p>
-              )}
-              {caseItem.description && (
-                <p className="text-gray-600 mt-2">{caseItem.description}</p>
+            <div className="flex-1 mr-4">
+              {isEditing ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Case Name *</label>
+                    <input
+                      type="text"
+                      value={formData.caseName}
+                      onChange={(e) => setFormData({ ...formData, caseName: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black text-xl font-bold"
+                      placeholder="e.g., Smith vs. Johnson"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Case Number *</label>
+                    <input
+                      type="text"
+                      value={formData.caseNumber}
+                      onChange={(e) => setFormData({ ...formData, caseNumber: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
+                      placeholder="e.g., CV-2024-001"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Case Type</label>
+                    <input
+                      type="text"
+                      value={formData.caseType}
+                      onChange={(e) => setFormData({ ...formData, caseType: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
+                      placeholder="e.g., Personal Injury, Employment Law"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                    <input
+                      type="text"
+                      value={formData.client}
+                      onChange={(e) => setFormData({ ...formData, client: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
+                      placeholder="e.g., John Smith, ABC Corporation"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black min-h-[80px]"
+                      placeholder="Brief description of the case..."
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-4xl font-bold text-gray-900 mb-2">{caseItem.caseName}</h1>
+                  <p className="text-lg text-gray-600">Case #: {caseItem.caseNumber}</p>
+                  {caseItem.caseType && (
+                    <p className="text-lg text-blue-600 mt-1">Type: {caseItem.caseType}</p>
+                  )}
+                  {caseItem.client && (
+                    <p className="text-lg text-gray-700 mt-1">Client: {caseItem.client}</p>
+                  )}
+                  {caseItem.description && (
+                    <p className="text-gray-600 mt-2">{caseItem.description}</p>
+                  )}
+                </>
               )}
             </div>
             <button

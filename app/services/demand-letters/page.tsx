@@ -5,8 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { userStorage } from '@/lib/utils/userStorage';
-import { caseStorage, Case } from '@/lib/utils/caseStorage';
+import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage';
+import { createClient } from '@/lib/supabase/client';
 import PreviewModal from './components/PreviewModal';
 
 interface CardSection {
@@ -34,7 +34,7 @@ export default function DemandLetterPage() {
 function DemandLetterPageContent() {
   const searchParams = useSearchParams();
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
-  const [currentCase, setCurrentCase] = useState<Case | null>(null);
+  const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null);
   const [sections, setSections] = useState<CardSection[]>([
     { 
       id: '0', 
@@ -131,13 +131,16 @@ function DemandLetterPageContent() {
     }
 
     // CRITICAL: Ensure we only send data from the current case
-    // Verify we have a case ID and it matches the current session
+    // Verify we have a case ID and user is authenticated
     if (sectionId === '0' && currentCaseId) {
-      const currentUser = userStorage.getCurrentUser();
-      if (currentUser) {
-        const currentCase = caseStorage.getCase(currentUser.username, currentCaseId);
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Row Level Security ensures we can only access our own cases
+        const verifiedCase = await supabaseCaseStorage.getCase(currentCaseId);
         // Double-check: ensure we're only using this case's data
-        if (!currentCase) {
+        if (!verifiedCase) {
           setAiError('Case not found. Please ensure you are working with a valid case.');
           setTimeout(() => setAiError(null), 5000);
           return;
@@ -280,31 +283,39 @@ function DemandLetterPageContent() {
 
   // Populate case description from case facts - ONLY for the specific case
   useEffect(() => {
-    const caseId = searchParams?.get('caseId');
-    if (caseId) {
-      const currentUser = userStorage.getCurrentUser();
-      if (currentUser) {
-        // CRITICAL: Only retrieve the specific case by ID to prevent cross-contamination
-        const foundCase = caseStorage.getCase(currentUser.username, caseId);
+    const loadCase = async () => {
+      const caseId = searchParams?.get('caseId');
+      if (caseId) {
+        // Verify user is authenticated via Supabase
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
         
-        if (foundCase) {
-          // Store the case ID to ensure all operations are scoped to this case
-          setCurrentCaseId(caseId);
-          setCurrentCase(foundCase); // Store full case object for header display
+        if (user) {
+          // CRITICAL: Only retrieve the specific case by ID
+          // Row Level Security ensures user can only access their own cases
+          const foundCase = await supabaseCaseStorage.getCase(caseId);
           
-          // Only populate if case has facts - use ONLY this case's data
-          if (foundCase.facts) {
-            setSections(prevSections => 
-              prevSections.map(section => 
-                section.id === '0' 
-                  ? { ...section, content: foundCase.facts || section.content }
-                  : section
-              )
-            );
+          if (foundCase) {
+            // Store the case ID to ensure all operations are scoped to this case
+            setCurrentCaseId(caseId);
+            setCurrentCase(foundCase); // Store full case object for header display
+            
+            // Only populate if case has facts - use ONLY this case's data
+            if (foundCase.facts) {
+              setSections(prevSections => 
+                prevSections.map(section => 
+                  section.id === '0' 
+                    ? { ...section, content: foundCase.facts || section.content }
+                    : section
+                )
+              );
+            }
           }
         }
       }
-    }
+    };
+    
+    loadCase();
   }, [searchParams]);
 
   // Auto-resize textareas when sections change
