@@ -7,6 +7,29 @@ export interface Deadline {
   completed?: boolean
 }
 
+// Attorney - now nested under each party
+export interface Attorney {
+  id: string
+  name: string
+  firm?: string
+  barNumber?: string
+  address?: string
+  phone?: string
+  email?: string
+}
+
+// Party (Plaintiff or Defendant) - stored per case for complete isolation
+// Each party has their own attorneys nested within
+export interface Party {
+  id: string
+  name: string
+  type: 'individual' | 'corporation' | 'entity'
+  address?: string
+  phone?: string
+  email?: string
+  attorneys?: Attorney[]  // Counsel for this specific party
+}
+
 export interface Case {
   id: string
   user_id: string
@@ -20,12 +43,15 @@ export interface Case {
   msc_date?: string
   jury_trial?: boolean
   court_county?: string
+  court?: string
+  plaintiffs?: Party[]  // Each plaintiff has nested attorneys
+  defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
   created_at: string
 }
 
 // Helper to convert from camelCase (frontend) to snake_case (database)
-interface CaseInput {
+export interface CaseInput {
   caseName: string
   caseNumber: string
   caseType?: string
@@ -36,6 +62,9 @@ interface CaseInput {
   mscDate?: string
   juryTrial?: boolean
   courtCounty?: string
+  court?: string
+  plaintiffs?: Party[]  // Each plaintiff has nested attorneys
+  defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
 }
 
@@ -53,6 +82,9 @@ export interface CaseFrontend {
   mscDate?: string
   juryTrial?: boolean
   courtCounty?: string
+  court?: string
+  plaintiffs?: Party[]  // Each plaintiff has nested attorneys
+  defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
   createdAt: string
 }
@@ -71,6 +103,9 @@ function toFrontendCase(dbCase: Case): CaseFrontend {
     mscDate: dbCase.msc_date,
     juryTrial: dbCase.jury_trial,
     courtCounty: dbCase.court_county,
+    court: dbCase.court,
+    plaintiffs: dbCase.plaintiffs,
+    defendants: dbCase.defendants,
     deadlines: dbCase.deadlines,
     createdAt: dbCase.created_at,
   }
@@ -88,6 +123,9 @@ function toDbCase(input: CaseInput): Partial<Case> {
     msc_date: input.mscDate,
     jury_trial: input.juryTrial,
     court_county: input.courtCounty,
+    court: input.court,
+    plaintiffs: input.plaintiffs,
+    defendants: input.defendants,
     deadlines: input.deadlines,
   }
 }

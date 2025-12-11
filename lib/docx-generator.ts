@@ -21,19 +21,28 @@ export interface AnswerData {
   generatedAnswer: string
   answerSections?: AnswerSectionsData  // Optional structured data for better Word output
   isMultipleDefendants?: boolean
+  // Attorney/Firm Information
   attorneyName?: string
   stateBarNumber?: string
   email?: string
   lawFirmName?: string
-  address?: string
+  addressLine1?: string              // Street address (e.g., "2465 Boulevard East, 9th Floor")
+  addressLine2?: string              // City, State ZIP (e.g., "Telluride, California 98623-4568")
   phone?: string
   fax?: string
-  county?: string
+  partyRole?: string                 // e.g., "Defendant" or "Plaintiff" - used in "Attorneys for [partyRole] [clientName]"
+  // Court Information
+  county?: string                    // e.g., "LOS ANGELES"
+  courtDistrict?: string             // e.g., "CENTRAL DISTRICT" (optional)
   caseNumber?: string
   judge?: string
   department?: string
   actionFiled?: string
   trialDate?: string
+  // Document Options
+  documentTitle?: string             // Custom document title (e.g., "DEFENDANT'S ANSWER TO COMPLAINT")
+  useGeneralDenial?: boolean         // Whether to include the general denial paragraph
+  customGeneralDenial?: string       // Custom general denial text (optional)
 }
 
 export function generateWordDocument(data: AnswerData): Document {
@@ -43,19 +52,28 @@ export function generateWordDocument(data: AnswerData): Document {
     generatedAnswer,
     answerSections,
     isMultipleDefendants = false,
+    // Attorney/Firm Information
     attorneyName = "[Attorney Name]",
     stateBarNumber = "[State Bar No.]",
     email = "[email@lawfirm.com]",
     lawFirmName = "[LAW FIRM NAME]",
-    address = "[Address]",
+    addressLine1 = "[Address]",
+    addressLine2 = "[City, State ZIP]",
     phone = "[Phone Number]",
     fax = "[Fax Number]",
+    partyRole,
+    // Court Information
     county = "LOS ANGELES",
+    courtDistrict = "",
     caseNumber = "[Case No.]",
     judge = "[Judge Name]",
     department = "[Dept.]",
     actionFiled = "September 3, 2020",
-    trialDate = "None"
+    trialDate = "None",
+    // Document Options
+    documentTitle,
+    useGeneralDenial = true,
+    customGeneralDenial,
   } = data
 
   // Helper variables for singular/plural
@@ -258,7 +276,13 @@ export function generateWordDocument(data: AnswerData): Document {
 
   addParagraph(
     createDoubleParagraph([
-        createTextRun(address),
+        createTextRun(addressLine1),
+    ], { spacing: { after: 0 } })
+  )
+
+  addParagraph(
+    createDoubleParagraph([
+        createTextRun(addressLine2),
     ], { spacing: { after: 0 } })
   )
 
@@ -274,9 +298,11 @@ export function generateWordDocument(data: AnswerData): Document {
     ], { spacing: { after: 0 } })
   )
 
+  // Use partyRole if provided, otherwise use default based on isMultipleDefendants
+  const displayPartyRole = partyRole || defendantLabel
   addParagraph(
     createDoubleParagraph([
-        createTextRun(`Attorneys for ${defendantLabel} ${defendantName}`),
+        createTextRun(`Attorneys for ${displayPartyRole} ${defendantName}`),
     ], { spacing: { after: 400 } })
   )
 
@@ -287,9 +313,13 @@ export function generateWordDocument(data: AnswerData): Document {
     ], { alignment: AlignmentType.CENTER, spacing: { after: 0 } })
   )
 
+  // Include court district if provided
+  const countyLine = courtDistrict 
+    ? `COUNTY OF ${county.toUpperCase()}, ${courtDistrict.toUpperCase()}`
+    : `COUNTY OF ${county.toUpperCase()}`
   addParagraph(
     createDoubleParagraph([
-        createTextRun(`COUNTY OF ${county.toUpperCase()}`),
+        createTextRun(countyLine),
     ], { alignment: AlignmentType.CENTER, spacing: { after: 200 } })
   )
 
@@ -389,10 +419,12 @@ export function generateWordDocument(data: AnswerData): Document {
 
   addTable(caseCaptionTable, 8)
 
-  // Title
+  // Title - use custom documentTitle if provided, otherwise generate default
+  const defaultDocumentTitle = `${defendantLabel.toUpperCase()} ${defendantName.toUpperCase()}'S ANSWER TO ${plaintiffPossessive.toUpperCase()} COMPLAINT; DEMAND FOR JURY TRIAL`
+  const displayDocumentTitle = documentTitle || defaultDocumentTitle
   addParagraph(
     createDoubleParagraph([
-        createTextRun(`${defendantLabel.toUpperCase()} ${defendantName.toUpperCase()}'S ANSWER TO ${plaintiffPossessive.toUpperCase()} COMPLAINT; DEMAND FOR JURY TRIAL`, {
+        createTextRun(displayDocumentTitle, {
           bold: true,
         }),
     ], { alignment: AlignmentType.CENTER, spacing: { after: 200 } })
@@ -455,17 +487,23 @@ export function generateWordDocument(data: AnswerData): Document {
     ], { spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED })
   )
 
-  // General Denial
-  addParagraph(
-    createOneAndHalfParagraph([
-        new TextRun({
-          text: isMultipleDefendants
-            ? `Pursuant to the provisions of Section 431.30, subdivision (d) of the Code of Civil Procedure, ${defendantLabel} generally and specifically ${defendantVerb3} each and every allegation of ${plaintiffPossessive} Complaint, and the whole thereof, including each purported cause of action contained therein, and ${defendantLabel} ${defendantVerb3} that ${plaintiffPronoun} have been damaged in any sum, or sums, due to the conduct or omissions of ${defendantLabel}.`
-            : `Pursuant to the provisions of Section 431.30, subdivision (d) of the Code of Civil Procedure, ${defendantLabel} generally and specifically ${defendantVerb3} each and every allegation of ${plaintiffPossessive} Complaint, and the whole thereof, including each purported cause of action contained therein, and ${defendantLabel} ${defendantVerb3} that ${plaintiffLabel} has been damaged in any sum, or sums, due to the conduct or omissions of ${defendantLabel}.`,
-          size: 24,
-        }),
-    ], { spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED })
-  )
+  // General Denial (conditional based on useGeneralDenial flag)
+  if (useGeneralDenial) {
+    const defaultGeneralDenialText = isMultipleDefendants
+      ? `Pursuant to the provisions of Section 431.30, subdivision (d) of the Code of Civil Procedure, ${defendantLabel} generally and specifically ${defendantVerb3} each and every allegation of ${plaintiffPossessive} Complaint, and the whole thereof, including each purported cause of action contained therein, and ${defendantLabel} ${defendantVerb3} that ${plaintiffPronoun} have been damaged in any sum, or sums, due to the conduct or omissions of ${defendantLabel}.`
+      : `Pursuant to the provisions of Section 431.30, subdivision (d) of the Code of Civil Procedure, ${defendantLabel} generally and specifically ${defendantVerb3} each and every allegation of ${plaintiffPossessive} Complaint, and the whole thereof, including each purported cause of action contained therein, and ${defendantLabel} ${defendantVerb3} that ${plaintiffLabel} has been damaged in any sum, or sums, due to the conduct or omissions of ${defendantLabel}.`
+    
+    const generalDenialText = customGeneralDenial || defaultGeneralDenialText
+    
+    addParagraph(
+      createOneAndHalfParagraph([
+          new TextRun({
+            text: generalDenialText,
+            size: 24,
+          }),
+      ], { spacing: { after: 200 }, alignment: AlignmentType.JUSTIFIED })
+    )
+  }
 
   // Add preamble if available (from structured data or parsed from text)
   if (answerSections?.preamble) {

@@ -26,6 +26,25 @@ interface AnswerPreviewModalProps {
   formData: {
     plaintiffName: string;
     defendantName: string;
+    // Attorney/Firm Information
+    attorneyName?: string;
+    stateBarNumber?: string;
+    attorneyEmail?: string;
+    lawFirmName?: string;
+    addressLine1?: string;
+    addressLine2?: string;
+    phone?: string;
+    fax?: string;
+    // Court Information
+    county?: string;
+    courtDistrict?: string;
+    caseNumber?: string;
+    judgeName?: string;
+    department?: string;
+    actionFiled?: string;
+    trialDate?: string;
+    // Document Options
+    useGeneralDenial?: boolean;
   };
   isMultipleDefendants?: boolean;
 }
@@ -75,8 +94,27 @@ export default function AnswerPreviewModal({
         plaintiffName: formData.plaintiffName,
         defendantName: formData.defendantName,
         generatedAnswer: fullAnswer,
-        answerSections: answerSectionsData, // Pass structured data for better Word output
+        answerSections: answerSectionsData,
         isMultipleDefendants: isMultipleDefendants,
+        // Attorney/Firm Information
+        attorneyName: formData.attorneyName || undefined,
+        stateBarNumber: formData.stateBarNumber || undefined,
+        email: formData.attorneyEmail || undefined,
+        lawFirmName: formData.lawFirmName || undefined,
+        addressLine1: formData.addressLine1 || undefined,
+        addressLine2: formData.addressLine2 || undefined,
+        phone: formData.phone || undefined,
+        fax: formData.fax || undefined,
+        // Court Information
+        county: formData.county || undefined,
+        courtDistrict: formData.courtDistrict || undefined,
+        caseNumber: formData.caseNumber || undefined,
+        judge: formData.judgeName || undefined,
+        department: formData.department || undefined,
+        actionFiled: formData.actionFiled || undefined,
+        trialDate: formData.trialDate || undefined,
+        // Document Options
+        useGeneralDenial: formData.useGeneralDenial ?? true,
       };
 
       await downloadWordDocument(answerData);

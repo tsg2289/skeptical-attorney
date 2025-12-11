@@ -415,7 +415,26 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
     plaintiffName: '',
     defendantName: '',
     complaintText: '',
-    isMultipleDefendants: false
+    isMultipleDefendants: false,
+    // Attorney/Firm Information
+    attorneyName: '',
+    stateBarNumber: '',
+    attorneyEmail: '',
+    lawFirmName: '',
+    addressLine1: '',
+    addressLine2: '',
+    phone: '',
+    fax: '',
+    // Court Information
+    county: '',
+    courtDistrict: '',
+    caseNumber: '',
+    judgeName: '',
+    department: '',
+    actionFiled: '',
+    trialDate: '',
+    // Document Options
+    useGeneralDenial: true,
   })
   const [generatedAnswer, setGeneratedAnswer] = useState('')
   const [answerSections, setAnswerSections] = useState<AnswerSections | null>(null)
@@ -549,8 +568,27 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
         plaintiffName: formData.plaintiffName,
         defendantName: formData.defendantName,
         generatedAnswer: generatedAnswer,
-        answerSections: answerSectionsData, // Pass structured data for better Word output
-        isMultipleDefendants: formData.isMultipleDefendants
+        answerSections: answerSectionsData,
+        isMultipleDefendants: formData.isMultipleDefendants,
+        // Attorney/Firm Information
+        attorneyName: formData.attorneyName || undefined,
+        stateBarNumber: formData.stateBarNumber || undefined,
+        email: formData.attorneyEmail || undefined,
+        lawFirmName: formData.lawFirmName || undefined,
+        addressLine1: formData.addressLine1 || undefined,
+        addressLine2: formData.addressLine2 || undefined,
+        phone: formData.phone || undefined,
+        fax: formData.fax || undefined,
+        // Court Information
+        county: formData.county || undefined,
+        courtDistrict: formData.courtDistrict || undefined,
+        caseNumber: formData.caseNumber || undefined,
+        judge: formData.judgeName || undefined,
+        department: formData.department || undefined,
+        actionFiled: formData.actionFiled || undefined,
+        trialDate: formData.trialDate || undefined,
+        // Document Options
+        useGeneralDenial: formData.useGeneralDenial,
       })
       toast.success('Word document downloaded!')
     } catch (error) {
@@ -865,6 +903,163 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
                   </label>
                 </div>
               </div>
+
+              {/* Attorney & Court Information - Collapsible */}
+              <details className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+                <summary className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors flex items-center">
+                  <Scale className="w-4 h-4 mr-2 text-primary-600" />
+                  Attorney & Court Information (Optional - for Word Document)
+                </summary>
+                <div className="p-4 space-y-4 border-t border-gray-200">
+                  {/* Attorney Information */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-800 text-sm">Attorney Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        name="attorneyName"
+                        value={formData.attorneyName}
+                        onChange={handleInputChange}
+                        placeholder="Attorney Name"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="stateBarNumber"
+                        value={formData.stateBarNumber}
+                        onChange={handleInputChange}
+                        placeholder="State Bar No."
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="email"
+                        name="attorneyEmail"
+                        value={formData.attorneyEmail}
+                        onChange={handleInputChange}
+                        placeholder="Email"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="lawFirmName"
+                        value={formData.lawFirmName}
+                        onChange={handleInputChange}
+                        placeholder="Law Firm Name"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="addressLine1"
+                        value={formData.addressLine1}
+                        onChange={handleInputChange}
+                        placeholder="Street Address"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="addressLine2"
+                        value={formData.addressLine2}
+                        onChange={handleInputChange}
+                        placeholder="City, State ZIP"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        placeholder="Phone"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="fax"
+                        value={formData.fax}
+                        onChange={handleInputChange}
+                        placeholder="Fax (optional)"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Court Information */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-800 text-sm">Court Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        name="county"
+                        value={formData.county}
+                        onChange={handleInputChange}
+                        placeholder="County (e.g., LOS ANGELES)"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="courtDistrict"
+                        value={formData.courtDistrict}
+                        onChange={handleInputChange}
+                        placeholder="District (optional)"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="caseNumber"
+                        value={formData.caseNumber}
+                        onChange={handleInputChange}
+                        placeholder="Case Number"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="judgeName"
+                        value={formData.judgeName}
+                        onChange={handleInputChange}
+                        placeholder="Judge Name"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="department"
+                        value={formData.department}
+                        onChange={handleInputChange}
+                        placeholder="Department"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="actionFiled"
+                        value={formData.actionFiled}
+                        onChange={handleInputChange}
+                        placeholder="Action Filed Date"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                      <input
+                        type="text"
+                        name="trialDate"
+                        value={formData.trialDate}
+                        onChange={handleInputChange}
+                        placeholder="Trial Date (or 'None')"
+                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Document Options */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-800 text-sm">Document Options</h4>
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.useGeneralDenial}
+                        onChange={(e) => setFormData({ ...formData, useGeneralDenial: e.target.checked })}
+                        className="mr-2 text-primary-600 focus:ring-primary-500 rounded"
+                      />
+                      <span className="text-gray-700 text-sm">Include General Denial (CCP 431.30(d))</span>
+                    </label>
+                  </div>
+                </div>
+              </details>
 
               <button
                 onClick={generateAnswer}
