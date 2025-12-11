@@ -39,7 +39,7 @@ const Header = () => {
     checkUser()
     
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsLoggedIn(!!session?.user)
       if (session?.user) {
         setUserInfo({
