@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronDown, Menu, X, Scale } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
 interface UserInfo {
   email?: string
@@ -39,7 +40,7 @@ const Header = () => {
     checkUser()
     
     // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setIsLoggedIn(!!session?.user)
       if (session?.user) {
         setUserInfo({
