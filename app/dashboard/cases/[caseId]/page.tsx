@@ -4,19 +4,25 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Calendar, Clock, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp } from 'lucide-react'
-import { userStorage, CurrentUser } from '@/lib/utils/userStorage'
-import { caseStorage, Case, Deadline } from '@/lib/utils/caseStorage'
+import { supabaseCaseStorage, CaseFrontend, Deadline } from '@/lib/supabase/caseStorage'
+import { createClient } from '@/lib/supabase/client'
 import { calculateDeadlinesFromTrialDate, generateDeadlineId } from '@/lib/utils/deadlineCalculator'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+
+interface UserInfo {
+  id: string
+  email: string
+  fullName: string
+}
 
 export default function CaseDetailPage() {
   const params = useParams()
   const router = useRouter()
   const caseId = params?.caseId as string
   
-  const [user, setUser] = useState<CurrentUser | null>(null)
-  const [caseItem, setCaseItem] = useState<Case | null>(null)
+  const [user, setUser] = useState<UserInfo | null>(null)
+  const [caseItem, setCaseItem] = useState<CaseFrontend | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -36,28 +42,39 @@ export default function CaseDetailPage() {
   })
 
   useEffect(() => {
-    const currentUser = userStorage.getCurrentUser()
-    setUser(currentUser)
-    
-    if (!currentUser) {
-      router.push('/login')
-      return
-    }
-    
-    if (caseId) {
-      const foundCase = caseStorage.getCase(currentUser.username, caseId)
-      if (foundCase) {
-        setCaseItem(foundCase)
-        setFormData({
-          facts: foundCase.facts || '',
-          trialDate: foundCase.trialDate || ''
-        })
-      } else {
-        router.push('/dashboard')
+    const checkAuthAndLoadCase = async () => {
+      const supabase = createClient()
+      const { data: { user: supabaseUser } } = await supabase.auth.getUser()
+      
+      if (!supabaseUser) {
+        router.push('/login')
+        return
       }
+      
+      const userInfo: UserInfo = {
+        id: supabaseUser.id,
+        email: supabaseUser.email || '',
+        fullName: supabaseUser.user_metadata?.full_name || supabaseUser.email || 'User'
+      }
+      setUser(userInfo)
+      
+      if (caseId) {
+        const foundCase = await supabaseCaseStorage.getCase(caseId)
+        if (foundCase) {
+          setCaseItem(foundCase)
+          setFormData({
+            facts: foundCase.facts || '',
+            trialDate: foundCase.trialDate || ''
+          })
+        } else {
+          router.push('/dashboard')
+        }
+      }
+      
+      setLoading(false)
     }
     
-    setLoading(false)
+    checkAuthAndLoadCase()
   }, [caseId, router])
 
   const handleSave = async () => {
@@ -65,7 +82,7 @@ export default function CaseDetailPage() {
     
     setIsSaving(true)
     try {
-      const updated = caseStorage.updateCase(user.username, caseItem.id, {
+      const updated = await supabaseCaseStorage.updateCase(caseItem.id, {
         facts: formData.facts,
         trialDate: formData.trialDate
       })
@@ -109,7 +126,7 @@ export default function CaseDetailPage() {
           // Combine manual and calculated deadlines
           const allDeadlines = [...manualDeadlines, ...newCalculatedDeadlines]
           
-          const updatedWithDeadlines = caseStorage.updateCase(user.username, caseItem.id, {
+          const updatedWithDeadlines = await supabaseCaseStorage.updateCase(caseItem.id, {
             deadlines: allDeadlines
           })
           
@@ -131,7 +148,7 @@ export default function CaseDetailPage() {
             !calculatedDescriptions.has(d.description)
           )
           
-          const updatedWithoutCalculated = caseStorage.updateCase(user.username, caseItem.id, {
+          const updatedWithoutCalculated = await supabaseCaseStorage.updateCase(caseItem.id, {
             deadlines: remainingDeadlines
           })
           
@@ -152,13 +169,13 @@ export default function CaseDetailPage() {
     }
   }
 
-  const handleAddDeadline = () => {
+  const handleAddDeadline = async () => {
     if (!user || !caseItem || !deadlineForm.date || !deadlineForm.description) {
       alert('Please fill in both date and description')
       return
     }
     
-    const updated = caseStorage.addDeadline(user.username, caseItem.id, {
+    const updated = await supabaseCaseStorage.addDeadline(caseItem.id, {
       date: deadlineForm.date,
       description: deadlineForm.description,
       completed: false
@@ -171,23 +188,23 @@ export default function CaseDetailPage() {
     }
   }
 
-  const handleDeleteDeadline = (deadlineId: string) => {
+  const handleDeleteDeadline = async (deadlineId: string) => {
     if (!user || !caseItem) return
     
     if (!confirm('Are you sure you want to delete this deadline?')) {
       return
     }
     
-    const updated = caseStorage.deleteDeadline(user.username, caseItem.id, deadlineId)
+    const updated = await supabaseCaseStorage.deleteDeadline(caseItem.id, deadlineId)
     if (updated) {
       setCaseItem(updated)
     }
   }
 
-  const handleToggleDeadline = (deadlineId: string, completed: boolean) => {
+  const handleToggleDeadline = async (deadlineId: string, completed: boolean) => {
     if (!user || !caseItem) return
     
-    const updated = caseStorage.updateDeadline(user.username, caseItem.id, deadlineId, { completed })
+    const updated = await supabaseCaseStorage.updateDeadline(caseItem.id, deadlineId, { completed })
     if (updated) {
       setCaseItem(updated)
     }

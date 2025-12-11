@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, FileText, LogOut, Trash2 } from 'lucide-react'
-import { caseStorage, Case } from '@/lib/utils/caseStorage'
+import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -17,7 +17,7 @@ interface UserInfo {
 
 export default function Dashboard() {
   const [user, setUser] = useState<UserInfo | null>(null)
-  const [cases, setCases] = useState<Case[]>([])
+  const [cases, setCases] = useState<CaseFrontend[]>([])
   const [loading, setLoading] = useState(true)
   const [showAddForm, setShowAddForm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -42,8 +42,8 @@ export default function Dashboard() {
         }
         setUser(userInfo)
         
-        // Load cases using user ID
-        const userCases = caseStorage.getUserCases(supabaseUser.id)
+        // Load cases from Supabase
+        const userCases = await supabaseCaseStorage.getUserCases()
         setCases(userCases)
       } else {
         // Redirect to login if not logged in
@@ -69,17 +69,20 @@ export default function Dashboard() {
     setIsSubmitting(true)
     
     try {
-      const newCase = caseStorage.addCase({
+      const newCase = await supabaseCaseStorage.addCase({
         caseName: formData.caseName.trim(),
         caseNumber: formData.caseNumber.trim(),
         caseType: formData.caseType.trim() || undefined,
         client: formData.client.trim() || undefined,
-        userId: user.id
       })
       
-      setCases(prev => [newCase, ...prev])
-      setFormData({ caseName: '', caseNumber: '', caseType: '', client: '' })
-      setShowAddForm(false)
+      if (newCase) {
+        setCases(prev => [newCase, ...prev])
+        setFormData({ caseName: '', caseNumber: '', caseType: '', client: '' })
+        setShowAddForm(false)
+      } else {
+        alert('Error adding case. Please make sure the database table is set up.')
+      }
     } catch (err) {
       console.error('Error adding case:', err)
       alert('Error adding case')
@@ -88,14 +91,14 @@ export default function Dashboard() {
     }
   }
 
-  const handleDeleteCase = (caseId: string) => {
+  const handleDeleteCase = async (caseId: string) => {
     if (!user) return
     
     if (!confirm('Are you sure you want to delete this case?')) {
       return
     }
     
-    const deleted = caseStorage.deleteCase(user.id, caseId)
+    const deleted = await supabaseCaseStorage.deleteCase(caseId)
     if (deleted) {
       setCases(prev => prev.filter(c => c.id !== caseId))
     }
