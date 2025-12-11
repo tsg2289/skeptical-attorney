@@ -17,7 +17,7 @@ export default function About() {
               <span className="gradient-text">About</span> Skeptical Attorney
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 mb-12 leading-relaxed">
-              Revolutionizing legal practice through intelligent automation.
+              Fact-driven legal automation for modern practice.
             </p>
           </div>
         </div>
@@ -29,53 +29,57 @@ export default function About() {
           <div className="prose prose-lg max-w-none">
             <div className="mb-12">
               <h2 className="text-3xl font-bold text-gray-900 mb-6">About Skeptical Attorney</h2>
-              <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                Skeptical Attorney is an AI-powered legal automation platform designed to help attorneys streamline document creation and focus on what matters most—serving their clients. We automate time-consuming, repetitive tasks so you can dedicate your expertise to strategy and client relationships.
+              <p className="text-lg text-gray-700 leading-relaxed mb-6 text-justify">
+                Skeptical Attorney is a fact-driven, AI-powered legal automation platform designed to help attorneys streamline document creation and focus on what matters most—serving their clients. Every output in the platform is generated from the facts you provide. Your case facts become the backbone of the entire workflow, dynamically shaping the drafting, analysis, and document generation across the application. We automate time-consuming, repetitive tasks so you can dedicate your expertise to strategy and client relationships.
               </p>
             </div>
 
             <div className="mb-12">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">What We Do</h3>
-              <p className="text-lg text-gray-700 leading-relaxed mb-4">
+              <p className="text-lg text-gray-700 leading-relaxed mb-4 text-justify">
                 We provide comprehensive automation tools for core legal workflows:
               </p>
               <ul className="list-disc list-inside space-y-3 text-lg text-gray-700 mb-6 ml-4">
-                <li><strong>Document Generation</strong>: Create demand letters, pleadings, discovery documents, settlement agreements, and more with AI assistance that understands legal context</li>
-                <li><strong>Intelligent Automation</strong>: Our AI analyzes case details and generates accurate, context-aware legal content tailored to your specific needs</li>
-                <li><strong>Comprehensive Solutions</strong>: From initial demand letters through discovery, depositions, and settlement agreements—we cover your entire document workflow</li>
+                <li><strong>Document Generation</strong>: Create demand letters, pleadings, discovery documents, settlement agreements, and more with AI assistance that understands legal context.</li>
+                <li><strong>Intelligent Automation</strong>: Our AI reads, interprets, and applies the specific facts of your case to produce accurate, context-aware legal content—never generic templates.</li>
+                <li><strong>Fact-Driven Output</strong>: A single set of case facts fuels the entire drafting process. Update the facts once, and the entire document stack updates automatically.</li>
+                <li><strong>Comprehensive Solutions</strong>: From initial demand letters through discovery, depositions, and settlement agreements—we cover your entire document workflow.</li>
               </ul>
             </div>
 
             <div className="mb-12">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Why It Matters</h3>
-              <p className="text-lg text-gray-700 leading-relaxed mb-4">
-                Legal professionals spend countless hours on repetitive document drafting. Our platform helps you:
+              <p className="text-lg text-gray-700 leading-relaxed mb-4 text-justify">
+                Legal professionals spend countless hours drafting documents based on detailed fact patterns. Our fact-driven platform helps you:
               </p>
               <ul className="list-disc list-inside space-y-3 text-lg text-gray-700 mb-6 ml-4">
-                <li><strong>Save Time</strong>: Reduce document creation time from hours to minutes</li>
-                <li><strong>Ensure Consistency</strong>: Maintain quality and formatting standards across all documents</li>
-                <li><strong>Reduce Errors</strong>: AI-powered validation helps catch common mistakes before they become problems</li>
-                <li><strong>Scale Your Practice</strong>: Handle more cases without proportional overhead increases</li>
+                <li><strong>Save Time</strong>: Reduce document creation time from hours to minutes.</li>
+                <li><strong>Ensure Consistency</strong>: Maintain factual alignment and formatting standards across every document in the case.</li>
+                <li><strong>Reduce Errors</strong>: AI-powered validation helps catch inconsistencies, missing facts, or drafting issues before they become problems.</li>
+                <li><strong>Scale Your Practice</strong>: Handle more cases without proportional overhead increases.</li>
               </ul>
             </div>
 
             <div className="mb-12">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Our Approach</h3>
-              <p className="text-lg text-gray-700 leading-relaxed mb-4">
+              <p className="text-lg text-gray-700 leading-relaxed mb-4 text-justify">
                 We combine deep legal expertise with cutting-edge AI technology to deliver:
               </p>
               <ul className="list-disc list-inside space-y-3 text-lg text-gray-700 mb-6 ml-4">
-                <li><strong>Context-Aware Generation</strong>: Documents are tailored to your specific case details, not generic templates</li>
-                <li><strong>Legal Compliance</strong>: Built-in templates and formatting aligned with legal standards and best practices</li>
-                <li><strong>Security First</strong>: SOC 2 compliant, HIPAA ready, with bank-level security to protect sensitive client information</li>
-                <li><strong>Attorney Control</strong>: You review, edit, and approve every document—AI assists, but you remain in control</li>
+                <li><strong>Context-Aware Generation</strong>: All documents are grounded in your specific case facts—the platform does not rely on static templates but generates content uniquely tailored to your matter.</li>
+                <li><strong>Legal Compliance</strong>: Built-in templates and formatting aligned with legal standards and best practices.</li>
+                <li><strong>Security First</strong>: SOC 2 compliant, HIPAA ready, with bank-level security protecting sensitive client information.</li>
+                <li><strong>Attorney Control</strong>: You review, edit, and approve every document—AI assists, but you remain in control.</li>
               </ul>
             </div>
 
             <div className="mb-12">
               <h3 className="text-2xl font-bold text-gray-900 mb-4">Built for Modern Legal Practice</h3>
-              <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                Whether you're a solo practitioner or part of a larger firm, Skeptical Attorney adapts to your workflow. Our platform integrates seamlessly into your practice, helping you deliver better outcomes for clients while reclaiming valuable time for high-value work.
+              <p className="text-lg text-gray-700 leading-relaxed mb-4 text-justify">
+                Whether you're a solo practitioner or part of a larger firm, Skeptical Attorney adapts to your workflow. Because it is fact-driven at its core, the platform ensures that everything you generate—letters, pleadings, interrogatories, deposition outlines, or settlement materials—remains consistent, accurate, and aligned with the evolving details of the case.
+              </p>
+              <p className="text-lg text-gray-700 leading-relaxed mb-6 text-justify">
+                Skeptical Attorney integrates seamlessly into your practice, helping you deliver better outcomes for clients while reclaiming valuable time for high-value work.
               </p>
             </div>
 
