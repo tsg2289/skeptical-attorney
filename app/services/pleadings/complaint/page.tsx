@@ -1,11 +1,15 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { FileText, Shield } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import ComplaintForm from './components/ComplaintForm'
 import ComplaintOutput from './components/ComplaintOutput'
+import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ComplaintPage() {
   return (
@@ -24,8 +28,31 @@ export default function ComplaintPage() {
 }
 
 function ComplaintPageContent() {
+  const searchParams = useSearchParams()
   const [generatedComplaint, setGeneratedComplaint] = useState<string>('')
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
+  const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
+
+  // Load case data if accessed from a case
+  useEffect(() => {
+    const loadCase = async () => {
+      const caseId = searchParams?.get('caseId')
+      if (caseId) {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          const foundCase = await supabaseCaseStorage.getCase(caseId)
+          if (foundCase) {
+            setCurrentCase(foundCase)
+            console.log(`[AUDIT] Complaint page accessed for case: ${caseId}`)
+          }
+        }
+      }
+    }
+    
+    loadCase()
+  }, [searchParams])
 
   const handleComplaintGenerated = (complaint: string) => {
     setGeneratedComplaint(complaint)
@@ -38,6 +65,38 @@ function ComplaintPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <Header />
+      
+      {/* Case Name Header - Only show when accessed from case dashboard */}
+      {currentCase && (
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Link 
+                  href={`/dashboard/cases/${currentCase.id}`}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </Link>
+                <div>
+                  <h2 className="text-xl font-bold">{currentCase.caseName}</h2>
+                  {currentCase.caseNumber && (
+                    <p className="text-sm text-blue-100">Case #: {currentCase.caseNumber}</p>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={`/dashboard/cases/${currentCase.id}`}
+                className="text-sm hover:underline text-blue-100"
+              >
+                Back to Case
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         <div className="glass-card p-8 rounded-2xl shadow-2xl border border-white/20">
@@ -59,6 +118,9 @@ function ComplaintPageContent() {
             onComplaintGenerated={handleComplaintGenerated}
             isGenerating={isGenerating}
             setIsGenerating={setIsGenerating}
+            initialSummary={currentCase?.facts}
+            initialPlaintiff={currentCase?.client}
+            initialCaseNumber={currentCase?.caseNumber}
           />
         )}
 

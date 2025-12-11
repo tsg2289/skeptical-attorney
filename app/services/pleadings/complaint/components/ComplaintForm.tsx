@@ -7,6 +7,9 @@ interface ComplaintFormProps {
   onComplaintGenerated: (complaint: string) => void
   isGenerating: boolean
   setIsGenerating: (generating: boolean) => void
+  initialSummary?: string
+  initialPlaintiff?: string
+  initialCaseNumber?: string
 }
 
 interface CauseOfAction {
@@ -47,9 +50,12 @@ interface Defendant {
 export default function ComplaintForm({ 
   onComplaintGenerated, 
   isGenerating, 
-  setIsGenerating 
+  setIsGenerating,
+  initialSummary,
+  initialPlaintiff,
+  initialCaseNumber
 }: ComplaintFormProps) {
-  const [summary, setSummary] = useState('')
+  const [summary, setSummary] = useState(initialSummary || '')
   const [error, setError] = useState('')
   const [rateLimitCooldown, setRateLimitCooldown] = useState(0)
   const [showManualTemplate, setShowManualTemplate] = useState(false)
@@ -69,12 +75,31 @@ export default function ComplaintForm({
   ])
   const [selectedCounty, setSelectedCounty] = useState('Los Angeles')
   const [plaintiffs, setPlaintiffs] = useState<Plaintiff[]>([
-    { id: '1', name: 'Plaintiff' }
+    { id: '1', name: initialPlaintiff || 'Plaintiff' }
   ])
   const [defendants, setDefendants] = useState<Defendant[]>([
     { id: '1', name: 'Defendant' }
   ])
-  const [caseNumber, setCaseNumber] = useState('24STCV00000')
+  const [caseNumber, setCaseNumber] = useState(initialCaseNumber || '24STCV00000')
+
+  // Update state when initial props change (async loading from case)
+  useEffect(() => {
+    if (initialSummary) {
+      setSummary(initialSummary)
+    }
+  }, [initialSummary])
+
+  useEffect(() => {
+    if (initialPlaintiff) {
+      setPlaintiffs([{ id: '1', name: initialPlaintiff }])
+    }
+  }, [initialPlaintiff])
+
+  useEffect(() => {
+    if (initialCaseNumber) {
+      setCaseNumber(initialCaseNumber)
+    }
+  }, [initialCaseNumber])
 
   // California counties list
   const californiaCounties = [

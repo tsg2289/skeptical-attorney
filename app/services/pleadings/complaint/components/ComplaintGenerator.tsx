@@ -49,6 +49,8 @@ export default function ComplaintGenerator({ caseId }: ComplaintGeneratorProps) 
         setFormData((prev) => ({
           ...prev,
           caseNumber: foundCase.caseNumber || prev.caseNumber,
+          factualSummary: foundCase.facts || prev.factualSummary,
+          plaintiffName: foundCase.client || prev.plaintiffName,
         }))
         console.log(`[AUDIT] Complaint generator initialized for case: ${caseId}`)
       }

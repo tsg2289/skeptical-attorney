@@ -308,6 +308,7 @@ Executed on October 21, 2023, at Buena Park, California.
           style={{ 
             fontSize: '12pt',
             fontFamily: 'Times New Roman, serif',
+            color: '#000000',
             lineHeight: isAttorneyInfo ? '14pt' : '24pt', // Single spacing for attorney info
             textIndent: isPartyLabel ? '2in' : (line.trim().length > 0 ? '0.5in' : '0'),
             fontWeight: (isCauseHeading || isLawFirmName) ? 'bold' : 'normal',
