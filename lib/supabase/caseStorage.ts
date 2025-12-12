@@ -7,6 +7,13 @@ export interface Deadline {
   completed?: boolean
 }
 
+// Demand Letter Section - persists user's drafted demand letter content
+export interface DemandLetterSection {
+  id: string
+  title: string
+  content: string
+}
+
 // Attorney - now nested under each party
 export interface Attorney {
   id: string
@@ -47,6 +54,7 @@ export interface Case {
   plaintiffs?: Party[]  // Each plaintiff has nested attorneys
   defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
+  demand_letter_sections?: DemandLetterSection[]  // Persisted demand letter drafts
   created_at: string
 }
 
@@ -66,6 +74,7 @@ export interface CaseInput {
   plaintiffs?: Party[]  // Each plaintiff has nested attorneys
   defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
+  demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
 }
 
 // Helper to convert from snake_case (database) to camelCase (frontend)
@@ -86,6 +95,7 @@ export interface CaseFrontend {
   plaintiffs?: Party[]  // Each plaintiff has nested attorneys
   defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
+  demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
   createdAt: string
 }
 
@@ -107,6 +117,7 @@ function toFrontendCase(dbCase: Case): CaseFrontend {
     plaintiffs: dbCase.plaintiffs,
     defendants: dbCase.defendants,
     deadlines: dbCase.deadlines,
+    demandLetterSections: dbCase.demand_letter_sections,
     createdAt: dbCase.created_at,
   }
 }
@@ -127,6 +138,7 @@ function toDbCase(input: CaseInput): Partial<Case> {
     plaintiffs: input.plaintiffs,
     defendants: input.defendants,
     deadlines: input.deadlines,
+    demand_letter_sections: input.demandLetterSections,
   }
 }
 
@@ -276,3 +288,4 @@ export const supabaseCaseStorage = {
     return this.updateCase(caseId, { deadlines })
   }
 }
+

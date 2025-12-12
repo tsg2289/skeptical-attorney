@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage';
+import { supabaseCaseStorage, CaseFrontend, DemandLetterSection } from '@/lib/supabase/caseStorage';
 import { createClient } from '@/lib/supabase/client';
 import PreviewModal from './components/PreviewModal';
 
@@ -39,47 +39,37 @@ function DemandLetterPageContent() {
     { 
       id: '0', 
       title: 'Case Description', 
-      content: 'Describe the case details here. Include information about the client, date of incident, location, insured party, and any other relevant details that will help generate the demand letter sections.' 
+      content: 'Summarize your case here—include the key facts, basis for liability, and damages sought. After entering this information, use the AI function to auto-populate the Introduction, Facts, Liability, Damages, and Demand sections below.' 
     },
     { 
       id: '1', 
       title: 'Introduction', 
-      content: 'This firm represents [Client Name] for injuries sustained in a collision on [Date] in [City, CA]. Based on the evidence—including police reports, photographs, witness statements, and property damage assessments—your insured, [Insured Name], is 100% liable for causing this collision.' 
+      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
     },
     { 
       id: '2', 
       title: 'FACTS', 
-      content: 'On [Date], at approximately [Time], our client [Client Name] was [describe what client was doing – e.g., traveling northbound on Main Street, stopped at a red light, etc.] when the incident occurred.\n\nLocation: [Street Address/Intersection], [City], California\n\nWeather Conditions: [Clear/Rainy/Foggy/etc.]\n\nTraffic Conditions: [Heavy/Light/Moderate]\n\nWitnesses: [List any witnesses or indicate if police report contains witness statements]\n\nPolice Report Number: [Report Number, if applicable]\n\nThese facts are supported by the police report, witness statements, and our client\'s account of the incident.' 
+      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
     },
     { 
       id: '3', 
       title: 'LIABILITY', 
-      content: 'On the date of the incident, your insured negligently operated his/her vehicle at or near [intersection/street name] in [City], California. As our investigation and the police report confirm, your insured [describe negligent act – e.g., failed to yield, ran a red light, rear-ended our client\'s vehicle, etc.], causing a violent collision with our client\'s vehicle.\n\nOur client was operating her vehicle lawfully and exercising due care at all times. There is no evidence of comparative fault. Accordingly, your insured bears full responsibility for the resulting damages pursuant to California Civil Code §1714 and applicable negligence law.' 
+      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
     },
     { 
       id: '4', 
-      title: 'INJURIES AND MEDICAL TREATMENT', 
-      content: 'As a direct result of this collision, our client sustained serious injuries, including but not limited to:\n\n[List key injuries – e.g., cervical strain, lumbar sprain, concussion, right shoulder contusion, etc.]\n\nFollowing the collision, our client was transported to [Hospital or Urgent Care Name], where she underwent [diagnostic tests – e.g., X-rays, CT scan, MRI, etc.]. She was later referred to [Specialist Name or Facility] for ongoing evaluation and physical therapy.\n\nTreatment Timeline:\n\n[Date]: Initial evaluation and imaging at [Facility].\n\n[Date–Date]: Physical therapy at [Facility].\n\n[Date]: Follow-up with [Specialist] recommending continued conservative treatment and limited activity.\n\nDespite consistent medical care and adherence to treatment recommendations, our client continues to experience residual pain and limitations that affect daily living and employment.' 
+      title: 'DAMAGES', 
+      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
     },
     { 
       id: '5', 
-      title: 'ECONOMIC DAMAGES', 
-      content: 'Medical Expenses (to date): $[Amount]\nFuture Medical Expenses (estimated): $[Amount]\nProperty Damage: $[Amount, if not yet resolved]\nLost Wages: $[Amount]\nMiscellaneous Out-of-Pocket Costs: $[Amount]\n\nTotal Economic Damages: $[Total]' 
+      title: 'SETTLEMENT DEMAND', 
+      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
     },
     { 
       id: '6', 
-      title: 'NON-ECONOMIC DAMAGES', 
-      content: 'In addition to the above economic losses, our client has endured substantial pain, suffering, inconvenience, and emotional distress as a result of your insured\'s negligence. California law recognizes the right to recover for these general damages.\n\nOur client\'s pain was significant and prolonged, requiring months of rehabilitation and causing ongoing limitations in daily life. She was unable to participate in normal activities and remains fearful of driving.' 
-    },
-    { 
-      id: '7', 
-      title: 'SETTLEMENT DEMAND', 
-      content: 'Based on the clear liability, the documented medical expenses, ongoing pain and suffering, and the totality of the circumstances, we hereby demand $[Demand Amount] in full and final settlement of all claims arising out of this incident.\n\nThis demand is made with a full understanding of the facts and law applicable to this claim and represents a fair and reasonable resolution consistent with California personal injury standards. Please provide your response within thirty (30) days of the date of this letter.\n\nIf the settlement demand amount is not paid in full by [Date], our client and this firm will pursue all legal action necessary to recover the damages caused, including but not limited to filing a lawsuit seeking all available remedies under California law, recovery of costs, prejudgment interest, and any other damages permitted by law. We trust that you will give this matter the serious attention it deserves and look forward to resolving this matter without the need for litigation.' 
-    },
-    { 
-      id: '8', 
       title: 'DOCUMENTATION PROVIDED', 
-      content: 'Enclosed for your review are copies of the following supporting documents:\n\nPolice Report\n\nPhotographs of Vehicle Damage\n\nMedical Records and Bills\n\nProof of Lost Wages\n\nPhysical Therapy Notes' 
+      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
     },
   ]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -87,6 +77,8 @@ function DemandLetterPageContent() {
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto';
@@ -281,6 +273,38 @@ function DemandLetterPageContent() {
     setDragOverIndex(null);
   };
 
+  // Save demand letter sections to the database
+  const handleSaveDraft = async () => {
+    if (!currentCaseId) {
+      setAiError('No case selected. Please access this page from the case dashboard.');
+      setTimeout(() => setAiError(null), 5000);
+      return;
+    }
+
+    setSaving(true);
+    setSaveSuccess(false);
+
+    try {
+      const result = await supabaseCaseStorage.updateCase(currentCaseId, {
+        demandLetterSections: sections,
+      });
+
+      if (result) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        setAiError('Failed to save draft. Please try again.');
+        setTimeout(() => setAiError(null), 5000);
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      setAiError('An error occurred while saving. Please try again.');
+      setTimeout(() => setAiError(null), 5000);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Populate case description from case facts - ONLY for the specific case
   useEffect(() => {
     const loadCase = async () => {
@@ -300,8 +324,11 @@ function DemandLetterPageContent() {
             setCurrentCaseId(caseId);
             setCurrentCase(foundCase); // Store full case object for header display
             
-            // Only populate if case has facts - use ONLY this case's data
-            if (foundCase.facts) {
+            // Load saved demand letter sections if they exist
+            if (foundCase.demandLetterSections && foundCase.demandLetterSections.length > 0) {
+              setSections(foundCase.demandLetterSections);
+            } else if (foundCase.facts) {
+              // Only populate Case Description with facts if no saved sections exist
               setSections(prevSections => 
                 prevSections.map(section => 
                   section.id === '0' 
@@ -579,9 +606,34 @@ function DemandLetterPageContent() {
           </div>
 
           {/* Action Buttons */}
-          <div className="glass p-6 rounded-2xl flex gap-4 justify-end">
-            <button className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300">
-              Save Draft
+          <div className="glass p-6 rounded-2xl flex gap-4 justify-end items-center">
+            {saveSuccess && (
+              <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Draft saved!
+              </span>
+            )}
+            <button 
+              onClick={handleSaveDraft}
+              disabled={saving || !currentCaseId}
+              className={`px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2 ${
+                saving ? 'opacity-50 cursor-not-allowed' : ''
+              } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={!currentCaseId ? 'Access from case dashboard to enable saving' : 'Save your draft'}
+            >
+              {saving ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                'Save Draft'
+              )}
             </button>
             <button 
               onClick={() => setShowPreview(true)}

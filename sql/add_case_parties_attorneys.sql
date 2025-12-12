@@ -19,3 +19,4 @@ SELECT column_name, data_type
 FROM information_schema.columns 
 WHERE table_name = 'cases' 
 AND column_name IN ('court', 'plaintiffs', 'defendants', 'attorneys');
+
