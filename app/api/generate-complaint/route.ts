@@ -76,7 +76,7 @@ async function handleComplaintGeneration(request: NextRequest): Promise<NextResp
     // Sanitize input
     const sanitizedSummary = summary.trim().slice(0, 5000) // Limit length
     
-    console.log('API Key configured:', apiKey ? `${apiKey.slice(0, 7)}...${apiKey.slice(-4)}` : 'NOT SET')
+    console.log('API Key configured:', !!apiKey)
     console.log('Request summary length:', sanitizedSummary.length)
 
     // Check cache first

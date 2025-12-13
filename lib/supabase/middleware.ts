@@ -55,9 +55,6 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/api/auth/reset-password') ||
     request.nextUrl.pathname.startsWith('/api/') ||
     request.nextUrl.pathname === '/' ||
-    request.nextUrl.pathname.startsWith('/services/deposition/debug') ||
-    request.nextUrl.pathname.startsWith('/services/deposition/test') ||
-    request.nextUrl.pathname.startsWith('/services/deposition/admin-access') ||
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/get-started') ||
     request.nextUrl.pathname.startsWith('/auth/callback') ||
@@ -70,8 +67,9 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/terms') ||
     request.nextUrl.pathname.startsWith('/cookies')
 
-  // Check for dev bypass mode
+  // Check for dev bypass mode - with explicit production block for safety
   const isDevBypassEnabled = process.env.NODE_ENV === 'development' && 
+    process.env.NODE_ENV !== 'production' &&
     process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true'
 
   // If user is not authenticated and trying to access protected route, redirect to login

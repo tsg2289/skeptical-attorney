@@ -9,6 +9,7 @@ import { MobileDrawer } from './MobileDrawer';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent, DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import DOMPurify from 'dompurify';
 
 interface DepositionOutlineProps {
   depositionId?: string;
@@ -318,7 +319,7 @@ const QuestionItemContent = React.memo(({
       />
       <span
         className={`apple-body text-sm flex-1 text-justify ${question.isAsked ? 'line-through text-white/50' : 'text-white/90'}`}
-        dangerouslySetInnerHTML={{ __html: question.text }}
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(question.text) }}
       />
       <button
         onClick={isReorderMode ? (e) => e.preventDefault() : () => onEditQuestion(question.id)}
