@@ -53,7 +53,7 @@ async function handleComplaintGeneration(request: NextRequest): Promise<NextResp
   
   try {
     const body = await request.json()
-    const { summary, causesOfAction, attorneys, county, plaintiffs, defendants, caseNumber } = body
+    const { summary, causesOfAction, availableCauses, attorneys, county, plaintiffs, defendants, caseNumber } = body
 
     // Validation
     if (!summary || typeof summary !== 'string') {
@@ -481,9 +481,32 @@ async function handleComplaintGeneration(request: NextRequest): Promise<NextResp
     }
 
     // Build causes of action instruction with proper names
-    const causesInstruction = causesOfAction && causesOfAction.length > 0 
-      ? `\n\nSPECIFIC CAUSES OF ACTION REQUESTED: ${causesOfAction.map((id: string) => causeIdToNameMap[id] || id.toUpperCase()).join(', ')}\nInclude ONLY these causes of action in the complaint, structured according to their respective CACI elements.`
-      : '\n\nAUTO-DETERMINE CAUSES: Analyze the facts and determine the most appropriate causes of action from the available options.'
+    let causesInstruction = ''
+    
+    if (causesOfAction && causesOfAction.length > 0) {
+      // User manually selected specific causes
+      causesInstruction = `\n\nSPECIFIC CAUSES OF ACTION REQUESTED: ${causesOfAction.map((id: string) => causeIdToNameMap[id] || id.toUpperCase()).join(', ')}\nInclude ONLY these causes of action in the complaint, structured according to their respective CACI elements.`
+    } else if (availableCauses && availableCauses.length > 0) {
+      // AI should analyze facts and select from all available causes
+      const causesListForAI = availableCauses.map((cause: { name: string; caciSeries: string; description: string; elements: string[] }) => 
+        `- ${cause.name} (${cause.caciSeries}): ${cause.description}. Required Elements: [${cause.elements.join('; ')}]`
+      ).join('\n')
+      
+      causesInstruction = `
+
+AVAILABLE CAUSES OF ACTION - ANALYZE AND SELECT APPROPRIATE ONES:
+${causesListForAI}
+
+AI INSTRUCTION: Based on the case facts provided above, carefully analyze and SELECT the most appropriate causes of action from this list. 
+- Choose 3-6+ causes when the facts support multiple legal theories
+- For each cause you select, verify that the case facts satisfy ALL required elements listed
+- Only include causes where the facts reasonably support each element
+- Prioritize the strongest causes that best fit the facts
+- Include overlapping theories where applicable (e.g., negligence + negligence per se, or strict liability + negligent products liability)`
+    } else {
+      // Fallback to generic auto-determine
+      causesInstruction = '\n\nAUTO-DETERMINE CAUSES: Analyze the facts and determine the most appropriate causes of action from the available CACI options.'
+    }
 
     // Build attorney information for header
     const attorneyInfo = attorneys && attorneys.length > 0 

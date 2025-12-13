@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { FileText, Loader2, Send, AlertCircle, FileEdit, Plus, X, User, ChevronDown, ChevronUp } from 'lucide-react'
+import { Party, Attorney as CaseAttorney } from '@/lib/supabase/caseStorage'
 
 interface ComplaintFormProps {
   onComplaintGenerated: (complaint: string) => void
@@ -10,6 +11,11 @@ interface ComplaintFormProps {
   initialSummary?: string
   initialPlaintiff?: string
   initialCaseNumber?: string
+  // When true, hides attorney/county/parties sections (data comes from case dashboard)
+  fromCaseDashboard?: boolean
+  initialCounty?: string
+  initialPlaintiffs?: Party[]
+  initialDefendants?: Party[]
 }
 
 interface CauseOfAction {
@@ -53,7 +59,11 @@ export default function ComplaintForm({
   setIsGenerating,
   initialSummary,
   initialPlaintiff,
-  initialCaseNumber
+  initialCaseNumber,
+  fromCaseDashboard = false,
+  initialCounty,
+  initialPlaintiffs,
+  initialDefendants
 }: ComplaintFormProps) {
   const [summary, setSummary] = useState(initialSummary || '')
   const [error, setError] = useState('')
@@ -62,8 +72,29 @@ export default function ComplaintForm({
   const [selectedCausesOfAction, setSelectedCausesOfAction] = useState<string[]>([])
   const [showCauseSelection, setShowCauseSelection] = useState(true)
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set())
-  const [attorneys, setAttorneys] = useState<Attorney[]>([
-    { 
+  
+  // Initialize attorneys - extract from case plaintiffs if from case dashboard
+  const [attorneys, setAttorneys] = useState<Attorney[]>(() => {
+    if (fromCaseDashboard && initialPlaintiffs) {
+      const caseAttorneys: Attorney[] = []
+      for (const plaintiff of initialPlaintiffs) {
+        if (plaintiff.attorneys && plaintiff.attorneys.length > 0) {
+          for (const att of plaintiff.attorneys) {
+            caseAttorneys.push({
+              id: att.id,
+              name: att.name || '',
+              email: att.email || '',
+              barNumber: att.barNumber || '',
+              lawFirmName: att.firm || '',
+              lawFirmAddress: att.address || '',
+              lawFirmPhone: att.phone || ''
+            })
+          }
+        }
+      }
+      if (caseAttorneys.length > 0) return caseAttorneys
+    }
+    return [{ 
       id: '1', 
       name: 'John Smith', 
       email: 'jsmith@lawfirm.com', 
@@ -71,15 +102,27 @@ export default function ComplaintForm({
       lawFirmName: 'Smith & Associates', 
       lawFirmAddress: '123 Main Street\nLos Angeles, CA 90001', 
       lawFirmPhone: '(310) 555-1234' 
+    }]
+  })
+  
+  const [selectedCounty, setSelectedCounty] = useState(initialCounty || 'Los Angeles')
+  
+  // Initialize plaintiffs from case data
+  const [plaintiffs, setPlaintiffs] = useState<Plaintiff[]>(() => {
+    if (fromCaseDashboard && initialPlaintiffs && initialPlaintiffs.length > 0) {
+      return initialPlaintiffs.map((p, i) => ({ id: p.id || String(i + 1), name: p.name }))
     }
-  ])
-  const [selectedCounty, setSelectedCounty] = useState('Los Angeles')
-  const [plaintiffs, setPlaintiffs] = useState<Plaintiff[]>([
-    { id: '1', name: initialPlaintiff || 'Plaintiff' }
-  ])
-  const [defendants, setDefendants] = useState<Defendant[]>([
-    { id: '1', name: 'Defendant' }
-  ])
+    return [{ id: '1', name: initialPlaintiff || 'Plaintiff' }]
+  })
+  
+  // Initialize defendants from case data
+  const [defendants, setDefendants] = useState<Defendant[]>(() => {
+    if (fromCaseDashboard && initialDefendants && initialDefendants.length > 0) {
+      return initialDefendants.map((d, i) => ({ id: d.id || String(i + 1), name: d.name }))
+    }
+    return [{ id: '1', name: 'Defendant' }]
+  })
+  
   const [caseNumber, setCaseNumber] = useState(initialCaseNumber || '24STCV00000')
 
   // Update state when initial props change (async loading from case)
@@ -100,6 +143,24 @@ export default function ComplaintForm({
       setCaseNumber(initialCaseNumber)
     }
   }, [initialCaseNumber])
+
+  useEffect(() => {
+    if (initialCounty) {
+      setSelectedCounty(initialCounty)
+    }
+  }, [initialCounty])
+
+  useEffect(() => {
+    if (initialPlaintiffs && initialPlaintiffs.length > 0) {
+      setPlaintiffs(initialPlaintiffs.map((p, i) => ({ id: p.id || String(i + 1), name: p.name })))
+    }
+  }, [initialPlaintiffs])
+
+  useEffect(() => {
+    if (initialDefendants && initialDefendants.length > 0) {
+      setDefendants(initialDefendants.map((d, i) => ({ id: d.id || String(i + 1), name: d.name })))
+    }
+  }, [initialDefendants])
 
   // California counties list
   const californiaCounties = [
@@ -4694,6 +4755,16 @@ Dated: ${new Date().toLocaleDateString()}
         body: JSON.stringify({
           summary: summary.trim(),
           causesOfAction: selectedCausesOfAction.length > 0 ? selectedCausesOfAction : null,
+          // Pass all available causes for AI analysis when none manually selected
+          availableCauses: selectedCausesOfAction.length === 0 ? caciSeries.flatMap(series => 
+            series.causes.map(cause => ({
+              id: cause.id,
+              name: cause.name,
+              caciSeries: cause.caciSeries,
+              description: cause.description,
+              elements: cause.elements
+            }))
+          ) : null,
           attorneys: attorneys.filter(att => 
             att.name.trim() || att.email.trim() || att.barNumber.trim() || 
             att.lawFirmName.trim() || att.lawFirmAddress.trim() || att.lawFirmPhone.trim()
@@ -4788,6 +4859,9 @@ Dated: ${new Date().toLocaleDateString()}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Only show these sections when NOT from case dashboard */}
+          {!fromCaseDashboard && (
+            <>
           {/* Attorney Information Section */}
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -5135,7 +5209,10 @@ Dated: ${new Date().toLocaleDateString()}
               </div>
             )}
           </div>
+            </>
+          )}
 
+          {/* Case Summary - Always shown (starts here when from case dashboard) */}
           <div className="rounded-2xl bg-white/30 border border-white/30 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)] backdrop-blur-xl backdrop-saturate-150 p-4">
             <label htmlFor="summary" className="block text-sm font-medium text-gray-900 mb-2">
               Case Summary *

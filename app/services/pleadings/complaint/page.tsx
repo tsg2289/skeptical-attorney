@@ -32,6 +32,7 @@ function ComplaintPageContent() {
   const [generatedComplaint, setGeneratedComplaint] = useState<string>('')
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
+  const [showForm, setShowForm] = useState<boolean>(false) // Force show form to start fresh
 
   // Load case data if accessed from a case
   useEffect(() => {
@@ -56,10 +57,12 @@ function ComplaintPageContent() {
 
   const handleComplaintGenerated = (complaint: string) => {
     setGeneratedComplaint(complaint)
+    setShowForm(false) // Hide form, show output
   }
 
   const handleNewComplaint = () => {
     setGeneratedComplaint('')
+    setShowForm(true) // Force show form to start fresh
   }
 
   return (
@@ -113,7 +116,8 @@ function ComplaintPageContent() {
           </div>
         </div>
 
-        {!generatedComplaint && (
+        {/* Show form if: showForm is true, OR (NO generated complaint AND NO saved sections) */}
+        {(showForm || (!generatedComplaint && !(currentCase?.complaintSections && currentCase.complaintSections.length > 0))) && (
           <ComplaintForm
             onComplaintGenerated={handleComplaintGenerated}
             isGenerating={isGenerating}
@@ -121,13 +125,20 @@ function ComplaintPageContent() {
             initialSummary={currentCase?.facts}
             initialPlaintiff={currentCase?.client}
             initialCaseNumber={currentCase?.caseNumber}
+            // When from case dashboard, hide top sections (attorney, county, parties, case number)
+            fromCaseDashboard={!!currentCase}
+            initialCounty={currentCase?.courtCounty}
+            initialPlaintiffs={currentCase?.plaintiffs}
+            initialDefendants={currentCase?.defendants}
           />
         )}
 
-        {generatedComplaint && (
+        {/* Show output if: NOT showForm AND (generated complaint OR saved sections exist) */}
+        {!showForm && (generatedComplaint || (currentCase?.complaintSections && currentCase.complaintSections.length > 0)) && (
           <ComplaintOutput
             complaint={generatedComplaint}
             onNewComplaint={handleNewComplaint}
+            caseData={currentCase}
           />
         )}
       </div>

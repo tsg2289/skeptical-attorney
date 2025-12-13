@@ -14,6 +14,15 @@ export interface DemandLetterSection {
   content: string
 }
 
+// Complaint Section - persists user's drafted complaint content
+export interface ComplaintSection {
+  id: string
+  title: string
+  content: string
+  isExpanded: boolean
+  type: 'header' | 'jurisdiction' | 'venue' | 'factual' | 'cause' | 'prayer' | 'jury' | 'signature'
+}
+
 // Attorney - now nested under each party
 export interface Attorney {
   id: string
@@ -55,6 +64,7 @@ export interface Case {
   defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
   demand_letter_sections?: DemandLetterSection[]  // Persisted demand letter drafts
+  complaint_sections?: ComplaintSection[]  // Persisted complaint drafts
   created_at: string
 }
 
@@ -75,6 +85,7 @@ export interface CaseInput {
   defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
   demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
+  complaintSections?: ComplaintSection[]  // Persisted complaint drafts
 }
 
 // Helper to convert from snake_case (database) to camelCase (frontend)
@@ -96,6 +107,7 @@ export interface CaseFrontend {
   defendants?: Party[]  // Each defendant has nested attorneys
   deadlines?: Deadline[]
   demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
+  complaintSections?: ComplaintSection[]  // Persisted complaint drafts
   createdAt: string
 }
 
@@ -118,6 +130,7 @@ function toFrontendCase(dbCase: Case): CaseFrontend {
     defendants: dbCase.defendants,
     deadlines: dbCase.deadlines,
     demandLetterSections: dbCase.demand_letter_sections,
+    complaintSections: dbCase.complaint_sections,
     createdAt: dbCase.created_at,
   }
 }
@@ -139,6 +152,7 @@ function toDbCase(input: CaseInput): Partial<Case> {
     defendants: input.defendants,
     deadlines: input.deadlines,
     demand_letter_sections: input.demandLetterSections,
+    complaint_sections: input.complaintSections,
   }
 }
 
@@ -288,5 +302,6 @@ export const supabaseCaseStorage = {
     return this.updateCase(caseId, { deadlines })
   }
 }
+
 
 
