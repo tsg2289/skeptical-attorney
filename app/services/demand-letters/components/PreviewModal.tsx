@@ -16,6 +16,13 @@ interface PreviewModalProps {
   caseInfo?: {
     caseName?: string;
     caseNumber?: string;
+    // Attorney info
+    attorneyName?: string;
+    stateBarNumber?: string;
+    email?: string;
+    lawFirmName?: string;
+    address?: string;
+    phone?: string;
   };
 }
 
@@ -34,6 +41,13 @@ export default function PreviewModal({ isOpen, onClose, sections, caseInfo }: Pr
         sections: sections, // Include all sections, generator will filter
         caseName: caseInfo?.caseName,
         caseNumber: caseInfo?.caseNumber,
+        // Attorney info
+        attorneyName: caseInfo?.attorneyName,
+        stateBarNumber: caseInfo?.stateBarNumber,
+        email: caseInfo?.email,
+        lawFirmName: caseInfo?.lawFirmName,
+        address: caseInfo?.address,
+        phone: caseInfo?.phone,
       };
 
       await downloadDemandLetterDocument(demandLetterData);
@@ -110,12 +124,14 @@ export default function PreviewModal({ isOpen, onClose, sections, caseInfo }: Pr
               <div className="mt-12 pt-6 border-t border-gray-200">
                 <p className="text-sm text-gray-600 mb-4">Respectfully submitted,</p>
                 <div className="mt-6 space-y-1">
-                  <p className="text-sm text-gray-600">[Attorney Name]</p>
-                  <p className="text-sm text-gray-600">[Law Firm Name]</p>
-                  <p className="text-sm text-gray-600">[Address]</p>
-                  <p className="text-sm text-gray-600">[City, State ZIP]</p>
-                  <p className="text-sm text-gray-600">[Phone Number]</p>
-                  <p className="text-sm text-gray-600">[Email Address]</p>
+                  <p className="text-sm text-gray-600">{caseInfo?.attorneyName || '[Attorney Name]'}</p>
+                  <p className="text-sm text-gray-600">{caseInfo?.lawFirmName || '[Law Firm Name]'}</p>
+                  <p className="text-sm text-gray-600">{caseInfo?.address || '[Address]'}</p>
+                  <p className="text-sm text-gray-600">{caseInfo?.phone ? `Tel: ${caseInfo.phone}` : '[Phone Number]'}</p>
+                  <p className="text-sm text-gray-600">{caseInfo?.email || '[Email Address]'}</p>
+                  {caseInfo?.stateBarNumber && (
+                    <p className="text-sm text-gray-600">State Bar No. {caseInfo.stateBarNumber}</p>
+                  )}
                 </div>
               </div>
             </div>

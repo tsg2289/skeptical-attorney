@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import { supabaseCaseStorage, CaseFrontend, DemandLetterSection } from '@/lib/supabase/caseStorage';
 import { createClient } from '@/lib/supabase/client';
 import PreviewModal from './components/PreviewModal';
+import AIEditChatModal from './components/AIEditChatModal';
 
 interface CardSection {
   id: string;
@@ -79,6 +80,10 @@ function DemandLetterPageContent() {
   const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  
+  // AI Chat Modal state
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState<CardSection | null>(null);
 
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto';
@@ -303,6 +308,25 @@ function DemandLetterPageContent() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Handler to open AI chat for a section
+  const handleOpenAIChat = (section: CardSection) => {
+    setEditingSection(section);
+    setAiChatOpen(true);
+  };
+
+  // Handler to apply AI edits from chat
+  const handleApplyAIEdit = (newContent: string) => {
+    if (editingSection) {
+      updateSection(editingSection.id, 'content', newContent);
+    }
+  };
+
+  // Get case description content for context (source of truth for AI)
+  const getCaseDescriptionContent = () => {
+    const caseDescSection = sections.find(s => s.id === '0');
+    return caseDescSection?.content || '';
   };
 
   // Populate case description from case facts - ONLY for the specific case
@@ -543,15 +567,15 @@ function DemandLetterPageContent() {
                       className="w-full min-h-48 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
                       placeholder="Enter section content here... (Template will be added later)"
                     />
-                    {/* AI Sparkle Button */}
+                    {/* AI Edit Chat Button */}
                     <button
-                      onClick={() => handleAIAssist(section.id)}
-                      disabled={aiLoading === section.id || section.id !== '1'}
+                      onClick={() => handleOpenAIChat(section)}
+                      disabled={aiLoading === section.id || !currentCaseId}
                       className={`absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group ${
                         aiLoading === section.id ? 'opacity-50 cursor-not-allowed' : ''
-                      } ${section.id !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      aria-label="AI Assist"
-                      title={section.id === '1' ? 'AI Assist - Generate introduction' : 'AI Assist is only available for Case Description and Introduction sections'}
+                      } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      aria-label="AI Edit Assistant"
+                      title={currentCaseId ? 'Open AI Edit Assistant - Edit this section interactively' : 'Access from case dashboard to enable AI editing'}
                     >
                       {aiLoading === section.id ? (
                         <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
@@ -657,9 +681,38 @@ function DemandLetterPageContent() {
         sections={sections}
         caseInfo={{
           caseName: currentCase?.caseName,
-          caseNumber: currentCase?.caseNumber
+          caseNumber: currentCase?.caseNumber,
+          // Get attorney from first plaintiff's attorneys
+          attorneyName: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.name,
+          stateBarNumber: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.barNumber,
+          email: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.email,
+          lawFirmName: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.firm,
+          address: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.address,
+          phone: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.phone,
         }}
       />
+
+      {/* AI Edit Chat Modal */}
+      {editingSection && currentCaseId && (
+        <AIEditChatModal
+          isOpen={aiChatOpen}
+          onClose={() => {
+            setAiChatOpen(false);
+            setEditingSection(null);
+          }}
+          sectionId={editingSection.id}
+          sectionTitle={editingSection.title}
+          currentContent={editingSection.content}
+          caseDescription={getCaseDescriptionContent()}
+          caseId={currentCaseId}
+          parties={{
+            client: currentCase?.client,
+            plaintiffs: currentCase?.plaintiffs,
+            defendants: currentCase?.defendants,
+          }}
+          onApplyEdit={handleApplyAIEdit}
+        />
+      )}
     </div>
   );
 }

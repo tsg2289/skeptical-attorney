@@ -20,3 +20,4 @@ FROM information_schema.columns
 WHERE table_name = 'cases' 
 AND column_name IN ('court', 'plaintiffs', 'defendants', 'attorneys');
 
+

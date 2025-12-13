@@ -466,7 +466,37 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
           const foundCase = await supabaseCaseStorage.getCase(caseId)
           if (foundCase) {
             console.log(`[AUDIT] Answer generator initialized for case: ${caseId}`)
-            // Populate form with case data if available
+            
+            // Get plaintiff names
+            const plaintiffNames = foundCase.plaintiffs
+              ?.map(p => p.name)
+              .filter(Boolean)
+              .join(', ') || ''
+            
+            // Get defendant names
+            const defendantNames = foundCase.defendants
+              ?.map(d => d.name)
+              .filter(Boolean)
+              .join(', ') || ''
+            
+            // Get defendant's attorney info (first attorney of first defendant)
+            const defendantAttorney = foundCase.defendants?.[0]?.attorneys?.[0]
+            
+            // Populate form with case data
+            setFormData(prev => ({
+              ...prev,
+              plaintiffName: plaintiffNames,
+              defendantName: defendantNames,
+              caseNumber: foundCase.caseNumber || '',
+              county: foundCase.courtCounty || '',
+              // Attorney info from defendant's counsel
+              attorneyName: defendantAttorney?.name || '',
+              stateBarNumber: defendantAttorney?.barNumber || '',
+              attorneyEmail: defendantAttorney?.email || '',
+              lawFirmName: defendantAttorney?.firm || '',
+              addressLine1: defendantAttorney?.address || '',
+              phone: defendantAttorney?.phone || '',
+            }))
           }
         }
       }

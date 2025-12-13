@@ -806,22 +806,103 @@ export function generateWordDocument(data: AnswerData): Document {
     })
   }
   
-  // Add signature section if available (from structured data)
-  if (data.answerSections?.signature && data.answerSections.signature.trim().length > 0) {
-    const signatureLines = data.answerSections.signature.split('\n').filter(line => line.trim().length > 0)
-    signatureLines.forEach((line) => {
-      if (line.trim().length > 0) {
-        addParagraph(
-          createOneAndHalfParagraph([
-              new TextRun({
-                text: line.trim(),
-                size: 24,
-              }),
-          ], { spacing: { after: 100 } })
-        )
-      }
-    })
-  }
+  // Add proper signature block with attorney data (replacing placeholder signature)
+  // Date line
+  const today = new Date().toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  });
+  
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: `Dated: ${today}`,
+        size: 24,
+      }),
+    ], { spacing: { before: 400, after: 200 } })
+  )
+
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: "Respectfully submitted,",
+        size: 24,
+      }),
+    ], { spacing: { after: 400 } })
+  )
+
+  // Law Firm Name
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: lawFirmName.toUpperCase(),
+        size: 24,
+        bold: true,
+      }),
+    ], { spacing: { after: 100 } })
+  )
+
+  // Signature line
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: "____________________________",
+        size: 24,
+      }),
+    ], { spacing: { after: 100 } })
+  )
+
+  // Attorney Name
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: attorneyName,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  )
+
+  // Bar Number
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: `State Bar No. ${stateBarNumber}`,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  )
+
+  // Email
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: email,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  )
+
+  // Phone
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: `Telephone: ${phone}`,
+        size: 24,
+      }),
+    ], { spacing: { after: 200 } })
+  )
+
+  // Attorney for line
+  const partyRoleText = partyRole || `${defendantLabel} ${defendantName}`
+  addParagraph(
+    createOneAndHalfParagraph([
+      new TextRun({
+        text: `Attorney for ${partyRoleText}`,
+        size: 24,
+      }),
+    ], { spacing: { after: 0 } })
+  )
 
   // Create first page header (empty - line numbers are in document body)
   const createFirstPageHeader = () => {

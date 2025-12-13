@@ -685,38 +685,6 @@ export default function CaseDetailPage() {
                         <option value="entity">Entity</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                      <input
-                        type="text"
-                        value={newPartyForm.address || ''}
-                        onChange={(e) => setNewPartyForm({ ...newPartyForm, address: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                        placeholder="Address"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                        <input
-                          type="text"
-                          value={newPartyForm.phone || ''}
-                          onChange={(e) => setNewPartyForm({ ...newPartyForm, phone: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                          placeholder="Phone"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <input
-                          type="email"
-                          value={newPartyForm.email || ''}
-                          onChange={(e) => setNewPartyForm({ ...newPartyForm, email: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                          placeholder="Email"
-                        />
-                      </div>
-                    </div>
                     <div className="flex space-x-2">
                       <button
                         onClick={handleAddPlaintiff}
@@ -769,35 +737,6 @@ export default function CaseDetailPage() {
                               <option value="entity">Entity</option>
                             </select>
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                            <input
-                              type="text"
-                              value={editPartyForm.address || ''}
-                              onChange={(e) => setEditPartyForm({ ...editPartyForm, address: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                              <input
-                                type="text"
-                                value={editPartyForm.phone || ''}
-                                onChange={(e) => setEditPartyForm({ ...editPartyForm, phone: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                              <input
-                                type="email"
-                                value={editPartyForm.email || ''}
-                                onChange={(e) => setEditPartyForm({ ...editPartyForm, email: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                              />
-                            </div>
-                          </div>
                           <div className="flex space-x-2">
                             <button
                               onClick={handleSaveEditPlaintiff}
@@ -820,9 +759,6 @@ export default function CaseDetailPage() {
                             <div>
                               <p className="font-medium text-gray-900">{plaintiff.name}</p>
                               <p className="text-sm text-gray-500 capitalize">{plaintiff.type}</p>
-                              {plaintiff.address && <p className="text-sm text-gray-500">{plaintiff.address}</p>}
-                              {plaintiff.phone && <p className="text-sm text-gray-500">{plaintiff.phone}</p>}
-                              {plaintiff.email && <p className="text-sm text-gray-500">{plaintiff.email}</p>}
                             </div>
                             {isEditing && (
                               <div className="flex space-x-1">
@@ -891,6 +827,13 @@ export default function CaseDetailPage() {
                                     className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-black"
                                     placeholder="Bar number"
                                   />
+                                  <input
+                                    type="text"
+                                    value={newAttorneyForm.address || ''}
+                                    onChange={(e) => setNewAttorneyForm({ ...newAttorneyForm, address: e.target.value })}
+                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-black"
+                                    placeholder="Address"
+                                  />
                                   <div className="grid grid-cols-2 gap-2">
                                     <input
                                       type="text"
@@ -956,6 +899,29 @@ export default function CaseDetailPage() {
                                           className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-black"
                                           placeholder="Bar #"
                                         />
+                                        <input
+                                          type="text"
+                                          value={editAttorneyForm.address || ''}
+                                          onChange={(e) => setEditAttorneyForm({ ...editAttorneyForm, address: e.target.value })}
+                                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-black"
+                                          placeholder="Address"
+                                        />
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <input
+                                            type="text"
+                                            value={editAttorneyForm.phone || ''}
+                                            onChange={(e) => setEditAttorneyForm({ ...editAttorneyForm, phone: e.target.value })}
+                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-black"
+                                            placeholder="Phone"
+                                          />
+                                          <input
+                                            type="email"
+                                            value={editAttorneyForm.email || ''}
+                                            onChange={(e) => setEditAttorneyForm({ ...editAttorneyForm, email: e.target.value })}
+                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-black"
+                                            placeholder="Email"
+                                          />
+                                        </div>
                                         <div className="flex space-x-2">
                                           <button
                                             onClick={() => handleSaveEditAttorney('plaintiff')}
@@ -977,6 +943,9 @@ export default function CaseDetailPage() {
                                           <p className="text-sm font-medium text-gray-800">{attorney.name}</p>
                                           {attorney.firm && <p className="text-xs text-gray-600">{attorney.firm}</p>}
                                           {attorney.barNumber && <p className="text-xs text-gray-500">Bar #: {attorney.barNumber}</p>}
+                                          {attorney.address && <p className="text-xs text-gray-500">{attorney.address}</p>}
+                                          {attorney.phone && <p className="text-xs text-gray-500">{attorney.phone}</p>}
+                                          {attorney.email && <p className="text-xs text-gray-500">{attorney.email}</p>}
                                         </div>
                                         {isEditing && (
                                           <div className="flex space-x-1">
@@ -1056,38 +1025,6 @@ export default function CaseDetailPage() {
                         <option value="entity">Entity</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                      <input
-                        type="text"
-                        value={newPartyForm.address || ''}
-                        onChange={(e) => setNewPartyForm({ ...newPartyForm, address: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                        placeholder="Address"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                        <input
-                          type="text"
-                          value={newPartyForm.phone || ''}
-                          onChange={(e) => setNewPartyForm({ ...newPartyForm, phone: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                          placeholder="Phone"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                        <input
-                          type="email"
-                          value={newPartyForm.email || ''}
-                          onChange={(e) => setNewPartyForm({ ...newPartyForm, email: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                          placeholder="Email"
-                        />
-                      </div>
-                    </div>
                     <div className="flex space-x-2">
                       <button
                         onClick={handleAddDefendant}
@@ -1140,35 +1077,6 @@ export default function CaseDetailPage() {
                               <option value="entity">Entity</option>
                             </select>
                           </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                            <input
-                              type="text"
-                              value={editPartyForm.address || ''}
-                              onChange={(e) => setEditPartyForm({ ...editPartyForm, address: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                              <input
-                                type="text"
-                                value={editPartyForm.phone || ''}
-                                onChange={(e) => setEditPartyForm({ ...editPartyForm, phone: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                              <input
-                                type="email"
-                                value={editPartyForm.email || ''}
-                                onChange={(e) => setEditPartyForm({ ...editPartyForm, email: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-black"
-                              />
-                            </div>
-                          </div>
                           <div className="flex space-x-2">
                             <button
                               onClick={handleSaveEditDefendant}
@@ -1191,9 +1099,6 @@ export default function CaseDetailPage() {
                             <div>
                               <p className="font-medium text-gray-900">{defendant.name}</p>
                               <p className="text-sm text-gray-500 capitalize">{defendant.type}</p>
-                              {defendant.address && <p className="text-sm text-gray-500">{defendant.address}</p>}
-                              {defendant.phone && <p className="text-sm text-gray-500">{defendant.phone}</p>}
-                              {defendant.email && <p className="text-sm text-gray-500">{defendant.email}</p>}
                             </div>
                             {isEditing && (
                               <div className="flex space-x-1">
@@ -1262,6 +1167,13 @@ export default function CaseDetailPage() {
                                     className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 text-black"
                                     placeholder="Bar number"
                                   />
+                                  <input
+                                    type="text"
+                                    value={newAttorneyForm.address || ''}
+                                    onChange={(e) => setNewAttorneyForm({ ...newAttorneyForm, address: e.target.value })}
+                                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-red-500 text-black"
+                                    placeholder="Address"
+                                  />
                                   <div className="grid grid-cols-2 gap-2">
                                     <input
                                       type="text"
@@ -1327,6 +1239,29 @@ export default function CaseDetailPage() {
                                           className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-black"
                                           placeholder="Bar #"
                                         />
+                                        <input
+                                          type="text"
+                                          value={editAttorneyForm.address || ''}
+                                          onChange={(e) => setEditAttorneyForm({ ...editAttorneyForm, address: e.target.value })}
+                                          className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-black"
+                                          placeholder="Address"
+                                        />
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <input
+                                            type="text"
+                                            value={editAttorneyForm.phone || ''}
+                                            onChange={(e) => setEditAttorneyForm({ ...editAttorneyForm, phone: e.target.value })}
+                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-black"
+                                            placeholder="Phone"
+                                          />
+                                          <input
+                                            type="email"
+                                            value={editAttorneyForm.email || ''}
+                                            onChange={(e) => setEditAttorneyForm({ ...editAttorneyForm, email: e.target.value })}
+                                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-black"
+                                            placeholder="Email"
+                                          />
+                                        </div>
                                         <div className="flex space-x-2">
                                           <button
                                             onClick={() => handleSaveEditAttorney('defendant')}
@@ -1348,6 +1283,9 @@ export default function CaseDetailPage() {
                                           <p className="text-sm font-medium text-gray-800">{attorney.name}</p>
                                           {attorney.firm && <p className="text-xs text-gray-600">{attorney.firm}</p>}
                                           {attorney.barNumber && <p className="text-xs text-gray-500">Bar #: {attorney.barNumber}</p>}
+                                          {attorney.address && <p className="text-xs text-gray-500">{attorney.address}</p>}
+                                          {attorney.phone && <p className="text-xs text-gray-500">{attorney.phone}</p>}
+                                          {attorney.email && <p className="text-xs text-gray-500">{attorney.email}</p>}
                                         </div>
                                         {isEditing && (
                                           <div className="flex space-x-1">
