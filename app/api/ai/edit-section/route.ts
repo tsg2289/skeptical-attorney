@@ -196,6 +196,16 @@ function detectRevisedContent(message: string): boolean {
     /modified version/i,
     /edited version/i,
     /revised version/i,
+    // Add patterns for defense suggestions
+    /here are (?:some |the )?(?:additional |suggested |recommended )?(?:affirmative )?defenses/i,
+    /additional defenses/i,
+    /suggested defenses/i,
+    /following defenses/i,
+    /these defenses/i,
+    /consider (?:adding |the following)/i,
+    /recommend (?:adding |the following)/i,
+    /\*\*[^*]+\*\*\s*:/,  // Matches **Title**: pattern (bullet-point format)
+    /^-\s*\*\*/m,  // Matches "- **" at start of line
   ];
   
   return revisionIndicators.some(pattern => pattern.test(message));
@@ -213,6 +223,11 @@ function extractRevisedContent(message: string): string | null {
     /^here(?:'s| is) (?:a |an |the )?(?:more )?(?:aggressive|diplomatic|concise|detailed|revised|updated) version[:\s]*/i,
     /^(?:certainly|sure|of course)[!,.]?\s*here(?:'s| is)[^:]*[:\s]*/i,
     /^I've (?:revised|updated|modified|edited) the (?:content|section)[.:]?\s*/i,
+    // Add patterns for defense suggestions
+    /^here are (?:some |the )?(?:additional |suggested |recommended )?(?:affirmative )?defenses[:\s]*/i,
+    /^(?:some |the )?(?:additional |suggested |recommended )?defenses[:\s]*(?:you could consider|to consider|include)?[:\s]*/i,
+    /^(?:consider |you might consider |I recommend |I suggest )(?:adding )?(?:the following|these)[:\s]*/i,
+    /^(?:certainly|sure|absolutely)[!,.]?\s*(?:here are|I can suggest)[^:]*[:\s]*/i,
   ];
 
   let cleaned = message.trim();
@@ -224,6 +239,13 @@ function extractRevisedContent(message: string): string | null {
   
   // If the message starts with a newline after cleaning, trim it
   cleaned = cleaned.replace(/^\n+/, '').trim();
+  
+  // For bullet-point format, find where the bullets start
+  const bulletStart = cleaned.search(/^[\-\*•]\s*\*\*/m);
+  if (bulletStart > 0 && bulletStart < 200) {
+    // There's some intro text before the bullets, skip it
+    cleaned = cleaned.substring(bulletStart);
+  }
   
   // If there's still content that looks like an intro paragraph followed by the actual content,
   // try to find where the actual legal content starts
@@ -245,7 +267,7 @@ function extractRevisedContent(message: string): string | null {
   // Remove any trailing remarks like "Let me know if you'd like..."
   const trailingPatterns = [
     /\n+(?:let me know|please let me know|feel free|if you(?:'d| would) like|would you like|do you want|shall I)[^]*$/i,
-    /\n+(?:I hope this|this version|this revised)[^]*$/i,
+    /\n+(?:I hope this|this version|this revised|these suggestions)[^]*$/i,
   ];
   
   for (const pattern of trailingPatterns) {

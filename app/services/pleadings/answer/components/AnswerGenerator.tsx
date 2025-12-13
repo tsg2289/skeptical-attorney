@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Scale, Users, Copy, Download, FileDown, Plus, X, Edit2, Save, RotateCcw, GripVertical } from 'lucide-react'
+import { FileText, Scale, Users, Copy, Download, FileDown, Plus, X, Edit2, Save, RotateCcw, GripVertical, Sparkles, Eye, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { downloadWordDocument as generateWordDoc } from '@/lib/docx-generator'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
@@ -10,6 +10,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { supabaseCaseStorage } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
 import AnswerPreviewModal from './AnswerPreviewModal'
+import AIEditChatModal from './AIEditChatModal'
 
 // Interface for defense structure
 interface Defense {
@@ -26,7 +27,7 @@ interface AnswerSections {
   defenses: Defense[]
   prayer: string
   signature: string
-  aiAnalysis: string
+  aiAnalysis?: string
 }
 
 // Parse the generated answer into sections
@@ -39,8 +40,8 @@ function parseAnswer(answer: string): AnswerSections {
     aiAnalysis: '',
   }
 
-  // Pattern to match defense headers (FIRST, SECOND, THIRD, etc.)
-  const defensePattern = /(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|THIRTEENTH|FOURTEENTH|FIFTEENTH|SIXTEENTH|SEVENTEENTH|EIGHTEENTH|NINETEENTH|TWENTIETH)\s+AFFIRMATIVE\s+DEFENSE/gi
+  // Pattern to match defense headers (FIRST, SECOND, THIRD, etc. up to THIRTIETH)
+  const defensePattern = /(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|THIRTEENTH|FOURTEENTH|FIFTEENTH|SIXTEENTH|SEVENTEENTH|EIGHTEENTH|NINETEENTH|TWENTIETH|TWENTY-FIRST|TWENTY-SECOND|TWENTY-THIRD|TWENTY-FOURTH|TWENTY-FIFTH|TWENTY-SIXTH|TWENTY-SEVENTH|TWENTY-EIGHTH|TWENTY-NINTH|THIRTIETH)\s+AFFIRMATIVE\s+DEFENSE/gi
   
   // Find all defense matches
   const matches = [...answer.matchAll(defensePattern)]
@@ -227,6 +228,41 @@ function parseAnswer(answer: string): AnswerSections {
   return sections
 }
 
+// Parse bullet-point format suggestions from AI (e.g., "- **Fair Use**: Description...")
+function parseBulletPointSuggestions(text: string): Defense[] {
+  const defenses: Defense[] = []
+  
+  // Match patterns like:
+  // - **Title**: Content
+  // * **Title**: Content  
+  // **Title**: Content
+  const lines = text.split('\n')
+  let index = 0
+  
+  for (const line of lines) {
+    // Match: - **Title**: Content or * **Title**: Content or **Title**: Content
+    const match = line.match(/^[\-\*•]?\s*\*\*([^*]+)\*\*\s*:\s*(.+)$/)
+    if (match) {
+      const title = match[1].trim()
+      const content = match[2].trim()
+      
+      if (title && content && content.length > 10) {
+        defenses.push({
+          id: `suggestion-${index}`,
+          number: '',
+          causesOfAction: 'To All Causes of Action',
+          title: title,
+          content: content,
+          fullText: `(To All Causes of Action)\n(${title})\n${content}`,
+        })
+        index++
+      }
+    }
+  }
+  
+  return defenses
+}
+
 // Reconstruct full answer from sections
 function reconstructAnswer(sections: AnswerSections): string {
   const defensesText = sections.defenses
@@ -255,7 +291,7 @@ function getOrdinalNumber(index: number): string {
 }
 
 // Sortable Defense Card Component - BLUE/WHITE THEME
-function SortableDefenseCard({ defense, editingDefenseId, editingDefense, onEdit, onSave, onCancel, onDelete, onEditChange }: {
+function SortableDefenseCard({ defense, editingDefenseId, editingDefense, onEdit, onSave, onCancel, onDelete, onEditChange, onAIEdit }: {
   defense: Defense
   editingDefenseId: string | null
   editingDefense: { number: string; causesOfAction: string; title: string; content: string }
@@ -264,6 +300,7 @@ function SortableDefenseCard({ defense, editingDefenseId, editingDefense, onEdit
   onCancel: () => void
   onDelete: (defenseId: string) => void
   onEditChange: (field: string, value: string) => void
+  onAIEdit: (defense: Defense) => void
 }) {
   const {
     attributes,
@@ -322,6 +359,13 @@ function SortableDefenseCard({ defense, editingDefenseId, editingDefense, onEdit
               )}
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => onAIEdit(defense)}
+                className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white transition-all hover:from-purple-600 hover:to-purple-700 hover:scale-110"
+                title="Edit with AI"
+              >
+                <Sparkles className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => onEdit(defense)}
                 className="p-2 rounded-lg bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-110"
@@ -441,6 +485,8 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [showAddDefense, setShowAddDefense] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveSuccess, setSaveSuccess] = useState(false)
   const [newDefense, setNewDefense] = useState({
     number: '',
     causesOfAction: '',
@@ -455,6 +501,20 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
     content: ''
   })
 
+  // State for AI Edit modal
+  const [showAIEdit, setShowAIEdit] = useState(false)
+  const [aiEditSection, setAIEditSection] = useState<{
+    id: string
+    title: string
+    content: string
+  } | null>(null)
+  
+  // State for parties data (for AI modal)
+  const [partiesData, setPartiesData] = useState<{
+    plaintiffs?: { name: string }[]
+    defendants?: { name: string }[]
+  }>({})
+
   // Populate form data from case if caseId is provided
   useEffect(() => {
     const loadCase = async () => {
@@ -468,25 +528,37 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
             console.log(`[AUDIT] Answer generator initialized for case: ${caseId}`)
             
             // Get plaintiff names
-            const plaintiffNames = foundCase.plaintiffs
-              ?.map(p => p.name)
+            const plaintiffs = foundCase.plaintiffs || []
+            const plaintiffNames = plaintiffs
+              .map(p => p.name)
               .filter(Boolean)
               .join(', ') || ''
             
             // Get defendant names
-            const defendantNames = foundCase.defendants
-              ?.map(d => d.name)
+            const defendants = foundCase.defendants || []
+            const defendantNames = defendants
+              .map(d => d.name)
               .filter(Boolean)
               .join(', ') || ''
             
-            // Get defendant's attorney info (first attorney of first defendant)
-            const defendantAttorney = foundCase.defendants?.[0]?.attorneys?.[0]
+            // AUTO-DETECT multiple defendants
+            const hasMultipleDefendants = defendants.length > 1
             
-            // Populate form with case data
+            // Get defendant's attorney info (first attorney of first defendant)
+            const defendantAttorney = defendants[0]?.attorneys?.[0]
+            
+            // Store parties data for AI modal
+            setPartiesData({
+              plaintiffs: plaintiffs.map(p => ({ name: p.name })),
+              defendants: defendants.map(d => ({ name: d.name })),
+            })
+            
+            // Populate form with case data including auto-detected multiple defendants
             setFormData(prev => ({
               ...prev,
               plaintiffName: plaintiffNames,
               defendantName: defendantNames,
+              isMultipleDefendants: hasMultipleDefendants, // Auto-detect!
               caseNumber: foundCase.caseNumber || '',
               county: foundCase.courtCounty || '',
               // Attorney info from defendant's counsel
@@ -497,6 +569,14 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
               addressLine1: defendantAttorney?.address || '',
               phone: defendantAttorney?.phone || '',
             }))
+            
+            // Load saved answer sections if they exist
+            if (foundCase.answerSections && foundCase.answerSections.defenses && foundCase.answerSections.defenses.length > 0) {
+              setAnswerSections(foundCase.answerSections)
+              const fullAnswer = reconstructAnswer(foundCase.answerSections)
+              setGeneratedAnswer(fullAnswer)
+              toast.success('Loaded saved answer draft')
+            }
           }
         }
       }
@@ -572,6 +652,41 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
     element.click()
     document.body.removeChild(element)
     toast.success('Answer downloaded as text!')
+  }
+
+  // Save answer draft to the case in Supabase
+  const handleSaveDraft = async () => {
+    if (!caseId) {
+      toast.error('No case selected. Please access this page from the case dashboard.')
+      return
+    }
+
+    if (!answerSections) {
+      toast.error('No answer to save. Please generate an answer first.')
+      return
+    }
+
+    setSaving(true)
+    setSaveSuccess(false)
+
+    try {
+      const result = await supabaseCaseStorage.updateCase(caseId, {
+        answerSections: answerSections,
+      })
+
+      if (result) {
+        setSaveSuccess(true)
+        toast.success('Answer draft saved!')
+        setTimeout(() => setSaveSuccess(false), 3000)
+      } else {
+        toast.error('Failed to save draft. Please try again.')
+      }
+    } catch (error) {
+      console.error('Error saving answer draft:', error)
+      toast.error('An error occurred while saving. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const downloadWordDoc = async () => {
@@ -786,6 +901,176 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
   const handleCancelEdit = () => {
     setEditingDefenseId(null)
     setEditingDefense({ number: '', causesOfAction: '', title: '', content: '' })
+  }
+
+  // Handler for opening AI edit on a defense
+  const handleOpenAIEdit = (defense: Defense) => {
+    setAIEditSection({
+      id: defense.id,
+      title: `${defense.number} Affirmative Defense${defense.title ? ` - ${defense.title}` : ''}`,
+      content: defense.content,
+    })
+    setShowAIEdit(true)
+  }
+
+  // Handler for opening AI edit on full answer
+  const handleOpenAIEditFullAnswer = () => {
+    setAIEditSection({
+      id: 'full-answer',
+      title: 'Full Answer Document',
+      content: generatedAnswer,
+    })
+    setShowAIEdit(true)
+  }
+
+  // Handler for applying AI edit
+  const handleApplyAIEdit = (newContent: string) => {
+    if (!aiEditSection) return
+    
+    if (aiEditSection.id === 'full-answer') {
+      // FIRST try to parse bullet-point format (most common for AI suggestions like "- **Fair Use**: ...")
+      const bulletDefenses = parseBulletPointSuggestions(newContent)
+      
+      if (bulletDefenses.length > 0 && answerSections) {
+        // Found bullet-point suggestions - ADD them to existing defenses
+        const existingDefenseTitles = answerSections.defenses.map(d => d.title?.toLowerCase() || '')
+        
+        // Filter to only truly new defenses (not duplicates by title)
+        const newDefenses = bulletDefenses.filter(newDef => {
+          const isDuplicateTitle = newDef.title && existingDefenseTitles.includes(newDef.title.toLowerCase())
+          return !isDuplicateTitle
+        })
+        
+        if (newDefenses.length > 0) {
+          // Renumber the new defenses to continue from existing
+          const startIndex = answerSections.defenses.length
+          const timestamp = Date.now()
+          
+          const renumberedNewDefenses: Defense[] = newDefenses.map((defense, index) => {
+            const newNumber = getOrdinalNumber(startIndex + index)
+            const newId = `defense-ai-${timestamp}-${index}-${Math.random().toString(36).substr(2, 9)}`
+            
+            const causesOfAction = defense.causesOfAction || 'To All Causes of Action'
+            const title = defense.title || ''
+            const content = defense.content || ''
+            
+            let fullTextContent = ''
+            if (causesOfAction) {
+              fullTextContent += `(${causesOfAction})\n`
+            }
+            if (title) {
+              fullTextContent += `(${title})\n`
+            }
+            fullTextContent += content
+            
+            const fullText = `${newNumber} AFFIRMATIVE DEFENSE\n${fullTextContent}`
+            
+            return {
+              id: newId,
+              number: newNumber,
+              causesOfAction: causesOfAction,
+              title: title,
+              content: content,
+              fullText: fullText,
+            }
+          })
+          
+          // Add to existing defenses (KEEP all existing ones!)
+          setAnswerSections({
+            ...answerSections,
+            defenses: [...answerSections.defenses, ...renumberedNewDefenses],
+          })
+          
+          toast.success(`Added ${renumberedNewDefenses.length} new defense${renumberedNewDefenses.length > 1 ? 's' : ''}!`)
+          return
+        }
+      }
+      
+      // If no bullet defenses found, try formal defense format
+      const newParsed = parseAnswer(newContent)
+      
+      if (newParsed.defenses.length > 0 && answerSections) {
+        // Check if these are truly NEW defenses (not a complete replacement)
+        const isLikelyNewDefensesOnly = !newParsed.preamble || newParsed.preamble.length < 100
+        
+        if (isLikelyNewDefensesOnly) {
+          const existingDefenseTitles = answerSections.defenses.map(d => d.title?.toLowerCase() || '')
+          
+          const newDefenses = newParsed.defenses.filter(newDef => {
+            const isDuplicateTitle = newDef.title && existingDefenseTitles.includes(newDef.title.toLowerCase())
+            return !isDuplicateTitle
+          })
+          
+          if (newDefenses.length > 0) {
+            const startIndex = answerSections.defenses.length
+            const timestamp = Date.now()
+            
+            const renumberedNewDefenses: Defense[] = newDefenses.map((defense, index) => {
+              const newNumber = getOrdinalNumber(startIndex + index)
+              const newId = `defense-ai-${timestamp}-${index}-${Math.random().toString(36).substr(2, 9)}`
+              
+              const causesOfAction = defense.causesOfAction || 'To All Causes of Action'
+              const title = defense.title || ''
+              const content = defense.content || ''
+              
+              let fullTextContent = ''
+              if (causesOfAction) {
+                fullTextContent += `(${causesOfAction})\n`
+              }
+              if (title) {
+                fullTextContent += `(${title})\n`
+              }
+              fullTextContent += content
+              
+              const fullText = `${newNumber} AFFIRMATIVE DEFENSE\n${fullTextContent}`
+              
+              return {
+                id: newId,
+                number: newNumber,
+                causesOfAction: causesOfAction,
+                title: title,
+                content: content,
+                fullText: fullText,
+              }
+            })
+            
+            setAnswerSections({
+              ...answerSections,
+              defenses: [...answerSections.defenses, ...renumberedNewDefenses],
+            })
+            
+            toast.success(`Added ${renumberedNewDefenses.length} new defense${renumberedNewDefenses.length > 1 ? 's' : ''}!`)
+            return
+          }
+        }
+      }
+      
+      // Only do full replacement if it's actually a complete answer with substantial preamble AND defenses
+      if (newParsed.preamble && newParsed.preamble.length > 100 && newParsed.defenses.length > 0) {
+        setAnswerSections(newParsed)
+        setGeneratedAnswer(newContent)
+        toast.success('Answer replaced!')
+      } else {
+        toast.error('Could not parse AI response. Try asking for defenses in a different format.')
+      }
+    } else {
+      // Update specific defense
+      if (answerSections) {
+        setAnswerSections({
+          ...answerSections,
+          defenses: answerSections.defenses.map(def =>
+            def.id === aiEditSection.id
+              ? {
+                  ...def,
+                  content: newContent,
+                  fullText: `${def.number} AFFIRMATIVE DEFENSE${def.causesOfAction ? `\n(${def.causesOfAction})` : ''}${def.title ? `\n(${def.title})` : ''}\n${newContent}`,
+                }
+              : def
+          ),
+        })
+        toast.success('Defense updated!')
+      }
+    }
   }
 
   // Drag and drop sensors
@@ -1199,6 +1484,7 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
                           onCancel={handleCancelEdit}
                           onDelete={handleDeleteDefense}
                           onEditChange={handleEditChange}
+                          onAIEdit={handleOpenAIEdit}
                         />
                       ))}
                       </div>
@@ -1341,9 +1627,47 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
               <div className="glass rounded-2xl p-6 bg-white/95 border border-primary-200">
                 <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
                   <FileDown className="w-5 h-5 mr-2 text-primary-600" />
-                  Download Options
+                  Save & Download Options
                 </h3>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-3 items-center">
+                  {/* Save Success Indicator */}
+                  {saveSuccess && (
+                    <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                      <Check className="w-4 h-4" />
+                      Draft saved!
+                    </span>
+                  )}
+                  {/* Save Draft Button */}
+                  <button
+                    onClick={handleSaveDraft}
+                    disabled={saving || !caseId || !answerSections}
+                    className={`flex items-center px-4 py-2 rounded-xl border border-primary-300 text-primary-700 font-semibold transition-all hover:bg-primary-50 hover:scale-105 ${
+                      saving || !caseId || !answerSections ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    title={!caseId ? 'Access from case dashboard to enable saving' : !answerSections ? 'Generate an answer first' : 'Save your draft'}
+                  >
+                    {saving ? (
+                      <>
+                        <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Draft
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setShowPreview(true)}
+                    className="flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold transition-all hover:scale-105 hover:shadow-lg"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Preview Answer
+                  </button>
                   <button
                     onClick={downloadWordDoc}
                     className="flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold transition-all hover:scale-105 hover:shadow-lg"
@@ -1395,6 +1719,25 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
         formData={formData}
         isMultipleDefendants={formData.isMultipleDefendants}
       />
+
+      {/* AI Edit Modal */}
+      {aiEditSection && (
+        <AIEditChatModal
+          isOpen={showAIEdit}
+          onClose={() => {
+            setShowAIEdit(false)
+            setAIEditSection(null)
+          }}
+          sectionId={aiEditSection.id}
+          sectionTitle={aiEditSection.title}
+          currentContent={aiEditSection.content}
+          complaintText={formData.complaintText}
+          caseId={caseId || ''}
+          parties={partiesData}
+          isMultipleDefendants={formData.isMultipleDefendants}
+          onApplyEdit={handleApplyAIEdit}
+        />
+      )}
     </div>
   )
 }

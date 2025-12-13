@@ -16,7 +16,7 @@ interface AnswerSections {
   }>;
   prayer: string;
   signature: string;
-  aiAnalysis: string;
+  aiAnalysis?: string;
 }
 
 interface AnswerPreviewModalProps {

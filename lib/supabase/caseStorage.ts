@@ -23,6 +23,25 @@ export interface ComplaintSection {
   type: 'header' | 'jurisdiction' | 'venue' | 'factual' | 'cause' | 'prayer' | 'jury' | 'signature'
 }
 
+// Answer Defense - individual defense in the answer
+export interface AnswerDefense {
+  id: string
+  number: string
+  causesOfAction: string
+  title: string
+  content: string
+  fullText: string
+}
+
+// Answer Sections - persists user's drafted answer content
+export interface AnswerSections {
+  preamble: string
+  defenses: AnswerDefense[]
+  prayer: string
+  signature: string
+  aiAnalysis?: string
+}
+
 // Attorney - now nested under each party
 export interface Attorney {
   id: string
@@ -65,6 +84,7 @@ export interface Case {
   deadlines?: Deadline[]
   demand_letter_sections?: DemandLetterSection[]  // Persisted demand letter drafts
   complaint_sections?: ComplaintSection[]  // Persisted complaint drafts
+  answer_sections?: AnswerSections  // Persisted answer drafts
   created_at: string
 }
 
@@ -86,6 +106,7 @@ export interface CaseInput {
   deadlines?: Deadline[]
   demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
   complaintSections?: ComplaintSection[]  // Persisted complaint drafts
+  answerSections?: AnswerSections  // Persisted answer drafts
 }
 
 // Helper to convert from snake_case (database) to camelCase (frontend)
@@ -108,6 +129,7 @@ export interface CaseFrontend {
   deadlines?: Deadline[]
   demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
   complaintSections?: ComplaintSection[]  // Persisted complaint drafts
+  answerSections?: AnswerSections  // Persisted answer drafts
   createdAt: string
 }
 
@@ -131,6 +153,7 @@ function toFrontendCase(dbCase: Case): CaseFrontend {
     deadlines: dbCase.deadlines,
     demandLetterSections: dbCase.demand_letter_sections,
     complaintSections: dbCase.complaint_sections,
+    answerSections: dbCase.answer_sections,
     createdAt: dbCase.created_at,
   }
 }
@@ -153,6 +176,7 @@ function toDbCase(input: CaseInput): Partial<Case> {
     deadlines: input.deadlines,
     demand_letter_sections: input.demandLetterSections,
     complaint_sections: input.complaintSections,
+    answer_sections: input.answerSections,
   }
 }
 
