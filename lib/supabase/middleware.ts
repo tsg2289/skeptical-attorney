@@ -67,9 +67,8 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith('/terms') ||
     request.nextUrl.pathname.startsWith('/cookies')
 
-  // Check for dev bypass mode - with explicit production block for safety
+  // Check for dev bypass mode - only enabled in development
   const isDevBypassEnabled = process.env.NODE_ENV === 'development' && 
-    process.env.NODE_ENV !== 'production' &&
     process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true'
 
   // If user is not authenticated and trying to access protected route, redirect to login
