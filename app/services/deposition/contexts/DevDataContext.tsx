@@ -20,7 +20,7 @@ interface Deposition {
   taking_attorney: string;
   defending_attorney: string;
   court_reporter: string;
-  matter_id: string;
+  case_id: string;
   created_at: string;
 }
 
@@ -106,7 +106,7 @@ const mockDepositions: Record<string, Deposition[]> = {
       taking_attorney: 'Sarah Wilson',
       defending_attorney: 'Michael Davis',
       court_reporter: 'Jennifer Lee',
-      matter_id: 'dev-matter-1',
+      case_id: 'dev-matter-1',
       created_at: '2024-01-30T11:00:00Z'
     }
   ],
@@ -120,7 +120,7 @@ const mockDepositions: Record<string, Deposition[]> = {
       taking_attorney: 'David Thompson',
       defending_attorney: 'Emily Rodriguez',
       court_reporter: 'Mark Johnson',
-      matter_id: 'dev-matter-2',
+      case_id: 'dev-matter-2',
       created_at: '2024-02-05T13:00:00Z'
     }
   ]
@@ -135,7 +135,7 @@ const mockDepositionDetails = {
     taking_attorney: 'Sarah Wilson',
     defending_attorney: 'Michael Davis',
     court_reporter: 'Jennifer Lee',
-    matter_id: 'dev-matter-1',
+    case_id: 'dev-matter-1',
     created_at: '2024-01-30T11:00:00Z'
   },
   'dev-depo-2': {
@@ -146,7 +146,7 @@ const mockDepositionDetails = {
     taking_attorney: 'David Thompson',
     defending_attorney: 'Emily Rodriguez',
     court_reporter: 'Mark Johnson',
-    matter_id: 'dev-matter-2',
+    case_id: 'dev-matter-2',
     created_at: '2024-02-05T13:00:00Z'
   }
 };
@@ -261,10 +261,10 @@ export const DevDataProvider: React.FC<{ children: ReactNode }> = ({ children })
     const stored = loadFromStorage<Record<string, Deposition[]>>(STORAGE_KEY_DEPOSITIONS, {});
     const details = loadFromStorage<Record<string, Deposition>>(STORAGE_KEY_DEPOSITIONS + '_details', {});
     
-    if (!stored[deposition.matter_id]) {
-      stored[deposition.matter_id] = [];
+    if (!stored[deposition.case_id]) {
+      stored[deposition.case_id] = [];
     }
-    stored[deposition.matter_id].push(deposition);
+    stored[deposition.case_id].push(deposition);
     details[deposition.id] = deposition;
     
     saveToStorage(STORAGE_KEY_DEPOSITIONS, stored);
