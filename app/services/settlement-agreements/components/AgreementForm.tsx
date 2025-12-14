@@ -10,7 +10,6 @@ import AIEditChatModal from './AIEditChatModal';
 import PreviewModal from './PreviewModal';
 import { supabaseCaseStorage, CaseFrontend, SettlementAgreementSection } from '@/lib/supabase/caseStorage';
 import { createClient } from '@/lib/supabase/client';
-import { useCallback } from 'react';
 
 interface TemplateSection {
   id: string;
@@ -184,7 +183,8 @@ export default function AgreementForm({ caseId }: AgreementFormProps) {
   
   // Track if saving is in progress
   const [isSaving, setIsSaving] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   const [templateSections, setTemplateSections] = useState<TemplateSection[]>([
     {
@@ -401,54 +401,52 @@ Dated:  _____________________             	______________________________
     }
   }, [currentCase, hasLoadedSavedSections]);
 
-  // Save sections to Supabase
-  const saveToSupabase = useCallback(async (sections: TemplateSection[]) => {
+  // Save draft to Supabase
+  const handleSaveDraft = async () => {
     if (!currentCaseId) {
-      console.log('[AUDIT] No case ID, skipping save');
+      setSaveError('No case selected. Please access this page from the case dashboard.');
+      setTimeout(() => setSaveError(null), 5000);
       return;
     }
-    
+
     setIsSaving(true);
-    
+    setSaveSuccess(false);
+    setSaveError(null);
+
     try {
       // Convert TemplateSection to SettlementAgreementSection format
-      const sectionsToSave: SettlementAgreementSection[] = sections.map(section => ({
+      const sectionsToSave: SettlementAgreementSection[] = templateSections.map(section => ({
         id: section.id,
         title: section.title,
         content: section.content,
       }));
-      
-      await supabaseCaseStorage.updateCase(currentCaseId, {
+
+      const result = await supabaseCaseStorage.updateCase(currentCaseId, {
         settlementAgreementSections: sectionsToSave,
       });
-      
-      setLastSaved(new Date());
-      console.log(`[AUDIT] Saved ${sectionsToSave.length} settlement agreement sections for case: ${currentCaseId}`);
+
+      if (result) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+        console.log(`[AUDIT] Saved ${sectionsToSave.length} settlement agreement sections for case: ${currentCaseId}`);
+      } else {
+        setSaveError('Failed to save draft. Please try again.');
+        setTimeout(() => setSaveError(null), 5000);
+      }
     } catch (error) {
       console.error('[AUDIT] Error saving settlement agreement sections:', error);
+      setSaveError('An error occurred while saving. Please try again.');
+      setTimeout(() => setSaveError(null), 5000);
     } finally {
       setIsSaving(false);
     }
-  }, [currentCaseId]);
-
-  // Debounced auto-save when sections change
-  useEffect(() => {
-    // Only save if we have a case ID and have loaded initial data
-    if (!currentCaseId || !hasLoadedSavedSections && !hasPopulatedCaseData) {
-      return;
-    }
-    
-    // Debounce save to avoid too many API calls
-    const timeoutId = setTimeout(() => {
-      saveToSupabase(templateSections);
-    }, 2000); // Save 2 seconds after last change
-    
-    return () => clearTimeout(timeoutId);
-  }, [templateSections, currentCaseId, hasLoadedSavedSections, hasPopulatedCaseData, saveToSupabase]);
+  };
 
   // Auto-populate case data into preamble, recitals, and signature block
+  // Only run if there are NO saved sections (otherwise load effect handles it)
   useEffect(() => {
-    if (currentCase && !hasPopulatedCaseData) {
+    if (currentCase && !hasPopulatedCaseData && 
+        (!currentCase.settlementAgreementSections || currentCase.settlementAgreementSections.length === 0)) {
       // Get party names
       const plaintiffNames = currentCase.plaintiffs?.map(p => p.name).join(', ') 
         || currentCase.client 
@@ -1225,43 +1223,50 @@ Dated:  _____________________             	______________________________
           </div>
         </div>
 
-        {/* Save Status Indicator */}
-        {currentCaseId && (
-          <div className="flex justify-center items-center gap-2 text-sm text-slate-500">
-            {isSaving ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Saving...</span>
-              </>
-            ) : lastSaved ? (
-              <>
-                <svg className="h-4 w-4 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                </svg>
-                <span>Saved {lastSaved.toLocaleTimeString()}</span>
-              </>
-            ) : null}
-          </div>
-        )}
-
         {/* Action Buttons at Bottom */}
-        <div className="flex justify-center gap-4 pt-8 pb-4">
-          <Button 
-            onClick={(e) => {
-              e.preventDefault();
-              if (formRef.current) {
-                formRef.current.requestSubmit();
-              }
-            }}
-            variant="gradient" 
-            isLoading={isLoading}
-            size="lg"
-          >
-              Create Agreement
-            </Button>
+        <div className="flex flex-col items-center gap-4 pt-8 pb-4">
+          {/* Save Status Feedback */}
+          <div className="flex items-center gap-2 h-6">
+            {saveError && (
+              <span className="text-red-600 text-sm font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {saveError}
+              </span>
+            )}
+            {saveSuccess && (
+              <span className="text-green-600 text-sm font-medium flex items-center gap-1">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Draft saved!
+              </span>
+            )}
+          </div>
+
+          {/* Buttons */}
+          <div className="flex justify-center gap-4">
+            <button 
+              onClick={handleSaveDraft}
+              disabled={isSaving || !currentCaseId}
+              className={`px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2 ${
+                isSaving ? 'opacity-50 cursor-not-allowed' : ''
+              } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+              title={!currentCaseId ? 'Access from case dashboard to enable saving' : 'Save your draft'}
+            >
+              {isSaving ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                'Save Draft'
+              )}
+            </button>
             <Button
               type="button"
               variant="outline"
@@ -1274,11 +1279,12 @@ Dated:  _____________________             	______________________________
               type="button"
               variant="outline"
               onClick={() => router.back()}
-            size="lg"
+              size="lg"
             >
               Cancel
             </Button>
           </div>
+        </div>
       </div>
 
       {/* AI Edit Chat Modal */}
