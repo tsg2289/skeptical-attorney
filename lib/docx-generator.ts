@@ -1438,3 +1438,247 @@ export async function downloadDemandLetterDocument(data: DemandLetterData): Prom
     throw new Error(`Failed to generate Word document: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
+
+export interface SettlementAgreementData {
+  sections: Array<{
+    id: string;
+    title?: string;
+    content: string;
+  }>;
+  caseName?: string;
+  caseNumber?: string;
+  attorneyName?: string;
+  stateBarNumber?: string;
+  email?: string;
+  lawFirmName?: string;
+  address?: string;
+  phone?: string;
+}
+
+export function generateSettlementAgreementDocument(data: SettlementAgreementData): Document {
+  const {
+    sections,
+    caseName,
+    caseNumber,
+    attorneyName = "[Attorney Name]",
+    stateBarNumber = "[State Bar No.]",
+    email = "[email@lawfirm.com]",
+    lawFirmName = "[LAW FIRM NAME]",
+    address = "[Address]",
+    phone = "[Phone Number]",
+  } = data;
+
+  const children: (Paragraph | Table)[] = [];
+
+  // Helper function to add paragraph
+  const addParagraph = (paragraph: Paragraph) => {
+    children.push(paragraph);
+  };
+
+  // Helper function to create paragraph with proper spacing
+  const createParagraph = (textRuns: any[], options: any = {}) => {
+    return new Paragraph({
+      children: textRuns,
+      spacing: { 
+        line: 240, // 12 point line spacing
+        ...options.spacing 
+      },
+      ...options
+    });
+  };
+
+  // Helper function to get section title
+  const getSectionTitle = (section: { title?: string; content: string }): string | null => {
+    if (section.title) return section.title;
+    
+    const lines = section.content.split('\n');
+    const firstLine = lines[0]?.trim() || '';
+    
+    // Check for RECITALS
+    if (firstLine === 'R E C I T A L S' || firstLine.match(/^R\s+E\s+C\s+I\s+T\s+A\s+L\s+S$/i)) {
+      return 'RECITALS';
+    }
+    
+    // Check for numbered sections (e.g., "1. Consideration")
+    const numberedMatch = firstLine.match(/^(\d+)\.\s+(.+?)(?:\.|$)/);
+    if (numberedMatch) {
+      return numberedMatch[2].trim();
+    }
+    
+    return null;
+  };
+
+  // Add each section
+  sections.forEach((section, index) => {
+    const sectionTitle = getSectionTitle(section);
+    
+    // Add section title if available
+    if (sectionTitle) {
+      addParagraph(
+        createParagraph([
+          new TextRun({
+            text: sectionTitle.toUpperCase(),
+            size: 24,
+            bold: true,
+          }),
+        ], { spacing: { after: 200 }, alignment: AlignmentType.CENTER })
+      );
+    }
+
+    // Section Content - split by newlines to preserve formatting
+    const contentLines = section.content.split('\n');
+    contentLines.forEach((line, lineIndex) => {
+      if (line.trim() || lineIndex === 0 || lineIndex === contentLines.length - 1) {
+        // Check if line is a numbered paragraph (e.g., "1. Text")
+        const numberedMatch = line.trim().match(/^(\d+)\.\s+(.+)$/);
+        
+        if (numberedMatch) {
+          // Numbered paragraph - add proper indentation
+          addParagraph(
+            createParagraph([
+              new TextRun({
+                text: line || ' ',
+                size: 24,
+              }),
+            ], { 
+              spacing: { after: line.trim() ? 100 : 0 },
+              alignment: AlignmentType.JUSTIFIED,
+              indent: {
+                firstLine: 360, // 0.25 inch indent for numbered paragraphs
+              }
+            })
+          );
+        } else {
+          // Regular paragraph
+          addParagraph(
+            createParagraph([
+              new TextRun({
+                text: line || ' ',
+                size: 24,
+              }),
+            ], { 
+              spacing: { after: line.trim() ? 100 : 0 },
+              alignment: AlignmentType.JUSTIFIED 
+            })
+          );
+        }
+      }
+    });
+
+    // Add spacing between sections (except after last section)
+    if (index < sections.length - 1) {
+      addParagraph(
+        createParagraph([
+          new TextRun({
+            text: "",
+            size: 24,
+          }),
+        ], { spacing: { after: 400 } })
+      );
+    }
+  });
+
+  // Create footer with title and page numbers
+  const createSettlementAgreementFooter = () => {
+    return new Footer({
+      children: [
+        new Paragraph({
+          children: [],
+          spacing: { line: 240, before: 0, after: 0 },
+        }),
+        // Line separator
+        new Paragraph({
+          children: [],
+          spacing: { line: 240, before: 0, after: 50 },
+          border: {
+            top: {
+              color: "000000",
+              size: 4,
+              style: BorderStyle.SINGLE,
+            },
+          },
+        }),
+        // Page number
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: "- ",
+              size: 24,
+            }),
+            new SimpleField("PAGE"),
+            new TextRun({
+              text: " -",
+              size: 24,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { line: 240, before: 0, after: 50 },
+        }),
+        // Title
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: caseName ? `Settlement Agreement - ${caseName}` : "Settlement Agreement",
+              size: 24,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { line: 240, before: 0, after: 0 },
+        }),
+      ],
+    });
+  };
+
+  return new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              left: 1440,      // 1 inch left margin
+              right: 1440,     // 1 inch right margin
+              top: 1440,       // 1 inch top margin
+              bottom: 1440,    // 1 inch bottom margin
+            },
+          },
+        },
+        footers: {
+          default: createSettlementAgreementFooter(),
+          even: createSettlementAgreementFooter(),
+        },
+        children: children,
+      },
+    ],
+  });
+}
+
+export async function downloadSettlementAgreementDocument(data: SettlementAgreementData): Promise<void> {
+  try {
+    const doc = generateSettlementAgreementDocument(data);
+    const blob = await Packer.toBlob(doc);
+    
+    const fileName = `Settlement_Agreement_${data.caseName ? data.caseName.replace(/[^a-zA-Z0-9]/g, '_') : 'Document'}_${new Date().toISOString().split('T')[0]}.docx`;
+    
+    if (typeof saveAs === 'function') {
+      saveAs(blob, fileName);
+      return;
+    }
+    
+    // Fallback to manual download
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    
+    setTimeout(() => {
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }, 100);
+  } catch (error) {
+    console.error('Error generating Word document:', error);
+    throw new Error(`Failed to generate Word document: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}

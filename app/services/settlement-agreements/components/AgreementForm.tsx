@@ -6,8 +6,11 @@ import Input from './ui/Input';
 import Textarea from './ui/Textarea';
 import Button from './ui/Button';
 import Card from './ui/Card';
-import { supabaseCaseStorage } from '@/lib/supabase/caseStorage';
+import AIEditChatModal from './AIEditChatModal';
+import PreviewModal from './PreviewModal';
+import { supabaseCaseStorage, CaseFrontend, SettlementAgreementSection } from '@/lib/supabase/caseStorage';
 import { createClient } from '@/lib/supabase/client';
+import { useCallback } from 'react';
 
 interface TemplateSection {
   id: string;
@@ -97,7 +100,7 @@ function EditableTextarea({ section, onUpdate, onSave, onCancel }: EditableTexta
         }}
         onMouseDown={handleMouseDown}
         onFocus={(e) => e.stopPropagation()}
-        className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y overflow-auto"
+        className="w-full px-3 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-y overflow-auto text-slate-700"
         style={{ minHeight: '100px' }}
         autoFocus
       />
@@ -140,6 +143,17 @@ export default function AgreementForm({ caseId }: AgreementFormProps) {
   const titleInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(caseId || null);
+  const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null);
+  
+  // AI Edit Modal state
+  const [aiEditingSection, setAiEditingSection] = useState<{
+    id: string;
+    title: string;
+    content: string;
+  } | null>(null);
+  
+  // Preview Modal state
+  const [showPreview, setShowPreview] = useState(false);
   
   // Populate case data from caseId if provided
   useEffect(() => {
@@ -152,6 +166,7 @@ export default function AgreementForm({ caseId }: AgreementFormProps) {
           const foundCase = await supabaseCaseStorage.getCase(caseId);
           if (foundCase) {
             setCurrentCaseId(caseId);
+            setCurrentCase(foundCase);
             console.log(`[AUDIT] Settlement Agreement form initialized for case: ${caseId}`);
           }
         }
@@ -160,6 +175,16 @@ export default function AgreementForm({ caseId }: AgreementFormProps) {
     
     loadCase();
   }, [caseId]);
+
+  // Track if we've already populated the case data (to avoid overwriting user edits)
+  const [hasPopulatedCaseData, setHasPopulatedCaseData] = useState(false);
+  
+  // Track if we've loaded saved sections from database
+  const [hasLoadedSavedSections, setHasLoadedSavedSections] = useState(false);
+  
+  // Track if saving is in progress
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   
   const [templateSections, setTemplateSections] = useState<TemplateSection[]>([
     {
@@ -357,6 +382,150 @@ Dated:  _____________________             	______________________________
       isEditing: false,
     },
   ]);
+
+  // Load saved sections from database when case is loaded
+  useEffect(() => {
+    if (currentCase && currentCase.settlementAgreementSections && currentCase.settlementAgreementSections.length > 0 && !hasLoadedSavedSections) {
+      // Convert saved sections to TemplateSection format
+      const savedSections: TemplateSection[] = currentCase.settlementAgreementSections.map(section => ({
+        id: section.id,
+        title: section.title,
+        content: section.content,
+        isEditing: false,
+      }));
+      
+      setTemplateSections(savedSections);
+      setHasLoadedSavedSections(true);
+      setHasPopulatedCaseData(true); // Skip auto-populate since we have saved data
+      console.log(`[AUDIT] Loaded ${savedSections.length} saved settlement agreement sections for case: ${currentCase.id}`);
+    }
+  }, [currentCase, hasLoadedSavedSections]);
+
+  // Save sections to Supabase
+  const saveToSupabase = useCallback(async (sections: TemplateSection[]) => {
+    if (!currentCaseId) {
+      console.log('[AUDIT] No case ID, skipping save');
+      return;
+    }
+    
+    setIsSaving(true);
+    
+    try {
+      // Convert TemplateSection to SettlementAgreementSection format
+      const sectionsToSave: SettlementAgreementSection[] = sections.map(section => ({
+        id: section.id,
+        title: section.title,
+        content: section.content,
+      }));
+      
+      await supabaseCaseStorage.updateCase(currentCaseId, {
+        settlementAgreementSections: sectionsToSave,
+      });
+      
+      setLastSaved(new Date());
+      console.log(`[AUDIT] Saved ${sectionsToSave.length} settlement agreement sections for case: ${currentCaseId}`);
+    } catch (error) {
+      console.error('[AUDIT] Error saving settlement agreement sections:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [currentCaseId]);
+
+  // Debounced auto-save when sections change
+  useEffect(() => {
+    // Only save if we have a case ID and have loaded initial data
+    if (!currentCaseId || !hasLoadedSavedSections && !hasPopulatedCaseData) {
+      return;
+    }
+    
+    // Debounce save to avoid too many API calls
+    const timeoutId = setTimeout(() => {
+      saveToSupabase(templateSections);
+    }, 2000); // Save 2 seconds after last change
+    
+    return () => clearTimeout(timeoutId);
+  }, [templateSections, currentCaseId, hasLoadedSavedSections, hasPopulatedCaseData, saveToSupabase]);
+
+  // Auto-populate case data into preamble, recitals, and signature block
+  useEffect(() => {
+    if (currentCase && !hasPopulatedCaseData) {
+      // Get party names
+      const plaintiffNames = currentCase.plaintiffs?.map(p => p.name).join(', ') 
+        || currentCase.client 
+        || '[PLAINTIFF NAME]';
+      const defendantNames = currentCase.defendants?.map(d => d.name).join(', ') 
+        || '[DEFENDANT NAME]';
+      const county = currentCase.courtCounty || '[COUNTY]';
+      const caseTitle = currentCase.caseName || '[CASE TITLE]';
+      const caseNum = currentCase.caseNumber || '[CASE NUMBER]';
+      
+      // Get first plaintiff and defendant for signature block
+      const firstPlaintiff = currentCase.plaintiffs?.[0]?.name || currentCase.client || '[PLAINTIFF NAME]';
+      const firstDefendant = currentCase.defendants?.[0]?.name || '[DEFENDANT NAME]';
+
+      setTemplateSections(prev => prev.map(section => {
+        if (section.id === '1') {
+          // Update Preamble
+          return {
+            ...section,
+            content: `This Confidential Settlement Agreement and Release ("Agreement") is entered into by and between Plaintiff ${plaintiffNames} ("Employee", or "Plaintiff") on the one part and Defendants ${defendantNames} ("Defendants") on the other part.  Plaintiff and Defendants shall sometimes be referred to herein collectively as the "Parties".`
+          };
+        }
+        if (section.id === '2') {
+          // Update Recitals
+          return {
+            ...section,
+            content: `R E C I T A L S
+
+A.        	WHEREAS, Plaintiff filed a lawsuit against Defendants in ${county} County Superior Court, entitled ${caseTitle}, Case No. ${caseNum}, alleging various causes of action relating to Plaintiff's former employment with Defendants, including claims for wage and hour violations and discrimination ("Action").  Defendants filed an answer to the complaint, denying the material allegations thereof;
+
+B.         	WHEREAS, Plaintiff was an employee of Defendant.
+
+C.         	WHEREAS, Defendant admits no liability to Plaintiff and would like to buy its peace and avoid further litigation;
+
+D.        	WHEREAS, the Parties acknowledge and agree that this Agreement is the result of a compromise of disputed claims and is not in any way to be construed as an admission or confession of liability, culpability, or improper conduct of any kind.  Plaintiff recognizes and acknowledges that Defendants specifically disclaim any liability or impropriety. 
+
+E.         	WHEREAS, the Parties now desire to resolve this dispute and to otherwise settle all claims that Plaintiff might have against Defendants, including any and all claims relating, or allegedly relating, Plaintiff's former employment with Defendants, including any claims relating to the Action, as well as any other causes of action for any type of discrimination, harassment and retaliation, denial of a work environment free of discrimination and/or retaliation; failure to prevent harassment and discrimination; intentional infliction of emotional distress; negligent supervision, hiring, training and retention; breach of contract (express oral, actual or implied); financial injury; physical injury or emotional injury; claims under any federal, state or local law relating to employment and/or the termination thereof, including any claims for wages, including vacation, wages, commissions, bonuses and any other compensation allegedly unpaid. 
+
+        	NOW, THEREFORE, and in consideration of the mutual covenants, conditions and promises herein contained, and other good and valuable consideration, including the release set forth herein, the sufficiency of which is hereby acknowledged, the Parties hereto agree as follows:`
+          };
+        }
+        if (section.id === '29') {
+          // Update Signature Block
+          return {
+            ...section,
+            content: `IN WITNESS HEREOF, and intending to be legally bound hereby, the Parties have executed this Settlement Agreement and General Release on the respective dates set forth below.
+
+ 						${firstPlaintiff}
+
+Dated:  _____________________             	______________________________
+
+                                                                    	
+
+ 
+
+                                                                       
+
+Dated:  _____________________             	______________________________
+
+                                                                    	${firstDefendant}
+
+                                                                    	By: ___________________________
+
+                                                                    	Title: __________________________
+
+                                                                    	As authorized signatory for Defendant
+
+                                                                    	${firstPlaintiff}`
+          };
+        }
+        return section;
+      }));
+      
+      setHasPopulatedCaseData(true);
+    }
+  }, [currentCase, hasPopulatedCaseData]);
+
   const [formData, setFormData] = useState({
     title: '',
   });
@@ -550,11 +719,74 @@ Dated:  _____________________             	______________________________
     );
   };
 
+  // Helper function to extract body text (without numbered title or RECITALS header)
+  const extractBodyText = (content: string): string => {
+    const lines = content.split('\n');
+    const firstLine = lines[0]?.trim() || '';
+    
+    // Check for RECITALS
+    const isRecitals = firstLine === 'R E C I T A L S' || 
+                      firstLine.match(/^R\s+E\s+C\s+I\s+T\s+A\s+L\s+S$/i);
+    
+    // Check for numbered section titles (e.g., "1. Consideration")
+    const numberedSectionMatch = firstLine.match(/^(\d+)\.\s+(.+?)(?:\.|$)/);
+    
+    if (isRecitals) {
+      // Return everything after "R E C I T A L S"
+      return lines.slice(1).join('\n');
+    } else if (numberedSectionMatch) {
+      // Return everything after the numbered title line
+      return lines.slice(1).join('\n');
+    } else {
+      // No title to extract, return full content
+      return content;
+    }
+  };
+
+  // Helper function to preserve title when applying AI edit
+  const reconstructContentWithTitle = (originalContent: string, newBodyText: string): string => {
+    const lines = originalContent.split('\n');
+    const firstLine = lines[0]?.trim() || '';
+    
+    // Check for RECITALS
+    const isRecitals = firstLine === 'R E C I T A L S' || 
+                      firstLine.match(/^R\s+E\s+C\s+I\s+T\s+A\s+L\s+S$/i);
+    
+    // Check for numbered section titles (e.g., "1. Consideration")
+    const numberedSectionMatch = firstLine.match(/^(\d+)\.\s+(.+?)(?:\.|$)/);
+    
+    if (isRecitals || numberedSectionMatch) {
+      // Preserve the title line and prepend it to the new body text
+      return [firstLine, newBodyText].join('\n');
+    } else {
+      // No title to preserve, use new content as-is
+      return newBodyText;
+    }
+  };
+
   const handleAIClick = (id: string) => {
-    // Placeholder for future ChatGPT integration
-    console.log('AI enhancement for section:', id);
-    alert('AI enhancement feature coming soon! This will integrate with ChatGPT API.');
-    // TODO: Implement ChatGPT API integration
+    const section = templateSections.find(s => s.id === id);
+    if (section) {
+      // Extract only the body text (without title) for AI editing
+      const bodyText = extractBodyText(section.content);
+      setAiEditingSection({
+        id: section.id,
+        title: getSectionTitle(section),
+        content: bodyText, // Pass only body text to AI (no title)
+      });
+    }
+  };
+
+  const handleApplyAIEdit = (newContent: string) => {
+    if (aiEditingSection) {
+      const section = templateSections.find(s => s.id === aiEditingSection.id);
+      if (section) {
+        // Reconstruct full content with title preserved
+        const fullContent = reconstructContentWithTitle(section.content, newContent);
+        handleUpdateSection(aiEditingSection.id, fullContent);
+      }
+      setAiEditingSection(null);
+    }
   };
 
   const handleDragStart = (index: number) => {
@@ -731,7 +963,7 @@ Dated:  _____________________             	______________________________
                     placeholder="Enter section title (e.g., Consideration)"
                     value={titleValue}
                     onChange={(e) => handleUpdateTitle(section.id, e.target.value)}
-                    className="w-full"
+                    className="w-full text-slate-800"
                   />
                 </div>
               ) : displayTitle ? (
@@ -993,6 +1225,28 @@ Dated:  _____________________             	______________________________
           </div>
         </div>
 
+        {/* Save Status Indicator */}
+        {currentCaseId && (
+          <div className="flex justify-center items-center gap-2 text-sm text-slate-500">
+            {isSaving ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>Saving...</span>
+              </>
+            ) : lastSaved ? (
+              <>
+                <svg className="h-4 w-4 text-green-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Saved {lastSaved.toLocaleTimeString()}</span>
+              </>
+            ) : null}
+          </div>
+        )}
+
         {/* Action Buttons at Bottom */}
         <div className="flex justify-center gap-4 pt-8 pb-4">
           <Button 
@@ -1011,6 +1265,14 @@ Dated:  _____________________             	______________________________
             <Button
               type="button"
               variant="outline"
+              onClick={() => setShowPreview(true)}
+              size="lg"
+            >
+              Preview
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => router.back()}
             size="lg"
             >
@@ -1018,6 +1280,40 @@ Dated:  _____________________             	______________________________
             </Button>
           </div>
       </div>
+
+      {/* AI Edit Chat Modal */}
+      <AIEditChatModal
+        isOpen={aiEditingSection !== null}
+        onClose={() => setAiEditingSection(null)}
+        sectionId={aiEditingSection?.id || ''}
+        sectionTitle={aiEditingSection?.title || ''}
+        currentContent={aiEditingSection?.content || ''}
+        caseDescription={currentCase?.description || currentCase?.facts || ''}
+        caseId={currentCaseId || ''}
+        parties={{
+          client: currentCase?.client,
+          plaintiffs: currentCase?.plaintiffs,
+          defendants: currentCase?.defendants,
+        }}
+        onApplyEdit={handleApplyAIEdit}
+      />
+
+      {/* Preview Modal */}
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        sections={templateSections}
+        caseInfo={{
+          caseName: currentCase?.caseName,
+          caseNumber: currentCase?.caseNumber,
+          attorneyName: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.name,
+          stateBarNumber: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.barNumber,
+          email: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.email,
+          lawFirmName: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.firm,
+          address: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.address,
+          phone: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.phone,
+        }}
+      />
     </div>
   );
 }

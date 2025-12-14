@@ -42,6 +42,13 @@ export interface AnswerSections {
   aiAnalysis?: string
 }
 
+// Settlement Agreement Section - persists user's drafted settlement agreement content
+export interface SettlementAgreementSection {
+  id: string
+  title?: string
+  content: string
+}
+
 // Attorney - now nested under each party
 export interface Attorney {
   id: string
@@ -85,6 +92,7 @@ export interface Case {
   demand_letter_sections?: DemandLetterSection[]  // Persisted demand letter drafts
   complaint_sections?: ComplaintSection[]  // Persisted complaint drafts
   answer_sections?: AnswerSections  // Persisted answer drafts
+  settlement_agreement_sections?: SettlementAgreementSection[]  // Persisted settlement agreement drafts
   created_at: string
 }
 
@@ -107,6 +115,7 @@ export interface CaseInput {
   demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
   complaintSections?: ComplaintSection[]  // Persisted complaint drafts
   answerSections?: AnswerSections  // Persisted answer drafts
+  settlementAgreementSections?: SettlementAgreementSection[]  // Persisted settlement agreement drafts
 }
 
 // Helper to convert from snake_case (database) to camelCase (frontend)
@@ -130,6 +139,7 @@ export interface CaseFrontend {
   demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
   complaintSections?: ComplaintSection[]  // Persisted complaint drafts
   answerSections?: AnswerSections  // Persisted answer drafts
+  settlementAgreementSections?: SettlementAgreementSection[]  // Persisted settlement agreement drafts
   createdAt: string
 }
 
@@ -154,6 +164,7 @@ function toFrontendCase(dbCase: Case): CaseFrontend {
     demandLetterSections: dbCase.demand_letter_sections,
     complaintSections: dbCase.complaint_sections,
     answerSections: dbCase.answer_sections,
+    settlementAgreementSections: dbCase.settlement_agreement_sections,
     createdAt: dbCase.created_at,
   }
 }
@@ -177,6 +188,7 @@ function toDbCase(input: CaseInput): Partial<Case> {
     demand_letter_sections: input.demandLetterSections,
     complaint_sections: input.complaintSections,
     answer_sections: input.answerSections,
+    settlement_agreement_sections: input.settlementAgreementSections,
   }
 }
 
