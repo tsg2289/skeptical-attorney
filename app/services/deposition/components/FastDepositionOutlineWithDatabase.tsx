@@ -4,23 +4,16 @@ import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { DepositionSection, DepositionQuestion } from '../utils/depositionOutlineData';
 import { depositionOutlineData } from '../utils/depositionOutlineData';
-import { useMobilePanels } from '@/store/useMobilePanels';
-import { MobileDrawer } from './MobileDrawer';
 import { DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent, DragMoveEvent, DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import DOMPurify from 'dompurify';
+import AIEditChatModal from './AIEditChatModal';
 
 interface DepositionOutlineProps {
   depositionId?: string;
 }
 
-interface Exhibit {
-  id: string;
-  number: string;
-  description: string;
-  isIntroduced: boolean;
-}
 
 interface AddQuestionFormProps {
   onAdd: (text: string) => void;
@@ -100,53 +93,6 @@ const AddQuestionForm = React.memo(({ onAdd, remainingQuestions }: AddQuestionFo
 });
 AddQuestionForm.displayName = 'AddQuestionForm';
 
-interface TableOfContentsProps {
-  sections: DepositionSection[];
-  activeSection: string | null;
-  onSectionClick: (sectionId: string) => void;
-}
-
-const TableOfContentsContent = React.memo(({ sections, activeSection, onSectionClick }: TableOfContentsProps) => {
-  return (
-    <div className="flex flex-col">
-      <h3 className="apple-subtitle text-base md:text-lg mb-3 md:mb-4 text-center border-b border-white/10 pb-2">
-        Table of Contents
-      </h3>
-      <nav className="space-y-2">
-        {sections.map((section) => (
-          <button
-            key={section.id}
-            onClick={() => onSectionClick(section.id)}
-            className={`block w-full text-left apple-body text-sm py-2 px-3 rounded-xl transition-all duration-300 border ${
-              activeSection === section.id
-                ? 'bg-blue-400/20 text-blue-300 border-blue-400/50 scale-[1.02]'
-                : 'text-white/80 hover:bg-white/5 hover:text-white border-transparent'
-            }`}
-          >
-            <div className="flex items-start gap-2">
-              <span className="text-sm font-medium text-blue-400 uppercase w-10 flex-shrink-0">
-                {section.title.split('.')[0]}.
-              </span>
-              <span className="text-left leading-tight uppercase text-sm">
-                {section.title.split('.').slice(1).join('.').trim()}
-              </span>
-            </div>
-          </button>
-        ))}
-      </nav>
-    </div>
-  );
-});
-TableOfContentsContent.displayName = 'TableOfContentsContent';
-
-const TableOfContents = React.memo(({ sections, activeSection, onSectionClick }: TableOfContentsProps) => {
-  return (
-    <div className="hidden lg:flex fixed left-2 lg:left-4 xl:left-8 2xl:left-12 top-50 w-56 lg:w-56 xl:w-64 2xl:w-72 glass-float p-3 z-50 flex-col max-h-[calc(100vh-16rem)]" style={{ position: 'fixed', top: '12.5rem' }}>
-      <TableOfContentsContent sections={sections} activeSection={activeSection} onSectionClick={onSectionClick} />
-    </div>
-  );
-});
-TableOfContents.displayName = 'TableOfContents';
 
 interface QuestionItemProps {
   question: DepositionQuestion;
@@ -405,6 +351,8 @@ interface SectionItemProps {
   onImproveQuestionsWithAI: (sectionId: string) => void;
   onApplyAISuggestions: (sectionId: string) => void;
   onDismissAISuggestions: (sectionId: string) => void;
+  // AI Chat Modal prop
+  onOpenAIChat: (sectionId: string) => void;
   // Notes AI props
   showNotesPromptDialog: { [key: string]: boolean };
   notesAiPrompt: { [key: string]: string };
@@ -477,6 +425,8 @@ const SectionItem = React.memo(({
   onImproveQuestionsWithAI,
   onApplyAISuggestions,
   onDismissAISuggestions,
+  // AI Chat Modal prop
+  onOpenAIChat,
   // Notes AI props
   showNotesPromptDialog,
   notesAiPrompt,
@@ -611,60 +561,17 @@ const SectionItem = React.memo(({
                   className="w-full p-4 border border-gray-300 rounded-md text-sm resize-y min-h-[200px] focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100 text-black pr-12"
                 />
                 
-                {/* Sparkle Button */}
+                {/* AI Chat Button */}
                 <button
-                  onClick={() => onShowPromptDialog(section.id)}
-                  disabled={isAILoading || !editingQuestions[section.id]?.trim()}
-                  className="absolute top-2 right-2 p-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
-                  title="Improve questions with AI"
+                  onClick={() => onOpenAIChat(section.id)}
+                  className="absolute top-2 right-2 p-2 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 transition-all duration-200 hover:scale-110 group shadow-lg"
+                  title="Open AI Question Assistant"
                 >
-                  {isAILoading ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <span className="text-white text-lg">✨</span>
-                  )}
+                  <svg className="w-5 h-5 text-white group-hover:rotate-12 transition-transform duration-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                  </svg>
                 </button>
               </div>
-
-              {/* AI Prompt Dialog */}
-              {showPromptDialog[section.id] && (
-                <div className="mb-4 p-4 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-400/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-3">
-                    <h5 className="text-sm font-medium text-blue-200">✨ AI Prompt</h5>
-                    <button
-                      onClick={() => onClosePromptDialog(section.id)}
-                      className="text-gray-400 hover:text-white transition-colors"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <p className="text-xs text-blue-300/80 mb-3">
-                    Describe how you want the AI to improve your questions. Be specific about the tone, focus, or legal approach you want.
-                  </p>
-                  <textarea
-                    value={aiPrompt[section.id] || ''}
-                    onChange={(e) => onUpdateAIPrompt(section.id, e.target.value)}
-                    placeholder="e.g., 'Make these questions more aggressive and direct for cross-examination' or 'Focus on establishing timeline and sequence of events'"
-                    className="w-full p-3 border border-blue-300/50 rounded-md text-sm bg-blue-900/10 text-blue-100 resize-y min-h-[100px] mb-3"
-                  />
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => onImproveQuestionsWithAI(section.id)}
-                      disabled={isAILoading || !aiPrompt[section.id]?.trim()}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-sm"
-                      title="AI will automatically sanitize personal information before processing"
-                    >
-                      {isAILoading ? 'Generating...' : '✨ Generate Questions'}
-                    </button>
-                    <button
-                      onClick={() => onClosePromptDialog(section.id)}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
 
               <div className="flex space-x-3 mt-3">
                 <button
@@ -792,106 +699,7 @@ const SectionItem = React.memo(({
             </div>
           )}
 
-          {/* Section Notes */}
-          <div className="mb-6">
-            <h4 className="text-sm font-medium text-white/60 mb-2 underline">Section Notes:</h4>
-            
-            <div className="relative">
-            <textarea
-              value={section.notes || ''}
-              onChange={(e) => onUpdateNotes(section.id, e.target.value)}
-              placeholder="Add notes for this section..."
-                className="w-full p-3 border border-gray-300 rounded-md text-sm resize-y min-h-[80px] focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100 text-black pr-12"
-              />
-              
-              {/* AI Notes Button */}
-              <button
-                onClick={() => onShowNotesPromptDialog(section.id)}
-                disabled={isAILoading || !section.notes?.trim()}
-                className="absolute top-2 right-2 p-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
-                title="Improve notes with AI"
-              >
-                {isAILoading ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <span className="text-white text-lg">✨</span>
-                )}
-              </button>
-            </div>
-
-            {/* Notes AI Prompt Dialog */}
-            {showNotesPromptDialog[section.id] && (
-              <div className="mb-4 p-4 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-400/30 rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <h5 className="text-sm font-medium text-blue-200">✨ AI Notes Assistant</h5>
-                  <button
-                    onClick={() => onCloseNotesPromptDialog(section.id)}
-                    className="text-gray-400 hover:text-white transition-colors"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <p className="text-xs text-blue-300/80 mb-3">
-                  Ask AI to summarize, expand, or improve your notes. Be specific about what you want.
-                </p>
-                <textarea
-                  value={notesAiPrompt[section.id] || ''}
-                  onChange={(e) => onUpdateNotesAiPrompt(section.id, e.target.value)}
-                  placeholder="e.g., 'Summarize these notes into key points' or 'Add more detail about the timeline' or 'Make these notes more professional'"
-                  className="w-full p-3 border border-blue-300/50 rounded-md text-sm bg-blue-900/10 text-blue-100 resize-y min-h-[100px] mb-3"
-                />
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => {
-                      console.log('🔧 Improve Notes button clicked for section:', section.id);
-                      onImproveNotesWithAI(section.id);
-                    }}
-                    disabled={isAILoading || !notesAiPrompt[section.id]?.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-sm"
-                    title="AI will automatically sanitize personal information before processing"
-                  >
-                    {isAILoading ? 'Processing...' : '✨ Improve Notes'}
-                  </button>
-                  <button
-                    onClick={() => onCloseNotesPromptDialog(section.id)}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Notes AI Suggestions */}
-            {showNotesAiSuggestions[section.id] && notesAiSuggestions[section.id] && (
-              <div className="mb-4 p-4 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-400/30 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h5 className="text-sm font-medium text-purple-200">✨ AI Notes Suggestions</h5>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => onApplyNotesAiSuggestions(section.id)}
-                      className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-xs"
-                    >
-                      Apply
-                    </button>
-                    <button
-                      onClick={() => onDismissNotesAiSuggestions(section.id)}
-                      className="px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-xs"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-                <textarea
-                  value={notesAiSuggestions[section.id]}
-                  readOnly
-                  className="w-full p-3 border border-purple-300/50 rounded-md text-sm bg-purple-900/10 text-purple-100 resize-y min-h-[150px]"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Subsections */}
+          {/* Subsections - Now placed BEFORE notes */}
           {section.subsections && section.subsections.map((subsection) => (
             <div key={subsection.id} className="mb-12 last:mb-0">
               <div className="flex items-center space-x-3 mb-3">
@@ -998,6 +806,105 @@ const SectionItem = React.memo(({
               )}
             </div>
           ))}
+
+          {/* Section Notes - Now placed AFTER all questions and subsections */}
+          <div className="mt-8 pt-6 border-t border-white/10">
+            <h4 className="text-sm font-medium text-white/60 mb-2 underline">Section Notes:</h4>
+            
+            <div className="relative">
+            <textarea
+              value={section.notes || ''}
+              onChange={(e) => onUpdateNotes(section.id, e.target.value)}
+              placeholder="Add notes for this section..."
+                className="w-full p-3 border border-gray-300 rounded-md text-sm resize-y min-h-[80px] focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100 text-black pr-12"
+              />
+              
+              {/* AI Notes Button */}
+              <button
+                onClick={() => onShowNotesPromptDialog(section.id)}
+                disabled={isAILoading || !section.notes?.trim()}
+                className="absolute top-2 right-2 p-2 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 disabled:hover:scale-100"
+                title="Improve notes with AI"
+              >
+                {isAILoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span className="text-white text-lg">✨</span>
+                )}
+              </button>
+            </div>
+
+            {/* Notes AI Prompt Dialog */}
+            {showNotesPromptDialog[section.id] && (
+              <div className="mb-4 p-4 bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-400/30 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h5 className="text-sm font-medium text-blue-200">✨ AI Notes Assistant</h5>
+                  <button
+                    onClick={() => onCloseNotesPromptDialog(section.id)}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <p className="text-xs text-blue-300/80 mb-3">
+                  Ask AI to summarize, expand, or improve your notes. Be specific about what you want.
+                </p>
+                <textarea
+                  value={notesAiPrompt[section.id] || ''}
+                  onChange={(e) => onUpdateNotesAiPrompt(section.id, e.target.value)}
+                  placeholder="e.g., 'Summarize these notes into key points' or 'Add more detail about the timeline' or 'Make these notes more professional'"
+                  className="w-full p-3 border border-blue-300/50 rounded-md text-sm bg-blue-900/10 text-blue-100 resize-y min-h-[100px] mb-3"
+                />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      console.log('🔧 Improve Notes button clicked for section:', section.id);
+                      onImproveNotesWithAI(section.id);
+                    }}
+                    disabled={isAILoading || !notesAiPrompt[section.id]?.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors text-sm"
+                    title="AI will automatically sanitize personal information before processing"
+                  >
+                    {isAILoading ? 'Processing...' : '✨ Improve Notes'}
+                  </button>
+                  <button
+                    onClick={() => onCloseNotesPromptDialog(section.id)}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Notes AI Suggestions */}
+            {showNotesAiSuggestions[section.id] && notesAiSuggestions[section.id] && (
+              <div className="mb-4 p-4 bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-purple-400/30 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h5 className="text-sm font-medium text-purple-200">✨ AI Notes Suggestions</h5>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => onApplyNotesAiSuggestions(section.id)}
+                      className="px-3 py-1 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-xs"
+                    >
+                      Apply
+                    </button>
+                    <button
+                      onClick={() => onDismissNotesAiSuggestions(section.id)}
+                      className="px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-xs"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  value={notesAiSuggestions[section.id]}
+                  readOnly
+                  className="w-full p-3 border border-purple-300/50 rounded-md text-sm bg-purple-900/10 text-purple-100 resize-y min-h-[150px]"
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -1028,13 +935,12 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
     sectionId: string;
     subsectionId?: string;
   } | null>(null);
-  const [exhibits, setExhibits] = useState<Exhibit[]>([]);
-  const [newExhibitNumber, setNewExhibitNumber] = useState('');
-  const [newExhibitDescription, setNewExhibitDescription] = useState('');
-  const [showAddExhibit, setShowAddExhibit] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0); // in seconds
   const [isTimerRunning, setIsTimerRunning] = useState(false);
-  // AI-related state
+  // AI Chat Modal state
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
+  const [aiChatSection, setAiChatSection] = useState<{ id: string; title: string; questions: string } | null>(null);
+  // Legacy AI state (kept for compatibility)
   const [isAILoading, setIsAILoading] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<{ [key: string]: string }>({});
   const [showAISuggestions, setShowAISuggestions] = useState<{ [key: string]: boolean }>({});
@@ -1052,8 +958,6 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
   const isManualSaveRef = useRef<boolean>(false);
   const supabase = useMemo(() => createClient(), []);
   
-  // Mobile panels state
-  const { isTocOpen, isExhibitOpen, openToc, openExhibit, closeAll } = useMobilePanels();
   const pathname = usePathname();
   
   // Configure @dnd-kit sensors for drag-and-drop (both mouse and touch)
@@ -1250,14 +1154,24 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
   }, [questionReorderContext, dragPreview, dragHorizontalMovement]);
 
   
-  // Close drawers on route change
-  useEffect(() => {
-    closeAll();
-  }, [pathname, closeAll]);
-
   // Save progress to database
-  const saveProgressToDatabase = useCallback(async (sections: DepositionSection[], exhibitsList?: Exhibit[], timerData?: { elapsedTime: number; isRunning: boolean }) => {
-    if (!depositionId) return false;
+  const saveProgressToDatabase = useCallback(async (sections: DepositionSection[], timerData?: { elapsedTime: number; isRunning: boolean }) => {
+    console.log('💾 Saving progress for deposition:', depositionId);
+    
+    if (!depositionId) {
+      console.warn('💾 No depositionId, skipping save');
+      return false;
+    }
+    
+    // Check if this is a dev/mock deposition ID - save to localStorage only
+    if (depositionId.startsWith('dev-deposition-')) {
+      console.log('💾 Dev deposition - saving to localStorage only');
+      localStorage.setItem(`deposition-outline-${depositionId}`, JSON.stringify(sections));
+      localStorage.setItem(`deposition-outline-timestamp-${depositionId}`, new Date().toISOString());
+      setSaveStatus('saved');
+      setLastSaved(new Date());
+      return true;
+    }
     
     try {
       setSaveStatus('saving');
@@ -1281,19 +1195,21 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
       
       const progressData = {
         sections: sanitizedSections,
-        exhibits: exhibitsList || exhibits,
         timer: timerData || { elapsedTime, isRunning: isTimerRunning },
         lastUpdated: new Date().toISOString(),
         version: '1.0'
       };
 
-      const { error } = await supabase.rpc('save_deposition_progress', {
+      console.log('💾 Calling save_deposition_progress RPC...');
+      const { data, error } = await supabase.rpc('save_deposition_progress', {
         p_deposition_id: depositionId,
         p_progress_data: progressData
       });
 
+      console.log('💾 Save RPC response:', { data, error });
+
       if (error) {
-        console.error('Error saving to database:', {
+        console.error('💾 Error saving to database:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -1318,29 +1234,45 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
       setSaveStatus('unsaved');
       return false;
     }
-  }, [depositionId, supabase, exhibits, elapsedTime, isTimerRunning]);
+  }, [depositionId, supabase, elapsedTime, isTimerRunning]);
 
   // Load progress from database
   const loadProgressFromDatabase = useCallback(async () => {
-    if (!depositionId) return null;
+    console.log('📥 Loading progress for deposition:', depositionId);
+    
+    if (!depositionId) {
+      console.warn('📥 No depositionId provided, skipping database load');
+      return null;
+    }
+    
+    // Check if this is a dev/mock deposition ID
+    if (depositionId.startsWith('dev-deposition-')) {
+      console.log('📥 Dev deposition detected, skipping database load');
+      return null;
+    }
     
     try {
+      console.log('📥 Calling get_deposition_progress_optimized RPC...');
       const { data, error } = await supabase.rpc('get_deposition_progress_optimized', {
         p_deposition_id: depositionId
       });
 
       if (error) {
-        console.error('Error loading from database:', error);
+        console.error('📥 Error loading from database:', error);
         return null;
       }
 
+      console.log('📥 Database response:', data);
+      
       if (data && data.length > 0) {
+        console.log('📥 Found saved progress, sections count:', data[0].progress_data?.sections?.length);
         return data[0].progress_data;
       }
 
+      console.log('📥 No saved progress found in database');
       return null;
     } catch (error) {
-      console.error('Failed to load progress:', error);
+      console.error('📥 Failed to load progress:', error);
       return null;
     }
   }, [depositionId, supabase]);
@@ -1349,11 +1281,27 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load fresh data first
+        // Load fresh data first (template data)
         const freshData = depositionOutlineData;
         
-        // In development mode, skip database and use mock data directly
-        if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Loading deposition data, ID:', depositionId);
+        
+        // For dev depositions, try localStorage first
+        if (depositionId?.startsWith('dev-deposition-')) {
+          console.log('🔄 Dev deposition - checking localStorage');
+          const savedState = localStorage.getItem(`deposition-outline-${depositionId}`);
+          if (savedState) {
+            try {
+              const parsedSections = JSON.parse(savedState);
+              console.log('🔄 Found localStorage data, sections:', parsedSections.length);
+              setSections(parsedSections);
+              setIsLoading(false);
+              return;
+            } catch (error) {
+              console.error('🔄 Error parsing localStorage:', error);
+            }
+          }
+          console.log('🔄 No localStorage data, using fresh template');
           setSections(freshData);
           setIsLoading(false);
           return;
@@ -1363,57 +1311,90 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
         const savedProgress = await loadProgressFromDatabase();
         
         if (savedProgress && savedProgress.sections) {
-          // IMPORTANT: Use saved sections order, not template order!
-          // This preserves the user's custom section ordering
+          console.log('🔄 Loading saved progress - preserving user edits and AI-generated questions');
+          
+          // PRIORITY: User's saved data takes precedence over template
+          // This preserves AI-generated questions and user edits
           const mergedSections = savedProgress.sections.map((savedSection: any) => {
             const originalSection = freshData.find((s) => s.id === savedSection.id);
             
             if (originalSection) {
-              // Merge to get latest question text from template while keeping saved state
-              const mergedQuestions = originalSection.questions?.map(originalQuestion => {
-                const savedQuestion = savedSection.questions?.find((q: any) => q.id === originalQuestion.id);
-                if (savedQuestion) {
-                  return { 
-                    ...savedQuestion, 
-                    text: originalQuestion.text,
-                    indentLevel: savedQuestion.indentLevel || 0 // Restore indentLevel, default to 0
-                  };
-                }
-                return { ...originalQuestion, indentLevel: 0 }; // Add default indentLevel for new questions
-              }) || [];
+              // Start with saved questions (preserves user edits and AI-generated questions)
+              let mergedQuestions = savedSection.questions?.map((savedQuestion: any) => ({
+                ...savedQuestion,
+                indentLevel: savedQuestion.indentLevel || 0
+              })) || [];
+              
+              // Add any NEW template questions that don't exist in saved data
+              // (This handles template updates without overwriting user's work)
+              const savedQuestionIds = new Set(mergedQuestions.map((q: any) => q.id));
+              const newTemplateQuestions = originalSection.questions?.filter(
+                (templateQ) => !savedQuestionIds.has(templateQ.id)
+              ).map(q => ({ ...q, indentLevel: 0 })) || [];
+              
+              if (newTemplateQuestions.length > 0) {
+                console.log(`🔄 Adding ${newTemplateQuestions.length} new template questions to section: ${savedSection.title}`);
+                mergedQuestions = [...mergedQuestions, ...newTemplateQuestions];
+              }
 
-              const mergedSubsections = originalSection.subsections?.map(originalSubsection => {
-                const savedSubsection = savedSection.subsections?.find((s: any) => s.id === originalSubsection.id);
-                if (savedSubsection) {
-                  const mergedSubsectionQuestions = originalSubsection.questions?.map(originalQuestion => {
-                    const savedQuestion = savedSubsection.questions?.find((q: any) => q.id === originalQuestion.id);
-                    if (savedQuestion) {
-                      return { 
-                        ...savedQuestion, 
-                        text: originalQuestion.text,
-                        indentLevel: savedQuestion.indentLevel || 0 // Restore indentLevel, default to 0
-                      };
-                    }
-                    return { ...originalQuestion, indentLevel: 0 }; // Add default indentLevel for new questions
-                  }) || [];
-
+              // Same logic for subsections
+              const mergedSubsections = savedSection.subsections?.map((savedSubsection: any) => {
+                const originalSubsection = originalSection.subsections?.find((s) => s.id === savedSubsection.id);
+                
+                if (originalSubsection) {
+                  // Start with saved subsection questions
+                  let mergedSubsectionQuestions = savedSubsection.questions?.map((savedQuestion: any) => ({
+                    ...savedQuestion,
+                    indentLevel: savedQuestion.indentLevel || 0
+                  })) || [];
+                  
+                  // Add any NEW template questions
+                  const savedSubQuestionIds = new Set(mergedSubsectionQuestions.map((q: any) => q.id));
+                  const newTemplateSubQuestions = originalSubsection.questions?.filter(
+                    (templateQ) => !savedSubQuestionIds.has(templateQ.id)
+                  ).map(q => ({ ...q, indentLevel: 0 })) || [];
+                  
+                  if (newTemplateSubQuestions.length > 0) {
+                    mergedSubsectionQuestions = [...mergedSubsectionQuestions, ...newTemplateSubQuestions];
+                  }
+                  
                   return { ...savedSubsection, questions: mergedSubsectionQuestions };
                 }
-                return originalSubsection;
-              }) || [];
+                return savedSubsection;
+              }) || originalSection.subsections?.map(sub => ({
+                ...sub,
+                questions: sub.questions?.map(q => ({ ...q, indentLevel: 0 })) || []
+              })) || [];
 
-              return { ...savedSection, questions: mergedQuestions, subsections: mergedSubsections };
+              return { 
+                ...savedSection, 
+                questions: mergedQuestions, 
+                subsections: mergedSubsections,
+                // Preserve custom questions
+                customQuestions: savedSection.customQuestions || []
+              };
             }
-            // If section not found in template, keep the saved section as-is
+            // If section not found in template, keep the saved section as-is (user created)
             return savedSection;
           });
           
-          setSections(mergedSections);
+          // Also add any NEW template sections that don't exist in saved data
+          const savedSectionIds = new Set(mergedSections.map((s: any) => s.id));
+          const newTemplateSections = freshData.filter(
+            (templateSection) => !savedSectionIds.has(templateSection.id)
+          ).map(section => ({
+            ...section,
+            questions: section.questions?.map(q => ({ ...q, indentLevel: 0 })) || [],
+            subsections: section.subsections?.map(sub => ({
+              ...sub,
+              questions: sub.questions?.map(q => ({ ...q, indentLevel: 0 })) || []
+            }))
+          }));
           
-          // Restore exhibits if available
-          if (savedProgress.exhibits) {
-            setExhibits(savedProgress.exhibits);
-          }
+          const finalSections = [...mergedSections, ...newTemplateSections];
+          console.log('🔄 Final merged sections count:', finalSections.length);
+          
+          setSections(finalSections);
           
           // Restore timer if available
           if (savedProgress.timer) {
@@ -1483,18 +1464,12 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
     }, 1000); // Debounce for 1 second
   }, [sections, saveProgressToDatabase]);
 
-  // Save when sections or exhibits change (skip if manual save is in progress)
+  // Save when sections change (skip if manual save is in progress)
   useEffect(() => {
     if (sections.length > 0 && !isManualSaveRef.current) {
       saveToDatabase();
     }
   }, [sections, saveToDatabase]);
-
-  useEffect(() => {
-    if (sections.length > 0 && depositionId && !isManualSaveRef.current) {
-      saveProgressToDatabase(sections, exhibits);
-    }
-  }, [exhibits, sections, depositionId, saveProgressToDatabase]);
 
   // Timer effect
   useEffect(() => {
@@ -1520,9 +1495,9 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
   useEffect(() => {
     if (sections.length > 0 && depositionId) {
       // Save immediately when timer starts/stops
-      saveProgressToDatabase(sections, exhibits, { elapsedTime, isRunning: isTimerRunning });
+      saveProgressToDatabase(sections, { elapsedTime, isRunning: isTimerRunning });
     }
-  }, [isTimerRunning, sections, exhibits, depositionId, elapsedTime, saveProgressToDatabase]);
+  }, [isTimerRunning, sections, depositionId, elapsedTime, saveProgressToDatabase]);
 
   // Periodic auto-save every 30 seconds (independent of user actions)
   useEffect(() => {
@@ -1530,11 +1505,11 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
 
     const periodicSaveInterval = setInterval(() => {
       console.log('🔄 Periodic auto-save (30s interval)');
-      saveProgressToDatabase(sections, exhibits, { elapsedTime, isRunning: isTimerRunning });
+      saveProgressToDatabase(sections, { elapsedTime, isRunning: isTimerRunning });
     }, 30000); // Save every 30 seconds
 
     return () => clearInterval(periodicSaveInterval);
-  }, [sections, exhibits, elapsedTime, isTimerRunning, depositionId, saveProgressToDatabase]);
+  }, [sections, elapsedTime, isTimerRunning, depositionId, saveProgressToDatabase]);
 
   // Save before user leaves the page
   useEffect(() => {
@@ -1542,7 +1517,7 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
       // Attempt to save synchronously
       if (sections.length > 0 && depositionId) {
         console.log('💾 Saving before page unload...');
-        saveProgressToDatabase(sections, exhibits, { elapsedTime, isRunning: isTimerRunning });
+        saveProgressToDatabase(sections, { elapsedTime, isRunning: isTimerRunning });
         
         // Show warning if changes might be lost
         if (saveStatus === 'unsaved' || saveStatus === 'saving') {
@@ -1559,17 +1534,17 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, [sections, exhibits, elapsedTime, isTimerRunning, depositionId, saveStatus, saveProgressToDatabase]);
+  }, [sections, elapsedTime, isTimerRunning, depositionId, saveStatus, saveProgressToDatabase]);
 
   // Save when component unmounts (navigation within app)
   useEffect(() => {
     return () => {
       if (sections.length > 0 && depositionId) {
         // Silent save - no console log to reduce noise
-        saveProgressToDatabase(sections, exhibits, { elapsedTime, isRunning: isTimerRunning });
+        saveProgressToDatabase(sections, { elapsedTime, isRunning: isTimerRunning });
       }
     };
-  }, [sections, exhibits, elapsedTime, isTimerRunning, depositionId, saveProgressToDatabase]);
+  }, [sections, elapsedTime, isTimerRunning, depositionId, saveProgressToDatabase]);
 
   // Manual save function
   const manualSave = useCallback(async () => {
@@ -1808,6 +1783,84 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
   const updateAIPrompt = useCallback((sectionId: string, prompt: string) => {
     setAiPrompt(prev => ({ ...prev, [sectionId]: prompt }));
   }, []);
+
+  // Open AI Chat Modal for a section
+  const openAIChatForSection = useCallback((sectionId: string) => {
+    const section = sections.find(s => s.id === sectionId);
+    if (!section) return;
+    
+    // Check if user is in edit mode - use the textarea content if so
+    let allQuestions: string;
+    
+    if (editingSection === sectionId && editingQuestions[sectionId]) {
+      // User is editing - use the current textarea content
+      allQuestions = editingQuestions[sectionId];
+    } else {
+      // Not editing - get questions from the section data
+      const questionTexts = section.questions?.map((q, i) => `${i + 1}. ${q.text}`).join('\n') || '';
+      const customQuestionTexts = section.customQuestions?.map((q, i) => `${(section.questions?.length || 0) + i + 1}. ${q.text}`).join('\n') || '';
+      allQuestions = [questionTexts, customQuestionTexts].filter(Boolean).join('\n');
+    }
+    
+    setAiChatSection({
+      id: sectionId,
+      title: section.title,
+      questions: allQuestions || 'No questions yet. Ask me to generate some!',
+    });
+    setIsAIChatOpen(true);
+  }, [sections, editingSection, editingQuestions]);
+
+  // Apply AI chat suggestions to a section
+  const applyAIChatSuggestions = useCallback((newQuestionsText: string) => {
+    if (!aiChatSection) return;
+    
+    const sectionId = aiChatSection.id;
+    
+    // Check if user is in edit mode - update the textarea if so
+    if (editingSection === sectionId) {
+      // Update the editing textarea with the AI suggestions
+      // Clean up the questions format for the textarea
+      const lines = newQuestionsText.split('\n').filter(line => line.trim());
+      const cleanedQuestions = lines.map((line, index) => {
+        // Remove existing numbering/bullets
+        const cleanedText = line.replace(/^[\d]+[.)]\s*/, '').replace(/^[-•*]\s*/, '').trim();
+        return `${index + 1}. ${cleanedText}`;
+      }).join('\n');
+      
+      setEditingQuestions(prev => ({
+        ...prev,
+        [sectionId]: cleanedQuestions
+      }));
+    } else {
+      // Not in edit mode - directly update the section questions
+      const lines = newQuestionsText.split('\n').filter(line => line.trim());
+      const newQuestions: DepositionQuestion[] = lines.map((line, index) => {
+        // Remove numbering/bullets from the start
+        const cleanedText = line.replace(/^[\d]+[.)]\s*/, '').replace(/^[-•*]\s*/, '').trim();
+        return {
+          id: `ai_q_${Date.now()}_${index}`,
+          text: cleanedText,
+          isAsked: false,
+          isFlagged: false,
+        };
+      });
+      
+      // Update the section with new questions
+      setSections(prev => prev.map(section => {
+        if (section.id === sectionId) {
+          return {
+            ...section,
+            questions: newQuestions,
+            customQuestions: [], // Clear custom questions since they're now merged
+          };
+        }
+        return section;
+      }));
+    }
+    
+    setIsAIChatOpen(false);
+    setAiChatSection(null);
+  }, [aiChatSection, editingSection]);
 
   const improveQuestionsWithAI = useCallback(async (sectionId: string) => {
     const currentQuestions = editingQuestions[sectionId];
@@ -2301,7 +2354,7 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
     renumberedSections.forEach((s, i) => {
       console.log(`  ${i + 1}. ${s.title} (ID: ${s.id})`);
     });
-    await saveProgressToDatabase(renumberedSections, exhibits, { elapsedTime, isRunning: isTimerRunning });
+    await saveProgressToDatabase(renumberedSections, { elapsedTime, isRunning: isTimerRunning });
     
     // Reset flag after a short delay to allow state to settle
     setTimeout(() => {
@@ -2310,7 +2363,7 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
 
     setDraggedSection(null);
     setDragOverSection(null);
-  }, [draggedSection, sections, saveProgressToDatabase, exhibits, elapsedTime, isTimerRunning]);
+  }, [draggedSection, sections, saveProgressToDatabase, elapsedTime, isTimerRunning]);
 
   // Question reorder handlers
   const enterQuestionReorderMode = useCallback((sectionId: string, subsectionId?: string) => {
@@ -2325,149 +2378,6 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
     setQuestionReorderContext(null);
   }, []);
 
-  // Exhibit management functions
-  const addExhibit = useCallback(() => {
-    if (!newExhibitNumber.trim() || !newExhibitDescription.trim()) return;
-
-    const newExhibit: Exhibit = {
-      id: `exhibit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      number: newExhibitNumber.trim(),
-      description: newExhibitDescription.trim(),
-      isIntroduced: false
-    };
-
-    setExhibits(prev => [...prev, newExhibit]);
-    setNewExhibitNumber('');
-    setNewExhibitDescription('');
-    setShowAddExhibit(false);
-  }, [newExhibitNumber, newExhibitDescription]);
-
-  const toggleExhibit = useCallback((exhibitId: string) => {
-    setExhibits(prev => prev.map(exhibit =>
-      exhibit.id === exhibitId
-        ? { ...exhibit, isIntroduced: !exhibit.isIntroduced }
-        : exhibit
-    ));
-  }, []);
-
-  const removeExhibit = useCallback((exhibitId: string) => {
-    setExhibits(prev => prev.filter(exhibit => exhibit.id !== exhibitId));
-  }, []);
-
-  // Exhibit Tracker Content Component (reused in all drawers)
-  const ExhibitTrackerContent = useCallback(() => (
-    <div className="flex flex-col">
-      <h3 className="apple-subtitle text-base md:text-lg mb-3 md:mb-4 text-center border-b border-white/10 pb-2">
-        📋 Exhibit Tracker
-      </h3>
-      
-      {/* Exhibit List */}
-      <div className="space-y-3 mb-4">
-        {exhibits.length === 0 ? (
-          <p className="apple-caption text-sm text-white/60 text-center py-4">
-            No exhibits added yet
-          </p>
-        ) : (
-          exhibits.map((exhibit) => (
-            <div
-              key={exhibit.id}
-              className={`glass-card-gradient p-3 rounded-lg transition-all duration-300 ${
-                exhibit.isIntroduced ? 'border-2 border-green-400/50 bg-green-400/10' : 'border-2 border-white/10'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-2">
-                <div className="flex items-center space-x-2 flex-1">
-                  <input
-                    type="checkbox"
-                    checked={exhibit.isIntroduced}
-                    onChange={() => toggleExhibit(exhibit.id)}
-                    className="h-4 w-4 text-green-400 focus:ring-0 border-white/20 rounded bg-white/5"
-                  />
-                  <span className={`apple-body text-sm font-semibold ${exhibit.isIntroduced ? 'text-green-300' : 'text-blue-300'}`}>
-                    Exhibit {exhibit.number}
-                  </span>
-                </div>
-                <button
-                  onClick={() => removeExhibit(exhibit.id)}
-                  className="text-red-400 hover:text-red-300 text-sm apple-focus p-1 rounded"
-                  title="Remove exhibit"
-                >
-                  ✕
-                </button>
-              </div>
-              <p className={`apple-caption text-xs ml-6 ${exhibit.isIntroduced ? 'text-white/80' : 'text-white/60'}`}>
-                {exhibit.description}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Add Exhibit Form */}
-      {!showAddExhibit ? (
-        <button
-          onClick={() => setShowAddExhibit(true)}
-          className="w-full glass-button px-4 py-2 text-sm font-medium rounded-xl text-white apple-focus group hover:scale-105 transition-all duration-300 flex items-center justify-center space-x-2"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          <span>Add Exhibit</span>
-        </button>
-      ) : (
-        <div className="glass-card-gradient p-4 rounded-xl space-y-3">
-          <input
-            type="text"
-            value={newExhibitNumber}
-            onChange={(e) => setNewExhibitNumber(e.target.value)}
-            placeholder="Exhibit # (e.g., 4)"
-            className="glass-input w-full px-3 py-2 text-sm apple-body apple-focus rounded-lg"
-            autoFocus
-          />
-          <input
-            type="text"
-            value={newExhibitDescription}
-            onChange={(e) => setNewExhibitDescription(e.target.value)}
-            placeholder="Description (e.g., Maintenance Logs)"
-            className="glass-input w-full px-3 py-2 text-sm apple-body apple-focus rounded-lg"
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                addExhibit();
-              }
-            }}
-          />
-          <div className="flex space-x-2">
-            <button
-              onClick={() => {
-                setShowAddExhibit(false);
-                setNewExhibitNumber('');
-                setNewExhibitDescription('');
-              }}
-              className="flex-1 text-white/60 hover:text-white/80 apple-focus px-3 py-2 rounded-lg hover:bg-white/5 transition-all duration-300 text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={addExhibit}
-              disabled={!newExhibitNumber.trim() || !newExhibitDescription.trim()}
-              className="flex-1 glass-button px-3 py-2 text-sm font-medium rounded-lg text-white apple-focus group hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Add
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Exhibit Summary */}
-      {exhibits.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-white/10">
-          <p className="apple-caption text-xs text-center text-white/60">
-            {exhibits.filter(e => e.isIntroduced).length} of {exhibits.length} introduced
-          </p>
-        </div>
-      )}
-    </div>
-  ), [exhibits, showAddExhibit, newExhibitNumber, newExhibitDescription, toggleExhibit, removeExhibit, addExhibit]);
 
   if (isLoading) {
   return (
@@ -2691,6 +2601,7 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
               onImproveQuestionsWithAI={improveQuestionsWithAI}
               onApplyAISuggestions={applyAISuggestions}
               onDismissAISuggestions={dismissAISuggestions}
+              onOpenAIChat={openAIChatForSection}
               // Notes AI props
               showNotesPromptDialog={showNotesPromptDialog}
               notesAiPrompt={notesAiPrompt}
@@ -2738,74 +2649,6 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
         </div>
       </div>
 
-      {/* Floating Side Buttons */}
-      {/* Left side button - Table of Contents */}
-      <button
-        onClick={openToc}
-        className="fixed -left-12 md:left-0 hover:left-0 top-1/2 -translate-y-1/2 glass-float p-3 pr-4 rounded-r-xl z-40 transition-all duration-300 group shadow-lg"
-        aria-label="Table of Contents"
-      >
-        <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 text-white flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-          <span className="text-sm font-medium text-white whitespace-nowrap opacity-0 max-w-0 overflow-hidden group-hover:opacity-100 group-hover:max-w-[200px] transition-all duration-300 ease-out">
-            Table of Contents
-          </span>
-        </div>
-        {/* Swipe indicator - mobile only */}
-        <div className="absolute -right-2 top-1/2 -translate-y-1/2 md:hidden">
-          <div className="w-1 h-12 bg-gradient-to-r from-transparent via-blue-400/50 to-blue-400/80 rounded-r-full animate-pulse"></div>
-        </div>
-      </button>
-
-      {/* Right side button - Exhibit Tracker */}
-      <button
-        onClick={openExhibit}
-        className="fixed -right-12 md:right-0 hover:right-0 top-1/2 -translate-y-1/2 glass-float p-3 pl-4 rounded-l-xl z-40 transition-all duration-300 group shadow-lg"
-        aria-label="Exhibit Tracker"
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium text-white whitespace-nowrap opacity-0 max-w-0 overflow-hidden group-hover:opacity-100 group-hover:max-w-[200px] transition-all duration-300 ease-out">
-            Exhibit Tracker
-          </span>
-          <svg className="w-5 h-5 text-white flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        </div>
-        {/* Swipe indicator - mobile only */}
-        <div className="absolute -left-2 top-1/2 -translate-y-1/2 md:hidden">
-          <div className="w-1 h-12 bg-gradient-to-l from-transparent via-blue-400/50 to-blue-400/80 rounded-l-full animate-pulse"></div>
-        </div>
-      </button>
-
-      {/* Table of Contents Drawer - Slides in from LEFT */}
-      <MobileDrawer
-        isOpen={isTocOpen}
-        onClose={closeAll}
-        side="left"
-        title="Table of Contents"
-      >
-        <TableOfContentsContent 
-          sections={sections}
-          activeSection={activeSection}
-          onSectionClick={(sectionId) => {
-            handleSectionClick(sectionId);
-            closeAll();
-          }} 
-        />
-      </MobileDrawer>
-
-      {/* Exhibit Tracker Drawer - Slides in from RIGHT */}
-      <MobileDrawer
-        isOpen={isExhibitOpen}
-        onClose={closeAll}
-        side="right"
-        title="Exhibit Tracker"
-      >
-        <ExhibitTrackerContent />
-      </MobileDrawer>
-
       {/* Delete Section Confirmation Dialog */}
       {deletingSection && deleteDialogPosition && (
         <div className="fixed inset-0 z-50">
@@ -2850,6 +2693,19 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
           </div>
         </div>
       )}
+
+      {/* AI Edit Chat Modal */}
+      <AIEditChatModal
+        isOpen={isAIChatOpen}
+        onClose={() => {
+          setIsAIChatOpen(false);
+          setAiChatSection(null);
+        }}
+        sectionId={aiChatSection?.id || ''}
+        sectionTitle={aiChatSection?.title || ''}
+        currentQuestions={aiChatSection?.questions || ''}
+        onApplyEdit={applyAIChatSuggestions}
+      />
     </div>
   );
 });

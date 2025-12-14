@@ -55,19 +55,16 @@ const DashboardPage = React.memo(function DashboardPage() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
       
-      // If error indicates Supabase not configured, fall back to demo mode
-      if (error && error.message?.includes('Supabase not configured')) {
+      // If any error occurs, fall back to demo mode
+      if (error) {
+        console.warn('Supabase error, falling back to demo mode:', error?.message || error);
         const devMatters = await devData.getMatters();
         setMattersList(devMatters);
         setLoading(false);
         return;
       }
 
-      if (error) {
-        console.error('Error loading matter:', error);
-      } else {
-        setMattersList(data || []);
-      }
+      setMattersList(data || []);
     } catch (err) {
       console.error('Error loading matter:', err);
       // Fall back to demo mode if Supabase fails

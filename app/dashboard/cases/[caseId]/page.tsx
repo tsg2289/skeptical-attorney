@@ -1666,13 +1666,13 @@ export default function CaseDetailPage() {
                 </div>
               )}
             </div>
-            <Link
-              href={`/services/deposition/dashboard?matter=${caseItem.id}`}
-              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
-            >
-              <div className="text-3xl mb-2">📝</div>
-              <div className="text-sm font-medium text-gray-700">Deposition</div>
-            </Link>
+              <Link
+                href={`/services/deposition/depositions/${caseItem.id}`}
+                className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
+              >
+                <div className="text-3xl mb-2">📝</div>
+                <div className="text-sm font-medium text-gray-700">Deposition</div>
+              </Link>
             <Link
               href={`/services/law-and-motion?caseId=${caseItem.id}`}
               className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"

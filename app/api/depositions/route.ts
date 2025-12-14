@@ -4,9 +4,9 @@ import { z } from 'zod';
 
 // Validation schema for deposition creation
 const CreateDepositionSchema = z.object({
-  matter_id: z.string().min(1, 'Matter ID is required').refine(
-    (val) => val.startsWith('dev-matter-') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val),
-    'Invalid matter ID format'
+  case_id: z.string().min(1, 'Case ID is required').refine(
+    (val) => val.startsWith('dev-case-') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val),
+    'Invalid case ID format'
   ),
   title: z.string().min(1, 'Title is required').max(255, 'Title too long'),
   deponent_name: z.string().min(1, 'Deponent name is required').max(255, 'Deponent name too long'),
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
     
     const validatedData = validationResult.data;
     
-    // In development mode, return a mock response for dev matters
-    if (process.env.NODE_ENV === 'development' && validatedData.matter_id.startsWith('dev-matter-')) {
+    // In development mode, return a mock response for dev cases
+    if (process.env.NODE_ENV === 'development' && validatedData.case_id.startsWith('dev-case-')) {
       const mockDeposition = {
         id: 'dev-deposition-' + Date.now(),
         ...validatedData,
@@ -67,17 +67,17 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Verify the matter belongs to the user
-    const { data: matter, error: matterError } = await supabase
-      .from('matter')
+    // Verify the case belongs to the user
+    const { data: caseData, error: caseError } = await supabase
+      .from('cases')
       .select('id, user_id')
-      .eq('id', validatedData.matter_id)
+      .eq('id', validatedData.case_id)
       .eq('user_id', user.id)
       .single();
     
-    if (matterError || !matter) {
+    if (caseError || !caseData) {
       return NextResponse.json(
-        { error: 'Forbidden', message: 'You do not have access to this matter' },
+        { error: 'Forbidden', message: 'You do not have access to this case' },
         { status: 403 }
       );
     }
@@ -119,17 +119,17 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const matterId = searchParams.get('matter_id');
+    const caseId = searchParams.get('case_id');
     
-    if (!matterId) {
+    if (!caseId) {
       return NextResponse.json(
-        { error: 'Missing matter_id parameter' },
+        { error: 'Missing case_id parameter' },
         { status: 400 }
       );
     }
     
-    // In development mode, return empty array for dev matters
-    if (process.env.NODE_ENV === 'development' && matterId.startsWith('dev-matter-')) {
+    // In development mode, return empty array for dev cases
+    if (process.env.NODE_ENV === 'development' && caseId.startsWith('dev-case-')) {
       return NextResponse.json([]);
     }
     
@@ -152,11 +152,11 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Get depositions for the matter
+    // Get depositions for the case (RLS will enforce ownership)
     const { data: depositions, error } = await supabase
       .from('deposition')
       .select('*')
-      .eq('matter_id', matterId)
+      .eq('case_id', caseId)
       .order('created_at', { ascending: false });
     
     if (error) {
@@ -177,4 +177,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

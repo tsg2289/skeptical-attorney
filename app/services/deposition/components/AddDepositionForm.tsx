@@ -2,13 +2,13 @@
 import React, { useState } from 'react';
 
 interface AddDepositionFormProps {
-  matterId: string;
+  caseId: string;
   onAdd: (deposition: any) => void;
   onCancel: () => void;
   initialData?: any;
 }
 
-const AddDepositionForm = React.memo(function AddDepositionForm({ matterId, onAdd, onCancel, initialData }: AddDepositionFormProps) {
+const AddDepositionForm = React.memo(function AddDepositionForm({ caseId, onAdd, onCancel, initialData }: AddDepositionFormProps) {
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     deponent_name: initialData?.deponent_name || '',
@@ -49,7 +49,7 @@ const AddDepositionForm = React.memo(function AddDepositionForm({ matterId, onAd
       const deposition = {
         ...formData,
         title,
-        matter_id: matterId,
+        case_id: caseId,
       };
 
       onAdd(deposition);

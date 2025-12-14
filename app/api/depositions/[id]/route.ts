@@ -39,18 +39,18 @@ export async function GET(
       );
     }
     
-    // Get the deposition with matter verification
+    // Get the deposition with case verification (RLS handles ownership)
     const { data: deposition, error } = await supabase
       .from('deposition')
       .select(`
         *,
-        matter!inner(
+        cases!inner(
           id,
           user_id
         )
       `)
       .eq('id', id)
-      .eq('matter.user_id', user.id)
+      .eq('cases.user_id', user.id)
       .single();
     
     if (error || !deposition) {
@@ -115,18 +115,18 @@ export async function PUT(
       );
     }
     
-    // Verify the deposition belongs to the user
+    // Verify the deposition belongs to the user via cases
     const { data: existingDeposition, error: fetchError } = await supabase
       .from('deposition')
       .select(`
         id,
-        matter!inner(
+        cases!inner(
           id,
           user_id
         )
       `)
       .eq('id', id)
-      .eq('matter.user_id', user.id)
+      .eq('cases.user_id', user.id)
       .single();
     
     if (fetchError || !existingDeposition) {
@@ -198,18 +198,18 @@ export async function DELETE(
       );
     }
     
-    // Verify the deposition belongs to the user
+    // Verify the deposition belongs to the user via cases
     const { data: existingDeposition, error: fetchError } = await supabase
       .from('deposition')
       .select(`
         id,
-        matter!inner(
+        cases!inner(
           id,
           user_id
         )
       `)
       .eq('id', id)
-      .eq('matter.user_id', user.id)
+      .eq('cases.user_id', user.id)
       .single();
     
     if (fetchError || !existingDeposition) {
@@ -246,4 +246,3 @@ export async function DELETE(
     );
   }
 }
-
