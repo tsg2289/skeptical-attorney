@@ -47,7 +47,7 @@ const AddQuestionForm = React.memo(({ onAdd, remainingQuestions }: AddQuestionFo
         onClick={() => setIsExpanded(true)}
         className="apple-body text-base text-blue-400 hover:text-blue-300 underline apple-focus p-2 rounded-lg hover:bg-white/5 transition-all duration-300"
       >
-        + Add custom question ({remainingQuestions} remaining)
+        Add Question
       </button>
     );
   }
@@ -64,8 +64,7 @@ const AddQuestionForm = React.memo(({ onAdd, remainingQuestions }: AddQuestionFo
           autoFocus
         />
       </div>
-      <div className="flex justify-between items-center">
-        <span className="apple-caption text-sm text-white/60">{remainingQuestions} questions remaining</span>
+      <div className="flex justify-end items-center">
         <div className="space-x-3">
           <button
             type="button"
@@ -73,7 +72,7 @@ const AddQuestionForm = React.memo(({ onAdd, remainingQuestions }: AddQuestionFo
               setIsExpanded(false);
               setQuestionText('');
             }}
-            className="apple-body text-sm text-white/60 hover:text-white/80 apple-focus px-4 py-2 rounded-lg hover:bg-white/5 transition-all duration-300"
+            className="apple-body text-sm text-white/80 hover:text-white apple-focus px-4 py-2 rounded-lg hover:bg-white/5 transition-all duration-300"
           >
             Cancel
           </button>
@@ -93,6 +92,208 @@ const AddQuestionForm = React.memo(({ onAdd, remainingQuestions }: AddQuestionFo
 });
 AddQuestionForm.displayName = 'AddQuestionForm';
 
+// Add Subsection Form Component
+interface AddSubsectionFormProps {
+  onAdd: (title: string) => void;
+}
+
+const AddSubsectionForm = React.memo(({ onAdd }: AddSubsectionFormProps) => {
+  const [subsectionTitle, setSubsectionTitle] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (subsectionTitle.trim()) {
+      onAdd(subsectionTitle.trim());
+      setSubsectionTitle('');
+      setIsExpanded(false);
+    }
+  };
+
+  if (!isExpanded) {
+    return (
+      <button
+        onClick={() => setIsExpanded(true)}
+        className="text-lg font-bold underline uppercase text-blue-700 hover:text-blue-600 transition-all duration-300"
+      >
+        Add Subsection
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="glass-card-gradient p-4 rounded-xl border border-blue-400/30">
+      <div className="mb-3">
+        <input
+          type="text"
+          value={subsectionTitle}
+          onChange={(e) => setSubsectionTitle(e.target.value)}
+          placeholder="Enter subsection title..."
+          className="w-full p-3 border border-gray-300 rounded-md text-sm bg-gray-100 text-black focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase font-bold"
+          autoFocus
+        />
+      </div>
+      <div className="flex justify-end space-x-3">
+        <button
+          type="button"
+          onClick={() => {
+            setIsExpanded(false);
+            setSubsectionTitle('');
+          }}
+          className="apple-body text-sm text-gray-600 hover:text-gray-800 apple-focus px-4 py-2 rounded-lg hover:bg-white/10 transition-all duration-300"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={!subsectionTitle.trim()}
+          className="glass-button px-6 py-2 text-sm font-medium rounded-xl text-white apple-focus group hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Add Subsection
+        </button>
+      </div>
+    </form>
+  );
+});
+AddSubsectionForm.displayName = 'AddSubsectionForm';
+
+// Sortable Subsection Item component for drag and drop reordering
+interface SortableSubsectionItemProps {
+  subsection: any;
+  subsectionIndex: number;
+  sectionId: string;
+  isReorderMode: boolean;
+  children: React.ReactNode;
+  // Edit/Delete props
+  isEditing: boolean;
+  editingTitle: string;
+  onEditSubsection: (subsectionId: string) => void;
+  onSaveSubsectionTitle: (sectionId: string, subsectionId: string, newTitle: string) => void;
+  onCancelSubsectionEdit: () => void;
+  onDeleteSubsection: (sectionId: string, subsectionId: string) => void;
+  onUpdateEditingTitle: (title: string) => void;
+}
+
+const SortableSubsectionItem = React.memo(({ 
+  subsection, 
+  subsectionIndex, 
+  sectionId,
+  isReorderMode, 
+  children,
+  isEditing,
+  editingTitle,
+  onEditSubsection,
+  onSaveSubsectionTitle,
+  onCancelSubsectionEdit,
+  onDeleteSubsection,
+  onUpdateEditingTitle,
+}: SortableSubsectionItemProps) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: subsection.id, disabled: !isReorderMode });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1000 : 'auto',
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes}
+      data-type="subsection"
+      data-id={subsection.id}
+      className={`mb-12 last:mb-0 ${
+        isReorderMode ? 'ring-2 ring-purple-400 ring-opacity-30 rounded-lg transition-all duration-200 hover:ring-opacity-50 p-2' : ''
+      }`}
+    >
+      <div className="mb-3 flex items-center gap-3">
+        {/* Drag Handle - only show when in reorder mode */}
+        {isReorderMode && (
+          <div
+            {...listeners}
+            className="text-purple-500 flex-shrink-0 transition-colors cursor-grab active:cursor-grabbing flex items-center justify-center hover:text-purple-400"
+            title="Drag to reorder subsection"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
+          </div>
+        )}
+        
+        {/* Subsection Title - Editable */}
+        {isEditing ? (
+          <div className="flex-1 flex items-center gap-2">
+            <input
+              type="text"
+              value={editingTitle}
+              onChange={(e) => onUpdateEditingTitle(e.target.value)}
+              className="flex-1 p-2 text-lg font-bold bg-gray-100 text-black rounded border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent uppercase"
+              placeholder="Enter subsection title..."
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  onSaveSubsectionTitle(sectionId, subsection.id, editingTitle);
+                } else if (e.key === 'Escape') {
+                  onCancelSubsectionEdit();
+                }
+              }}
+            />
+            <button
+              onClick={() => onSaveSubsectionTitle(sectionId, subsection.id, editingTitle)}
+              className="text-green-600 hover:text-green-500 transition-colors p-2 rounded-lg hover:bg-green-500/10"
+              title="Save title"
+            >
+              ✓
+            </button>
+            <button
+              onClick={onCancelSubsectionEdit}
+              className="text-gray-600 hover:text-gray-500 transition-colors p-2 rounded-lg hover:bg-gray-500/10"
+              title="Cancel"
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center gap-2">
+            <h4 className="text-lg font-bold underline uppercase text-blue-700">
+              {String.fromCharCode(65 + subsectionIndex)}. {subsection.title}
+            </h4>
+            {/* Edit and Delete buttons */}
+            <button
+              onClick={() => onEditSubsection(subsection.id)}
+              className="text-slate-600 hover:text-blue-500 transition-colors p-1 rounded-lg hover:bg-white/10"
+              title="Edit subsection title"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+            </button>
+            <button
+              onClick={() => onDeleteSubsection(sectionId, subsection.id)}
+              className="text-red-500 hover:text-red-400 transition-colors p-1 rounded-lg hover:bg-red-500/10"
+              title="Delete subsection"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+});
+SortableSubsectionItem.displayName = 'SortableSubsectionItem';
 
 interface QuestionItemProps {
   question: DepositionQuestion;
@@ -159,7 +360,7 @@ const SortableQuestionItem = React.memo((props: QuestionItemProps) => {
         {props.isReorderMode && (
           <div
             {...listeners}
-            className="text-white/50 flex-shrink-0 transition-colors cursor-grab active:cursor-grabbing flex items-center justify-center"
+            className="text-white/70 flex-shrink-0 transition-colors cursor-grab active:cursor-grabbing flex items-center justify-center"
             title="Drag to reorder and indent"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
@@ -302,6 +503,7 @@ interface SectionItemProps {
   onAddCustomQuestion: (sectionId: string, text: string, subsectionId?: string) => void;
   onRemoveCustomQuestion: (sectionId: string, questionId: string, subsectionId?: string) => void;
   onUpdateNotes: (sectionId: string, notes: string, subsectionId?: string) => void;
+  onAddSubsection: (sectionId: string, title: string) => void;
   onStartEditing: (sectionId: string) => void;
   onSaveEditing: (sectionId: string) => void;
   onCancelEditing: () => void;
@@ -337,6 +539,7 @@ interface SectionItemProps {
   handleQuestionDragStart: (event: DragStartEvent) => void;
   handleQuestionDragMove: (event: DragMoveEvent) => void;
   handleQuestionDragEnd: (event: DragEndEvent) => void;
+  handleSubsectionDragEnd: (event: DragEndEvent, sectionId: string) => void;
   // Preview props for drag-to-indent
   dragPreview?: any;
   // AI-related props
@@ -364,6 +567,14 @@ interface SectionItemProps {
   onImproveNotesWithAI: (sectionId: string) => void;
   onApplyNotesAiSuggestions: (sectionId: string) => void;
   onDismissNotesAiSuggestions: (sectionId: string) => void;
+  // Subsection editing props
+  editingSubsection: string | null;
+  editingSubsectionTitle: string;
+  onStartEditingSubsection: (subsectionId: string, currentTitle: string) => void;
+  onSaveSubsectionTitle: (sectionId: string, subsectionId: string, newTitle: string) => void;
+  onCancelSubsectionEdit: () => void;
+  onDeleteSubsection: (sectionId: string, subsectionId: string) => void;
+  onUpdateEditingSubsectionTitle: (title: string) => void;
 }
 
 const SectionItem = React.memo(({ 
@@ -375,7 +586,8 @@ const SectionItem = React.memo(({
   onToggleFlagged, 
   onAddCustomQuestion, 
   onRemoveCustomQuestion, 
-  onUpdateNotes, 
+  onUpdateNotes,
+  onAddSubsection,
   onStartEditing,
   onSaveEditing,
   onCancelEditing,
@@ -411,6 +623,7 @@ const SectionItem = React.memo(({
   handleQuestionDragStart,
   handleQuestionDragMove,
   handleQuestionDragEnd,
+  handleSubsectionDragEnd,
   // Preview props for drag-to-indent
   dragPreview,
   // AI-related props
@@ -437,41 +650,42 @@ const SectionItem = React.memo(({
   onUpdateNotesAiPrompt,
   onImproveNotesWithAI,
   onApplyNotesAiSuggestions,
-  onDismissNotesAiSuggestions
+  onDismissNotesAiSuggestions,
+  // Subsection editing props
+  editingSubsection,
+  editingSubsectionTitle,
+  onStartEditingSubsection,
+  onSaveSubsectionTitle,
+  onCancelSubsectionEdit,
+  onDeleteSubsection,
+  onUpdateEditingSubsectionTitle,
 }: SectionItemProps) => {
   // Alias for easier use in this component
   const exitQuestionReorderMode = onExitQuestionReorderMode;
   return (
     <div
       ref={sectionRef}
-      draggable={isReorderMode}
+      draggable
       onDragStart={(e) => onDragStart(e, section.id)}
       onDragOver={(e) => onDragOver(e, section.id)}
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, section.id)}
-      className={`glass-card-gradient rounded-xl border-2 transition-all duration-300 w-full ${
+      className={`glass-card-gradient rounded-xl border-2 transition-all duration-300 w-full cursor-move ${
         section.isSelected ? 'border-blue-400/50' : 'border-white/10 opacity-80 hover:opacity-100'
-      } ${isReorderMode ? 'shake-animation cursor-move' : ''} ${
-        isDragging ? 'opacity-50 scale-95' : ''
-      } ${isDragOver ? 'border-blue-500 scale-105' : ''}`}
-      style={{
-        animationName: isReorderMode ? 'shake' : 'none',
-        animationDuration: isReorderMode ? '1.6s' : '0s',
-        animationTimingFunction: isReorderMode ? 'ease-in-out' : 'ease',
-        animationIterationCount: isReorderMode ? 'infinite' : '0',
-        animationDelay: isReorderMode ? `${(section.id.charCodeAt(0) % 5) * 0.1}s` : '0s'
-      }}
+      } ${isDragging ? 'opacity-50 scale-95' : ''} ${
+        isDragOver ? 'border-2 border-blue-500 border-dashed scale-105' : ''
+      }`}
     >
       {/* Section Header */}
-      <div 
-        className="p-6 border-b border-white/10"
-        onMouseDown={!isReorderMode ? () => onLongPressStart(section.id) : undefined}
-        onMouseUp={!isReorderMode ? onLongPressEnd : undefined}
-        onMouseLeave={!isReorderMode ? onLongPressEnd : undefined}
-        onTouchStart={!isReorderMode ? () => onLongPressStart(section.id) : undefined}
-        onTouchEnd={!isReorderMode ? onLongPressEnd : undefined}
-      >
+      <div className="p-6 border-b border-white/10">
         <div className="flex items-center justify-between gap-4">
+          {/* Drag Handle */}
+          <div className="text-gray-400 hover:text-gray-600 transition-colors flex items-center flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
+          </div>
+          
           <div className="flex-1 min-w-0">
             {editingSection === section.id ? (
               <input
@@ -487,7 +701,7 @@ const SectionItem = React.memo(({
                 <span className={`text-xl font-medium ${section.isSelected ? 'text-blue-400' : 'text-blue-400/60'} uppercase w-16 flex-shrink-0`}>
                   {section.title.split('.')[0]}.
                 </span>
-                <h2 className={`apple-subtitle text-xl uppercase text-left leading-tight ${section.isSelected ? 'text-white' : 'text-white/60'}`}>
+                <h2 className={`apple-subtitle text-xl uppercase text-left leading-tight ${section.isSelected ? 'text-white' : 'text-white/90'}`}>
                   {section.title.split('.').slice(1).join('.').trim()}
                 </h2>
               </div>
@@ -510,8 +724,8 @@ const SectionItem = React.memo(({
                 className={`${
                   isQuestionReorderMode && questionReorderContext?.sectionId === section.id
                     ? 'text-purple-400 bg-purple-500/20 ring-2 ring-purple-400/50'
-                    : 'text-white/60 hover:text-white/80'
-                } transition-colors apple-focus p-2 rounded-lg hover:bg-white/5`}
+                    : 'text-slate-600 hover:text-blue-500'
+                } transition-colors apple-focus p-2 rounded-lg hover:bg-white/10`}
                 title={
                   isQuestionReorderMode && questionReorderContext?.sectionId === section.id
                     ? "Click to exit question reorder mode"
@@ -523,21 +737,21 @@ const SectionItem = React.memo(({
             )}
             <button
               onClick={() => onStartEditing(section.id)}
-              className="text-white/60 hover:text-white/80 transition-colors apple-focus p-2 rounded-lg hover:bg-white/5"
+              className="text-slate-600 hover:text-blue-500 transition-colors apple-focus p-2 rounded-lg hover:bg-white/10"
               title="Edit questions"
             >
               ✏️
             </button>
             <button
               onClick={(e) => onDeleteSection(section.id, e)}
-              className="text-red-400 hover:text-red-300 transition-colors apple-focus p-2 rounded-lg hover:bg-red-500/10"
+              className="text-red-500 hover:text-red-400 transition-colors apple-focus p-2 rounded-lg hover:bg-red-500/10"
               title="Delete section"
             >
               🗑️
             </button>
             <button
               onClick={() => onToggleCollapse(section.id)}
-              className="text-white/60 hover:text-white/80 transition-colors apple-focus p-2 rounded-lg hover:bg-white/5"
+              className="text-slate-600 hover:text-blue-500 transition-colors apple-focus p-2 rounded-lg hover:bg-white/10"
             >
               {isCollapsed ? '▼' : '▲'}
             </button>
@@ -551,7 +765,7 @@ const SectionItem = React.memo(({
           {/* Main Section Questions */}
           {editingSection === section.id ? (
             <div className="mb-8">
-              <h4 className="text-sm font-medium text-white/60 mb-3 underline">Edit Questions:</h4>
+              <h4 className="text-sm font-medium text-white/90 mb-3 underline">Edit Questions:</h4>
               
               <div className="relative">
                 <textarea
@@ -629,7 +843,7 @@ const SectionItem = React.memo(({
           {/* Main Section Custom Questions */}
           {section.customQuestions && section.customQuestions.length > 0 && (
             <div className="mb-8">
-              <h4 className="text-sm font-medium text-white/60 mb-3">Custom Questions:</h4>
+              <h4 className="text-sm font-medium text-white/90 mb-3">Custom Questions:</h4>
               <div className="space-y-6">
                 {section.customQuestions.map((question) => (
                   <div key={question.id} className="flex items-start space-x-3">
@@ -658,16 +872,6 @@ const SectionItem = React.memo(({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Add Custom Question Form for Main Section */}
-          {(!section.customQuestions || section.customQuestions.length < 10) && (
-            <div className="mb-6">
-              <AddQuestionForm 
-                onAdd={(text) => onAddCustomQuestion(section.id, text)}
-                remainingQuestions={10 - (section.customQuestions?.length || 0)}
-              />
             </div>
           )}
 
@@ -700,116 +904,132 @@ const SectionItem = React.memo(({
           )}
 
           {/* Subsections - Now placed BEFORE notes */}
-          {section.subsections && section.subsections.map((subsection) => (
-            <div key={subsection.id} className="mb-12 last:mb-0">
-              <div className="flex items-center space-x-3 mb-3">
-                <input
-                  type="checkbox"
-                  checked={subsection.isSelected}
-                  onChange={() => onToggleSubsection(section.id, subsection.id)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-                <h4 className={`text-lg font-bold underline capitalize ${subsection.isSelected ? 'text-white/60' : 'text-white/40'}`}>
-                  {subsection.title}
-                </h4>
-              </div>
-
-              {subsection.isSelected && (
-                <div className="ml-6 space-y-4">
-                  {/* Subsection Questions */}
-                  {subsection.questions && subsection.questions.length > 0 && (
-                    <DndContext
-                      sensors={sensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleQuestionDragEnd}
-                    >
-                      <SortableContext
-                        items={subsection.questions.map(q => q.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div className="space-y-3">
-                          {subsection.questions.map((question) => (
-                            <SortableQuestionItem
-                              key={question.id}
-                              question={question}
-                              onToggleAsked={(questionId) => onToggleQuestion(section.id, questionId, subsection.id)}
-                              onToggleFlagged={(questionId) => onToggleFlagged(section.id, questionId, subsection.id)}
-                              onEditQuestion={(questionId) => onStartEditingQuestion(section.id, questionId, subsection.id)}
-                              onSaveQuestion={(questionId, newText) => onSaveEditingQuestion(section.id, questionId, newText, subsection.id)}
-                              onCancelEdit={onCancelEditingQuestion}
-                              isEditing={editingQuestionId === question.id}
-                              editingText={editingQuestionText}
-                              onUpdateEditingText={onUpdateEditingQuestionText}
-                              isReorderMode={isQuestionReorderMode && questionReorderContext?.sectionId === section.id && questionReorderContext.subsectionId === subsection.id}
-                              dragPreview={dragPreview}
-                            />
-                          ))}
-                        </div>
-                      </SortableContext>
-                    </DndContext>
-                  )}
-
-                  {/* Subsection Custom Questions */}
-                  {subsection.customQuestions && subsection.customQuestions.length > 0 && (
-                    <div>
-                      <h5 className="text-sm font-medium text-white/60 mb-2">Custom Questions:</h5>
-                      <div className="space-y-3">
-                        {subsection.customQuestions.map((question) => (
-                          <div key={question.id} className="flex items-start space-x-3">
-                            <div className="flex-1">
-                              <div className="flex items-start space-x-3 p-2 rounded-lg">
-                                <QuestionItemContent
+          {section.subsections && section.subsections.length > 0 && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={(event) => handleSubsectionDragEnd(event, section.id)}
+            >
+              <SortableContext
+                items={section.subsections.map(sub => sub.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                {section.subsections.map((subsection, subsectionIndex) => (
+                  <SortableSubsectionItem
+                    key={subsection.id}
+                    subsection={subsection}
+                    subsectionIndex={subsectionIndex}
+                    sectionId={section.id}
+                    isReorderMode={isQuestionReorderMode && questionReorderContext?.sectionId === section.id}
+                    isEditing={editingSubsection === subsection.id}
+                    editingTitle={editingSubsectionTitle}
+                    onEditSubsection={(subsectionId) => onStartEditingSubsection(subsectionId, subsection.title)}
+                    onSaveSubsectionTitle={onSaveSubsectionTitle}
+                    onCancelSubsectionEdit={onCancelSubsectionEdit}
+                    onDeleteSubsection={onDeleteSubsection}
+                    onUpdateEditingTitle={onUpdateEditingSubsectionTitle}
+                  >
+                    <div className="ml-6 space-y-4">
+                      {/* Subsection Questions */}
+                      {subsection.questions && subsection.questions.length > 0 && (
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={handleQuestionDragEnd}
+                        >
+                          <SortableContext
+                            items={subsection.questions.map(q => q.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="space-y-3">
+                              {subsection.questions.map((question) => (
+                                <SortableQuestionItem
+                                  key={question.id}
                                   question={question}
-                                  onToggleAsked={(questionId: string) => onToggleQuestion(section.id, questionId, subsection.id)}
-                                  onToggleFlagged={(questionId: string) => onToggleFlagged(section.id, questionId, subsection.id)}
-                                  onEditQuestion={(questionId: string) => onStartEditingQuestion(section.id, questionId, subsection.id)}
-                                  onSaveQuestion={(questionId: string, newText: string) => onSaveEditingQuestion(section.id, questionId, newText, subsection.id)}
+                                  onToggleAsked={(questionId) => onToggleQuestion(section.id, questionId, subsection.id)}
+                                  onToggleFlagged={(questionId) => onToggleFlagged(section.id, questionId, subsection.id)}
+                                  onEditQuestion={(questionId) => onStartEditingQuestion(section.id, questionId, subsection.id)}
+                                  onSaveQuestion={(questionId, newText) => onSaveEditingQuestion(section.id, questionId, newText, subsection.id)}
                                   onCancelEdit={onCancelEditingQuestion}
                                   isEditing={editingQuestionId === question.id}
                                   editingText={editingQuestionText}
                                   onUpdateEditingText={onUpdateEditingQuestionText}
-                                  isReorderMode={false}
+                                  isReorderMode={isQuestionReorderMode && questionReorderContext?.sectionId === section.id && questionReorderContext.subsectionId === subsection.id}
+                                  dragPreview={dragPreview}
                                 />
-                              </div>
+                              ))}
                             </div>
-                            <button
-                              onClick={() => onRemoveCustomQuestion(section.id, question.id, subsection.id)}
-                              className="text-red-400 hover:text-red-300 text-sm ml-2 apple-focus p-1 rounded flex-shrink-0"
-                            >
-                              ✕
-                            </button>
+                          </SortableContext>
+                        </DndContext>
+                      )}
+
+                      {/* Subsection Custom Questions */}
+                      {subsection.customQuestions && subsection.customQuestions.length > 0 && (
+                        <div>
+                          <h5 className="text-sm font-medium text-white/90 mb-2">Custom Questions:</h5>
+                          <div className="space-y-3">
+                            {subsection.customQuestions.map((question) => (
+                              <div key={question.id} className="flex items-start space-x-3">
+                                <div className="flex-1">
+                                  <div className="flex items-start space-x-3 p-2 rounded-lg">
+                                    <QuestionItemContent
+                                      question={question}
+                                      onToggleAsked={(questionId: string) => onToggleQuestion(section.id, questionId, subsection.id)}
+                                      onToggleFlagged={(questionId: string) => onToggleFlagged(section.id, questionId, subsection.id)}
+                                      onEditQuestion={(questionId: string) => onStartEditingQuestion(section.id, questionId, subsection.id)}
+                                      onSaveQuestion={(questionId: string, newText: string) => onSaveEditingQuestion(section.id, questionId, newText, subsection.id)}
+                                      onCancelEdit={onCancelEditingQuestion}
+                                      isEditing={editingQuestionId === question.id}
+                                      editingText={editingQuestionText}
+                                      onUpdateEditingText={onUpdateEditingQuestionText}
+                                      isReorderMode={false}
+                                    />
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => onRemoveCustomQuestion(section.id, question.id, subsection.id)}
+                                  className="text-red-400 hover:text-red-300 text-sm ml-2 apple-focus p-1 rounded flex-shrink-0"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      )}
+
+                      {/* Add Question Form for Subsection */}
+                      {(!subsection.customQuestions || subsection.customQuestions.length < 10) && (
+                        <AddQuestionForm 
+                          onAdd={(text) => onAddCustomQuestion(section.id, text, subsection.id)}
+                          remainingQuestions={10 - (subsection.customQuestions?.length || 0)}
+                        />
+                      )}
                     </div>
-                  )}
+                  </SortableSubsectionItem>
+                ))}
+              </SortableContext>
+            </DndContext>
+          )}
 
-                  {/* Add Custom Question Form for Subsection */}
-                  {(!subsection.customQuestions || subsection.customQuestions.length < 10) && (
-                    <AddQuestionForm 
-                      onAdd={(text) => onAddCustomQuestion(section.id, text, subsection.id)}
-                      remainingQuestions={10 - (subsection.customQuestions?.length || 0)}
-                    />
-                  )}
+          {/* Add Subsection Button */}
+          <div className="mt-6 mb-4">
+            <AddSubsectionForm onAdd={(title) => onAddSubsection(section.id, title)} />
+          </div>
 
-                  {/* Subsection Notes */}
-                  <div>
-                    <h5 className="text-sm font-medium text-white/60 mb-2 underline">Subsection Notes:</h5>
-                    <textarea
-                      value={subsection.notes || ''}
-                      onChange={(e) => onUpdateNotes(section.id, e.target.value, subsection.id)}
-                      placeholder="Add notes for this subsection..."
-                      className="w-full p-3 border border-gray-300 rounded-md text-sm resize-y min-h-[60px] focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-gray-100 text-black"
-                    />
-                  </div>
-                </div>
-              )}
+          {/* Add Custom Question Form - Single form at end of card */}
+          {(!section.customQuestions || section.customQuestions.length < 10) && (
+            <div className="mt-6 mb-6">
+              <AddQuestionForm 
+                onAdd={(text) => onAddCustomQuestion(section.id, text)}
+                remainingQuestions={10 - (section.customQuestions?.length || 0)}
+              />
             </div>
-          ))}
+          )}
 
           {/* Section Notes - Now placed AFTER all questions and subsections */}
           <div className="mt-8 pt-6 border-t border-white/10">
-            <h4 className="text-sm font-medium text-white/60 mb-2 underline">Section Notes:</h4>
+            <h4 className="text-sm font-medium text-white/90 mb-2 underline">Section Notes:</h4>
             
             <div className="relative">
             <textarea
@@ -923,6 +1143,10 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
   const [editingQuestions, setEditingQuestions] = useState<{ [key: string]: string }>({});
   const [editingTitle, setEditingTitle] = useState<{ [key: string]: string }>({});
   const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null);
+  
+  // Subsection editing state
+  const [editingSubsection, setEditingSubsection] = useState<string | null>(null);
+  const [editingSubsectionTitle, setEditingSubsectionTitle] = useState<string>('');
   const [editingQuestionText, setEditingQuestionText] = useState<string>('');
   const [deletingSection, setDeletingSection] = useState<string | null>(null);
   const [deleteDialogPosition, setDeleteDialogPosition] = useState<{ top: number; left: number } | null>(null);
@@ -1152,6 +1376,44 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
     setDragHorizontalMovement(0);
     setDragPreview(null);
   }, [questionReorderContext, dragPreview, dragHorizontalMovement]);
+
+  // Handle subsection drag end for reordering subsections within a section
+  const handleSubsectionDragEnd = useCallback((event: DragEndEvent, sectionId: string) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+    
+    console.log('🔄 Subsection drag end:', { activeId: active.id, overId: over.id, sectionId });
+    
+    setSections(prevSections => {
+      const newSections = [...prevSections];
+      const sectionIndex = newSections.findIndex(s => s.id === sectionId);
+      
+      if (sectionIndex === -1) return prevSections;
+      
+      const section = newSections[sectionIndex];
+      const subsections = section.subsections || [];
+      
+      const oldIndex = subsections.findIndex(sub => sub.id === active.id);
+      const newIndex = subsections.findIndex(sub => sub.id === over.id);
+      
+      if (oldIndex === -1 || newIndex === -1) return prevSections;
+      
+      // Reorder subsections
+      const reorderedSubsections = [...subsections];
+      const [movedSubsection] = reorderedSubsections.splice(oldIndex, 1);
+      reorderedSubsections.splice(newIndex, 0, movedSubsection);
+      
+      newSections[sectionIndex] = {
+        ...section,
+        subsections: reorderedSubsections
+      };
+      
+      console.log('✅ Subsections reordered:', reorderedSubsections.map(s => s.title));
+      
+      return newSections;
+    });
+  }, []);
 
   
   // Save progress to database
@@ -1702,6 +1964,78 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
         };
       }
     }));
+  }, []);
+
+  const addSubsection = useCallback((sectionId: string, title: string) => {
+    const newSubsection = {
+      id: `subsection_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      title: title.toUpperCase(),
+      isSelected: true,
+      questions: [],
+      customQuestions: [],
+      notes: ''
+    };
+
+    setSections(prev => prev.map(section => {
+      if (section.id !== sectionId) return section;
+
+      return {
+        ...section,
+        subsections: [...(section.subsections || []), newSubsection]
+      };
+    }));
+  }, []);
+
+  // Subsection edit handlers
+  const startEditingSubsection = useCallback((subsectionId: string, currentTitle: string) => {
+    setEditingSubsection(subsectionId);
+    setEditingSubsectionTitle(currentTitle);
+  }, []);
+
+  const saveSubsectionTitle = useCallback((sectionId: string, subsectionId: string, newTitle: string) => {
+    if (!newTitle.trim()) return;
+    
+    setSections(prev => prev.map(section => {
+      if (section.id !== sectionId) return section;
+      
+      return {
+        ...section,
+        subsections: section.subsections?.map(subsection => {
+          if (subsection.id !== subsectionId) return subsection;
+          return {
+            ...subsection,
+            title: newTitle.toUpperCase()
+          };
+        }) || []
+      };
+    }));
+    
+    setEditingSubsection(null);
+    setEditingSubsectionTitle('');
+  }, []);
+
+  const cancelSubsectionEdit = useCallback(() => {
+    setEditingSubsection(null);
+    setEditingSubsectionTitle('');
+  }, []);
+
+  const deleteSubsection = useCallback((sectionId: string, subsectionId: string) => {
+    if (!confirm('Are you sure you want to delete this subsection? All questions within it will be removed.')) {
+      return;
+    }
+    
+    setSections(prev => prev.map(section => {
+      if (section.id !== sectionId) return section;
+      
+      return {
+        ...section,
+        subsections: section.subsections?.filter(sub => sub.id !== subsectionId) || []
+      };
+    }));
+  }, []);
+
+  const updateEditingSubsectionTitle = useCallback((title: string) => {
+    setEditingSubsectionTitle(title);
   }, []);
 
   const updateNotes = useCallback((sectionId: string, notes: string, subsectionId?: string) => {
@@ -2289,21 +2623,16 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
 
   // Drag handlers for reordering
   const handleDragStart = useCallback((e: React.DragEvent, sectionId: string) => {
-    if (!isReorderMode) {
-      e.preventDefault(); // Prevent drag if not in reorder mode
-      return;
-    }
     console.log('🚀 Drag started for section:', sectionId);
     setDraggedSection(sectionId);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', sectionId);
-  }, [isReorderMode]);
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent, sectionId: string) => {
-    if (!isReorderMode) return;
     e.preventDefault();
     setDragOverSection(sectionId);
-  }, [isReorderMode]);
+  }, []);
 
   const handleDragLeave = useCallback(() => {
     setDragOverSection(null);
@@ -2400,14 +2729,6 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
     <div className="min-h-screen relative overflow-x-hidden">
       {/* Drag Preview Overlay */}
       <DragPreviewOverlay preview={dragPreview} />
-      
-      {/* Apple-style Background Pattern */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-purple-900/15 via-transparent to-blue-900/15"></div>
-        <div className="absolute top-1/4 right-1/4 w-96 h-96 bg-gradient-to-br from-purple-500/15 to-blue-500/15 rounded-full blur-3xl apple-float"></div>
-        <div className="absolute bottom-1/4 left-1/4 w-80 h-80 bg-gradient-to-br from-blue-500/15 to-cyan-500/15 rounded-full blur-3xl apple-float" style={{animationDelay: '2s'}}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gradient-to-br from-pink-500/10 to-purple-500/10 rounded-full blur-2xl apple-float" style={{animationDelay: '1.5s'}}></div>
-      </div>
 
       {/* Header with Save Status */}
       <div className="relative z-10 glass-float mx-auto max-w-5xl px-4 mt-4 mb-6">
@@ -2418,22 +2739,6 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
             
             {/* Desktop Controls */}
             <div className="flex items-center space-x-3 sm:space-x-6 order-2 sm:order-3">
-              <div className="flex flex-col items-end">
-                <span className={`apple-body text-xs sm:text-sm font-medium ${
-                  saveStatus === 'saved' ? 'text-green-400' : 
-                  saveStatus === 'saving' ? 'text-yellow-400' : 
-                  'text-red-400'
-                }`}>
-                  {saveStatus === 'saved' ? '✓ All Changes Saved' : 
-                   saveStatus === 'saving' ? '💾 Saving...' : 
-                   '⚠️ Unsaved Changes'}
-                </span>
-                {lastSaved && (
-                  <span className="apple-caption text-xs text-white/60">
-                    {lastSaved.toLocaleTimeString()} • Auto-saves every 30s
-                  </span>
-                )}
-              </div>
               <button
                 onClick={manualSave}
                 className="glass-button px-4 sm:px-6 py-2 text-xs sm:text-sm font-medium rounded-xl text-white apple-focus group hover:scale-105 transition-all duration-300"
@@ -2442,66 +2747,26 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
                   Save Now
                 </span>
               </button>
-              {isReorderMode && (
-                <button
-                  onClick={exitReorderMode}
-                  className="glass-button px-4 sm:px-6 py-2 text-xs sm:text-sm font-medium rounded-xl text-white apple-focus group hover:scale-105 transition-all duration-300 bg-green-500/20 border border-green-400/30"
-                >
-                  <span className="group-hover:scale-105 transition-transform duration-300">
-                    Done Reordering
-                  </span>
-                </button>
-              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Reorder Mode Overlay Message */}
-      {isReorderMode && (
-        <div className="relative z-10 glass-float mx-auto max-w-5xl px-4 mb-6 bg-blue-500/20 border border-blue-400/30">
-          <div className="p-4 text-center">
-            <p className="apple-body text-blue-300 text-sm">
-              🔄 Reorder Mode Active - Click and drag any section to move it, then click &ldquo;Done Reordering&rdquo;
-            </p>
-          </div>
-        </div>
-      )}
-
       {/* Question Reorder Mode Overlay Message */}
       {isQuestionReorderMode && (
-        <>
-          <div className="relative z-10 glass-float mx-auto max-w-5xl px-4 mb-6 bg-purple-500/20 border border-purple-400/30">
-            <div className="p-4 text-center flex items-center justify-between">
-              <p className="apple-body text-purple-300 text-sm flex-1">
-                🎯 Question Reorder Mode Active - Drag questions to reorder them
-              </p>
-              <button
-                onClick={exitQuestionReorderMode}
-                className="glass-button px-4 py-2 text-sm font-medium rounded-xl text-white apple-focus hover:scale-105 transition-all duration-300 bg-green-500/20 border border-green-400/30"
-              >
-                Done Reordering
-              </button>
-            </div>
-          </div>
-          
-          {/* TEST DROP ZONE */}
-          <div 
-            onDragOver={(e) => {
-              e.preventDefault();
-              console.log('🧪 TEST ZONE: dragOver detected!');
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              console.log('🧪 TEST ZONE: DROP detected!');
-            }}
-            className="mx-auto max-w-5xl px-4 mb-6 bg-yellow-500/30 border-4 border-yellow-400 p-8"
-          >
-            <p className="text-yellow-200 text-center text-xl font-bold">
-              🧪 TEST DROP ZONE - Drag a question over me!
+        <div className="relative z-10 mx-auto max-w-5xl px-4 mb-6">
+          <div className="p-4 text-center flex items-center justify-between bg-purple-600 border border-purple-500 rounded-xl shadow-lg">
+            <p className="text-white text-sm font-medium flex-1">
+              🎯 Question Reorder Mode Active - Drag questions to reorder them
             </p>
+            <button
+              onClick={exitQuestionReorderMode}
+              className="px-4 py-2 text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-500 border border-green-500 hover:scale-105 transition-all duration-300"
+            >
+              Done Reordering
+            </button>
           </div>
-        </>
+        </div>
       )}
 
       {/* Main Content - Full width with standard padding */}
@@ -2546,6 +2811,7 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
               onAddCustomQuestion={addCustomQuestion}
               onRemoveCustomQuestion={removeCustomQuestion}
               onUpdateNotes={updateNotes}
+              onAddSubsection={addSubsection}
               onStartEditing={startEditing}
               onSaveEditing={saveEditing}
               onCancelEditing={cancelEditing}
@@ -2588,6 +2854,7 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
               handleQuestionDragStart={handleQuestionDragStart}
               handleQuestionDragMove={handleQuestionDragMove}
               handleQuestionDragEnd={handleQuestionDragEnd}
+              handleSubsectionDragEnd={handleSubsectionDragEnd}
               dragPreview={dragPreview}
               // AI-related props
               isAILoading={isAILoading}
@@ -2613,6 +2880,14 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
               onImproveNotesWithAI={improveNotesWithAI}
               onApplyNotesAiSuggestions={applyNotesAiSuggestions}
               onDismissNotesAiSuggestions={dismissNotesAiSuggestions}
+              // Subsection editing props
+              editingSubsection={editingSubsection}
+              editingSubsectionTitle={editingSubsectionTitle}
+              onStartEditingSubsection={startEditingSubsection}
+              onSaveSubsectionTitle={saveSubsectionTitle}
+              onCancelSubsectionEdit={cancelSubsectionEdit}
+              onDeleteSubsection={deleteSubsection}
+              onUpdateEditingSubsectionTitle={updateEditingSubsectionTitle}
             />
           ))}
         </div>

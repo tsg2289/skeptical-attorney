@@ -215,14 +215,7 @@ const OutlinePage = React.memo(function OutlinePage() {
 
   return (
     <div className="min-h-screen relative">
-      {/* Apple-style Background Pattern */}
-      <div className="absolute inset-0">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-50/15 via-transparent to-blue-100/15"></div>
-        <div className="absolute top-1/3 right-1/3 w-64 h-64 bg-gradient-to-br from-blue-400/10 to-blue-500/10 rounded-full blur-3xl apple-float"></div>
-        <div className="absolute bottom-1/3 left-1/3 w-48 h-48 bg-gradient-to-br from-blue-500/8 to-cyan-500/8 rounded-full blur-3xl apple-float" style={{animationDelay: '2s'}}></div>
-      </div>
-      
-      <div className="relative z-10 max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="glass-float p-10 mb-8">
           <div className="flex items-start justify-between flex-wrap gap-4">
             <div className="flex-1 min-w-0">
@@ -273,73 +266,6 @@ const OutlinePage = React.memo(function OutlinePage() {
                 <span className="text-sm font-medium">Back to Matter</span>
               </Link>
               
-              {/* Timer Widget */}
-              <div className="glass-button px-6 py-3 rounded-xl items-center space-x-2 flex">
-                <span className={`apple-body text-sm font-mono font-bold ${isTimerRunning ? 'text-blue-600' : 'text-gray-700'}`}>
-                  {formatTime(elapsedTime)}
-                </span>
-                <div className="flex items-center space-x-1">
-                  {!isTimerRunning ? (
-                    <button
-                      onClick={startTimer}
-                      className="glass-button w-6 h-6 rounded-full flex items-center justify-center text-gray-800 apple-focus hover:scale-110 transition-all duration-300 bg-blue-500/30 border border-blue-400/50 text-xs"
-                      title="Start timer"
-                    >
-                      ▶
-                    </button>
-                  ) : (
-                    <button
-                      onClick={pauseTimer}
-                      className="glass-button w-6 h-6 rounded-full flex items-center justify-center text-gray-800 apple-focus hover:scale-110 transition-all duration-300 bg-yellow-500/30 border border-yellow-400/50 text-xs"
-                      title="Pause timer"
-                    >
-                      ⏸
-                    </button>
-                  )}
-                  <button
-                    onClick={resetTimer}
-                    className="glass-button w-6 h-6 rounded-full flex items-center justify-center text-gray-800 apple-focus hover:scale-110 transition-all duration-300 bg-gray-500/30 border border-gray-400/50 text-xs"
-                    title="Reset timer"
-                  >
-                    ↻
-                  </button>
-                </div>
-              </div>
-              
-              {/* Share via Email Button */}
-              <button
-                onClick={() => {
-                  const subject = encodeURIComponent(`Deposition Outline: ${deposition.title}`);
-                  const body = encodeURIComponent(
-                    `Here is the deposition outline for:\n\n` +
-                    `Deponent: ${deposition.deponent_name} (${deposition.deponent_role})\n` +
-                    `Date: ${new Date(deposition.deposition_date).toLocaleDateString()}\n` +
-                    (deposition.taking_attorney ? `Taking Attorney: ${deposition.taking_attorney}\n` : '') +
-                    (deposition.defending_attorney ? `Defending Attorney: ${deposition.defending_attorney}\n` : '') +
-                    `\nView the full outline here: ${typeof window !== 'undefined' ? window.location.href : ''}`
-                  );
-                  if (typeof window !== 'undefined') {
-                    window.location.href = `mailto:?subject=${subject}&body=${body}`;
-                  }
-                }}
-                className="glass-button px-6 py-3 rounded-xl text-gray-800 hover:text-gray-900 apple-focus group hover:scale-105 transition-all duration-300 flex items-center space-x-2"
-                title="Share outline via email"
-              >
-                <svg 
-                  className="w-5 h-5" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
-                  <path 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                    strokeWidth={2} 
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" 
-                  />
-                </svg>
-                <span className="text-sm font-medium">Share via Email</span>
-              </button>
             </div>
           </div>
         </div>

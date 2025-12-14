@@ -14,3 +14,6 @@ FROM information_schema.columns
 WHERE table_name = 'cases' 
 AND column_name = 'demand_letter_sections';
 
+
+
+
