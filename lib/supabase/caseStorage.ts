@@ -14,6 +14,9 @@ export interface Party {
   name: string
   type: 'individual' | 'company' | 'government' | 'other'
   role?: string
+  address?: string
+  phone?: string
+  email?: string
   attorneys: Attorney[]
 }
 
