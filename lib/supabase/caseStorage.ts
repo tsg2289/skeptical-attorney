@@ -35,6 +35,27 @@ export interface DemandLetterSection {
   content: string
 }
 
+export interface ComplaintSection {
+  id: string
+  title: string
+  content: string
+  type?: 'header' | 'intro' | 'parties' | 'facts' | 'cause' | 'prayer' | 'verification' | 'standard'
+}
+
+export interface AnswerDefense {
+  id: string
+  number: string
+  title: string
+  content: string
+  fullText: string
+}
+
+export interface AnswerSections {
+  preamble: string
+  defenses: AnswerDefense[]
+  prayer: string
+}
+
 export interface CaseFrontend {
   id: string
   caseName: string
@@ -51,6 +72,9 @@ export interface CaseFrontend {
   deadlines: Deadline[]
   plaintiffs: Party[]
   defendants: Party[]
+  demandLetterSections?: DemandLetterSection[]
+  complaintSections?: ComplaintSection[]
+  answerSections?: AnswerSections
   createdAt: string
   userId: string
 }
@@ -73,6 +97,9 @@ function mapCaseFromDb(dbCase: any): CaseFrontend {
     deadlines: dbCase.deadlines || [],
     plaintiffs: dbCase.plaintiffs || [],
     defendants: dbCase.defendants || [],
+    demandLetterSections: dbCase.demand_letter_sections || undefined,
+    complaintSections: dbCase.complaint_sections || undefined,
+    answerSections: dbCase.answer_sections || undefined,
     createdAt: dbCase.created_at,
     userId: dbCase.user_id
   }
@@ -96,6 +123,9 @@ function mapCaseToDb(updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'crea
   if (updates.deadlines !== undefined) dbUpdates.deadlines = updates.deadlines
   if (updates.plaintiffs !== undefined) dbUpdates.plaintiffs = updates.plaintiffs
   if (updates.defendants !== undefined) dbUpdates.defendants = updates.defendants
+  if (updates.demandLetterSections !== undefined) dbUpdates.demand_letter_sections = updates.demandLetterSections
+  if (updates.complaintSections !== undefined) dbUpdates.complaint_sections = updates.complaintSections
+  if (updates.answerSections !== undefined) dbUpdates.answer_sections = updates.answerSections
   
   return dbUpdates
 }
