@@ -303,7 +303,8 @@ export default function CaseDetailPage() {
     }
     const newPlaintiff: Party = {
       ...newPartyForm,
-      id: generateId()
+      id: generateId(),
+      attorneys: []
     }
     setPlaintiffs([...plaintiffs, newPlaintiff])
     setNewPartyForm({ name: '', type: 'individual', address: '', phone: '', email: '' })
@@ -328,7 +329,7 @@ export default function CaseDetailPage() {
       return
     }
     setPlaintiffs(plaintiffs.map(p => 
-      p.id === editingPlaintiffId ? { ...editPartyForm } : p
+      p.id === editingPlaintiffId ? { ...editPartyForm, attorneys: p.attorneys } : p
     ))
     setEditingPlaintiffId(null)
     setEditPartyForm({ id: '', name: '', type: 'individual', address: '', phone: '', email: '' })
@@ -348,7 +349,8 @@ export default function CaseDetailPage() {
     }
     const newDefendant: Party = {
       ...newPartyForm,
-      id: generateId()
+      id: generateId(),
+      attorneys: []
     }
     setDefendants([...defendants, newDefendant])
     setNewPartyForm({ name: '', type: 'individual', address: '', phone: '', email: '' })
@@ -373,7 +375,7 @@ export default function CaseDetailPage() {
       return
     }
     setDefendants(defendants.map(d => 
-      d.id === editingDefendantId ? { ...editPartyForm } : d
+      d.id === editingDefendantId ? { ...editPartyForm, attorneys: d.attorneys } : d
     ))
     setEditingDefendantId(null)
     setEditPartyForm({ id: '', name: '', type: 'individual', address: '', phone: '', email: '' })
