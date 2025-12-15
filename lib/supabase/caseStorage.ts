@@ -54,6 +54,8 @@ export interface AnswerSections {
   preamble: string
   defenses: AnswerDefense[]
   prayer: string
+  signature: string
+  aiAnalysis?: string
 }
 
 export interface CaseFrontend {
