@@ -1,127 +1,32 @@
 import { createClient } from './client'
 
+export interface Attorney {
+  id: string
+  name: string
+  firm?: string
+  email?: string
+  phone?: string
+  barNumber?: string
+}
+
+export interface Party {
+  id: string
+  name: string
+  type: 'individual' | 'company' | 'government' | 'other'
+  role?: string
+  attorneys: Attorney[]
+}
+
 export interface Deadline {
   id: string
   date: string
   description: string
   completed?: boolean
+  isCalculated?: boolean
 }
 
-// Demand Letter Section - persists user's drafted demand letter content
-export interface DemandLetterSection {
-  id: string
-  title: string
-  content: string
-}
-
-// Complaint Section - persists user's drafted complaint content
-export interface ComplaintSection {
-  id: string
-  title: string
-  content: string
-  isExpanded: boolean
-  type: 'header' | 'jurisdiction' | 'venue' | 'factual' | 'cause' | 'prayer' | 'jury' | 'signature'
-}
-
-// Answer Defense - individual defense in the answer
-export interface AnswerDefense {
-  id: string
-  number: string
-  causesOfAction: string
-  title: string
-  content: string
-  fullText: string
-}
-
-// Answer Sections - persists user's drafted answer content
-export interface AnswerSections {
-  preamble: string
-  defenses: AnswerDefense[]
-  prayer: string
-  signature: string
-  aiAnalysis?: string
-}
-
-// Settlement Agreement Section - persists user's drafted settlement agreement content
-export interface SettlementAgreementSection {
-  id: string
-  title?: string
-  content: string
-}
-
-// Attorney - now nested under each party
-export interface Attorney {
-  id: string
-  name: string
-  firm?: string
-  barNumber?: string
-  address?: string
-  phone?: string
-  email?: string
-}
-
-// Party (Plaintiff or Defendant) - stored per case for complete isolation
-// Each party has their own attorneys nested within
-export interface Party {
-  id: string
-  name: string
-  type: 'individual' | 'corporation' | 'entity'
-  address?: string
-  phone?: string
-  email?: string
-  attorneys?: Attorney[]  // Counsel for this specific party
-}
-
-export interface Case {
-  id: string
-  user_id: string
-  case_name: string
-  case_number: string
-  case_type?: string
-  client?: string
-  description?: string
-  facts?: string
-  trial_date?: string
-  msc_date?: string
-  jury_trial?: boolean
-  court_county?: string
-  court?: string
-  plaintiffs?: Party[]  // Each plaintiff has nested attorneys
-  defendants?: Party[]  // Each defendant has nested attorneys
-  deadlines?: Deadline[]
-  demand_letter_sections?: DemandLetterSection[]  // Persisted demand letter drafts
-  complaint_sections?: ComplaintSection[]  // Persisted complaint drafts
-  answer_sections?: AnswerSections  // Persisted answer drafts
-  settlement_agreement_sections?: SettlementAgreementSection[]  // Persisted settlement agreement drafts
-  created_at: string
-}
-
-// Helper to convert from camelCase (frontend) to snake_case (database)
-export interface CaseInput {
-  caseName: string
-  caseNumber: string
-  caseType?: string
-  client?: string
-  description?: string
-  facts?: string
-  trialDate?: string
-  mscDate?: string
-  juryTrial?: boolean
-  courtCounty?: string
-  court?: string
-  plaintiffs?: Party[]  // Each plaintiff has nested attorneys
-  defendants?: Party[]  // Each defendant has nested attorneys
-  deadlines?: Deadline[]
-  demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
-  complaintSections?: ComplaintSection[]  // Persisted complaint drafts
-  answerSections?: AnswerSections  // Persisted answer drafts
-  settlementAgreementSections?: SettlementAgreementSection[]  // Persisted settlement agreement drafts
-}
-
-// Helper to convert from snake_case (database) to camelCase (frontend)
 export interface CaseFrontend {
   id: string
-  userId: string
   caseName: string
   caseNumber: string
   caseType?: string
@@ -133,20 +38,17 @@ export interface CaseFrontend {
   juryTrial?: boolean
   courtCounty?: string
   court?: string
-  plaintiffs?: Party[]  // Each plaintiff has nested attorneys
-  defendants?: Party[]  // Each defendant has nested attorneys
-  deadlines?: Deadline[]
-  demandLetterSections?: DemandLetterSection[]  // Persisted demand letter drafts
-  complaintSections?: ComplaintSection[]  // Persisted complaint drafts
-  answerSections?: AnswerSections  // Persisted answer drafts
-  settlementAgreementSections?: SettlementAgreementSection[]  // Persisted settlement agreement drafts
+  deadlines: Deadline[]
+  plaintiffs: Party[]
+  defendants: Party[]
   createdAt: string
+  userId: string
 }
 
-function toFrontendCase(dbCase: Case): CaseFrontend {
+// Helper to convert snake_case DB response to camelCase frontend format
+function mapCaseFromDb(dbCase: any): CaseFrontend {
   return {
     id: dbCase.id,
-    userId: dbCase.user_id,
     caseName: dbCase.case_name,
     caseNumber: dbCase.case_number,
     caseType: dbCase.case_type,
@@ -158,186 +60,205 @@ function toFrontendCase(dbCase: Case): CaseFrontend {
     juryTrial: dbCase.jury_trial,
     courtCounty: dbCase.court_county,
     court: dbCase.court,
-    plaintiffs: dbCase.plaintiffs,
-    defendants: dbCase.defendants,
-    deadlines: dbCase.deadlines,
-    demandLetterSections: dbCase.demand_letter_sections,
-    complaintSections: dbCase.complaint_sections,
-    answerSections: dbCase.answer_sections,
-    settlementAgreementSections: dbCase.settlement_agreement_sections,
+    deadlines: dbCase.deadlines || [],
+    plaintiffs: dbCase.plaintiffs || [],
+    defendants: dbCase.defendants || [],
     createdAt: dbCase.created_at,
+    userId: dbCase.user_id
   }
 }
 
-function toDbCase(input: CaseInput): Partial<Case> {
-  return {
-    case_name: input.caseName,
-    case_number: input.caseNumber,
-    case_type: input.caseType,
-    client: input.client,
-    description: input.description,
-    facts: input.facts,
-    trial_date: input.trialDate,
-    msc_date: input.mscDate,
-    jury_trial: input.juryTrial,
-    court_county: input.courtCounty,
-    court: input.court,
-    plaintiffs: input.plaintiffs,
-    defendants: input.defendants,
-    deadlines: input.deadlines,
-    demand_letter_sections: input.demandLetterSections,
-    complaint_sections: input.complaintSections,
-    answer_sections: input.answerSections,
-    settlement_agreement_sections: input.settlementAgreementSections,
-  }
+// Helper to convert camelCase to snake_case for DB updates
+function mapCaseToDb(updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'createdAt'>>): any {
+  const dbUpdates: any = {}
+  
+  if (updates.caseName !== undefined) dbUpdates.case_name = updates.caseName
+  if (updates.caseNumber !== undefined) dbUpdates.case_number = updates.caseNumber
+  if (updates.caseType !== undefined) dbUpdates.case_type = updates.caseType
+  if (updates.client !== undefined) dbUpdates.client = updates.client
+  if (updates.description !== undefined) dbUpdates.description = updates.description
+  if (updates.facts !== undefined) dbUpdates.facts = updates.facts
+  if (updates.trialDate !== undefined) dbUpdates.trial_date = updates.trialDate
+  if (updates.mscDate !== undefined) dbUpdates.msc_date = updates.mscDate
+  if (updates.juryTrial !== undefined) dbUpdates.jury_trial = updates.juryTrial
+  if (updates.courtCounty !== undefined) dbUpdates.court_county = updates.courtCounty
+  if (updates.court !== undefined) dbUpdates.court = updates.court
+  if (updates.deadlines !== undefined) dbUpdates.deadlines = updates.deadlines
+  if (updates.plaintiffs !== undefined) dbUpdates.plaintiffs = updates.plaintiffs
+  if (updates.defendants !== undefined) dbUpdates.defendants = updates.defendants
+  
+  return dbUpdates
 }
 
 export const supabaseCaseStorage = {
   // Get all cases for the current user
   async getUserCases(): Promise<CaseFrontend[]> {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) return []
     
     const { data, error } = await supabase
       .from('cases')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-
-    if (error) {
+    
+    if (error || !data) {
       console.error('Error fetching cases:', error)
       return []
     }
-
-    return (data || []).map(toFrontendCase)
+    
+    return data.map(mapCaseFromDb)
   },
 
   // Get a single case by ID
   async getCase(caseId: string): Promise<CaseFrontend | null> {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) return null
     
     const { data, error } = await supabase
       .from('cases')
       .select('*')
       .eq('id', caseId)
+      .eq('user_id', user.id)
       .single()
-
-    if (error) {
+    
+    if (error || !data) {
       console.error('Error fetching case:', error)
       return null
     }
-
-    return data ? toFrontendCase(data) : null
+    
+    return mapCaseFromDb(data)
   },
 
   // Add a new case
-  async addCase(caseData: CaseInput): Promise<CaseFrontend | null> {
+  async addCase(caseData: {
+    caseName: string
+    caseNumber: string
+    caseType?: string
+    client?: string
+  }): Promise<CaseFrontend | null> {
     const supabase = createClient()
-    
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      console.error('No user logged in')
-      return null
-    }
-
-    const dbData = {
-      ...toDbCase(caseData),
-      user_id: user.id,
-    }
-
+    
+    if (!user) return null
+    
     const { data, error } = await supabase
       .from('cases')
-      .insert(dbData)
+      .insert({
+        case_name: caseData.caseName,
+        case_number: caseData.caseNumber,
+        case_type: caseData.caseType || null,
+        client: caseData.client || null,
+        user_id: user.id,
+        deadlines: [],
+        plaintiffs: [],
+        defendants: []
+      })
       .select()
       .single()
-
-    if (error) {
+    
+    if (error || !data) {
       console.error('Error adding case:', error)
       return null
     }
-
-    return data ? toFrontendCase(data) : null
+    
+    return mapCaseFromDb(data)
   },
 
   // Update a case
-  async updateCase(caseId: string, updates: Partial<CaseInput>): Promise<CaseFrontend | null> {
+  async updateCase(
+    caseId: string, 
+    updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'createdAt'>>
+  ): Promise<CaseFrontend | null> {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
     
-    const dbUpdates = toDbCase(updates as CaseInput)
+    if (!user) return null
     
-    // Remove undefined values
-    Object.keys(dbUpdates).forEach(key => {
-      if (dbUpdates[key as keyof typeof dbUpdates] === undefined) {
-        delete dbUpdates[key as keyof typeof dbUpdates]
-      }
-    })
-
+    const dbUpdates = mapCaseToDb(updates)
+    
     const { data, error } = await supabase
       .from('cases')
       .update(dbUpdates)
       .eq('id', caseId)
+      .eq('user_id', user.id)
       .select()
       .single()
-
-    if (error) {
+    
+    if (error || !data) {
       console.error('Error updating case:', error)
       return null
     }
-
-    return data ? toFrontendCase(data) : null
+    
+    return mapCaseFromDb(data)
   },
 
   // Delete a case
   async deleteCase(caseId: string): Promise<boolean> {
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) return false
     
     const { error } = await supabase
       .from('cases')
       .delete()
       .eq('id', caseId)
-
+      .eq('user_id', user.id)
+    
     if (error) {
       console.error('Error deleting case:', error)
       return false
     }
-
+    
     return true
   },
 
   // Add a deadline to a case
-  async addDeadline(caseId: string, deadline: Omit<Deadline, 'id'>): Promise<CaseFrontend | null> {
+  async addDeadline(
+    caseId: string, 
+    deadline: Omit<Deadline, 'id'>
+  ): Promise<CaseFrontend | null> {
     const existingCase = await this.getCase(caseId)
     if (!existingCase) return null
-
+    
     const newDeadline: Deadline = {
       ...deadline,
       id: `deadline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     }
-
-    const deadlines = [...(existingCase.deadlines || []), newDeadline]
-    return this.updateCase(caseId, { deadlines })
+    
+    const updatedDeadlines = [...existingCase.deadlines, newDeadline]
+    
+    return this.updateCase(caseId, { deadlines: updatedDeadlines })
   },
 
   // Update a deadline
-  async updateDeadline(caseId: string, deadlineId: string, updates: Partial<Omit<Deadline, 'id'>>): Promise<CaseFrontend | null> {
+  async updateDeadline(
+    caseId: string, 
+    deadlineId: string, 
+    updates: Partial<Omit<Deadline, 'id'>>
+  ): Promise<CaseFrontend | null> {
     const existingCase = await this.getCase(caseId)
     if (!existingCase) return null
-
-    const deadlines = (existingCase.deadlines || []).map(d =>
+    
+    const updatedDeadlines = existingCase.deadlines.map(d => 
       d.id === deadlineId ? { ...d, ...updates } : d
     )
-
-    return this.updateCase(caseId, { deadlines })
+    
+    return this.updateCase(caseId, { deadlines: updatedDeadlines })
   },
 
   // Delete a deadline
   async deleteDeadline(caseId: string, deadlineId: string): Promise<CaseFrontend | null> {
     const existingCase = await this.getCase(caseId)
     if (!existingCase) return null
-
-    const deadlines = (existingCase.deadlines || []).filter(d => d.id !== deadlineId)
-    return this.updateCase(caseId, { deadlines })
+    
+    const updatedDeadlines = existingCase.deadlines.filter(d => d.id !== deadlineId)
+    
+    return this.updateCase(caseId, { deadlines: updatedDeadlines })
   }
 }
-
-
-

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronDown, Menu, X, Scale } from 'lucide-react'
+import { ChevronDown, Menu, X, Scale, Settings, LogOut, LayoutDashboard, User } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { AuthChangeEvent, Session } from '@supabase/supabase-js'
 
@@ -19,6 +19,7 @@ const Header = () => {
   const [isPleadingsOpen, setIsPleadingsOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -243,27 +244,55 @@ const Header = () => {
             </Link>
             
             {isLoggedIn ? (
-              <>
-                <Link
-                  href="/dashboard"
-                  className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
+              <div 
+                className="relative"
+                onMouseEnter={() => setIsUserMenuOpen(true)}
+                onMouseLeave={() => setIsUserMenuOpen(false)}
+              >
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium"
                 >
-                  Dashboard
-                </Link>
-                <div className="flex flex-col items-center">
-                  <button
-                    onClick={handleLogout}
-                    className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-2 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all hover-lift font-medium"
+                  <User className="h-4 w-4" />
+                  <span className="max-w-[100px] truncate">
+                    {userInfo?.fullName || userInfo?.email || 'Account'}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {isUserMenuOpen && (
+                  <div 
+                    className="absolute top-full right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50"
+                    onMouseEnter={() => setIsUserMenuOpen(true)}
+                    onMouseLeave={() => setIsUserMenuOpen(false)}
                   >
-                    Log Out
-                  </button>
-                  {userInfo && (
-                    <span className="text-xs text-gray-500 mt-1 truncate max-w-[120px]">
-                      {userInfo.fullName || userInfo.email}
-                    </span>
-                  )}
-                </div>
-              </>
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center space-x-2 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      <span>Dashboard</span>
+                    </Link>
+                    <Link
+                      href="/settings"
+                      className="flex items-center space-x-2 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      <Settings className="h-4 w-4" />
+                      <span>Settings</span>
+                    </Link>
+                    <div className="border-t border-gray-100 my-1"></div>
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center space-x-2 w-full px-4 py-3 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      <span>Log Out</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             ) : (
               <Link
                 href="/login"
@@ -424,16 +453,26 @@ const Header = () => {
                   )}
                   <Link
                     href="/dashboard"
-                    className="block px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Dashboard
+                    <LayoutDashboard className="h-4 w-4" />
+                    <span>Dashboard</span>
+                  </Link>
+                  <Link
+                    href="/settings"
+                    className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Settings className="h-4 w-4" />
+                    <span>Settings</span>
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="block mx-3 mt-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-xl text-center font-medium w-full"
+                    className="flex items-center justify-center space-x-2 mx-3 mt-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded-xl font-medium w-full"
                   >
-                    Log Out
+                    <LogOut className="h-4 w-4" />
+                    <span>Log Out</span>
                   </button>
                 </>
               ) : (
