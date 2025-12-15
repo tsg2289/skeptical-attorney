@@ -10,11 +10,8 @@ import { createClient } from '@/lib/supabase/client';
 import PreviewModal from './components/PreviewModal';
 import AIEditChatModal from './components/AIEditChatModal';
 
-interface CardSection {
-  id: string;
-  title: string;
-  content: string;
-}
+// Type alias for backward compatibility
+type CardSection = DemandLetterSection;
 
 export default function DemandLetterPage() {
   return (

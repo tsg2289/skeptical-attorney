@@ -4,21 +4,13 @@ import { useState, useEffect } from 'react'
 import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { Document, Packer, Paragraph, TextRun } from 'docx'
 import { saveAs } from 'file-saver'
-import { CaseFrontend, supabaseCaseStorage, ComplaintSection as StoredComplaintSection } from '@/lib/supabase/caseStorage'
+import { CaseFrontend, supabaseCaseStorage, ComplaintSection } from '@/lib/supabase/caseStorage'
 import AIEditChatModal from './AIEditChatModal'
 
 interface ComplaintOutputProps {
   complaint: string
   onNewComplaint: () => void
   caseData?: CaseFrontend | null
-}
-
-interface ComplaintSection {
-  id: string
-  title: string
-  content: string
-  isExpanded: boolean
-  type: 'header' | 'jurisdiction' | 'venue' | 'factual' | 'cause' | 'prayer' | 'jury' | 'signature'
 }
 
 export default function ComplaintOutput({ complaint, onNewComplaint, caseData }: ComplaintOutputProps) {

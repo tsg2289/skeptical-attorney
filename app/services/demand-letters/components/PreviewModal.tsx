@@ -2,12 +2,10 @@
 
 import { Fragment, useState } from 'react';
 import { downloadDemandLetterDocument, DemandLetterData } from '@/lib/docx-generator';
+import { DemandLetterSection } from '@/lib/supabase/caseStorage';
 
-interface CardSection {
-  id: string;
-  title: string;
-  content: string;
-}
+// Type alias for backward compatibility
+type CardSection = DemandLetterSection;
 
 interface PreviewModalProps {
   isOpen: boolean;

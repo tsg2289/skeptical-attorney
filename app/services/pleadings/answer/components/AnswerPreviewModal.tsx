@@ -1,23 +1,8 @@
 'use client';
 
 import { Fragment, useState } from 'react';
-import { downloadWordDocument } from '@/lib/docx-generator';
-import { AnswerData } from '@/lib/docx-generator';
-
-interface AnswerSections {
-  preamble: string;
-  defenses: Array<{
-    id: string;
-    number: string;
-    causesOfAction: string;
-    title: string;
-    content: string;
-    fullText: string;
-  }>;
-  prayer: string;
-  signature: string;
-  aiAnalysis?: string;
-}
+import { downloadWordDocument, AnswerData } from '@/lib/docx-generator';
+import { AnswerSections } from '@/lib/supabase/caseStorage';
 
 interface AnswerPreviewModalProps {
   isOpen: boolean;

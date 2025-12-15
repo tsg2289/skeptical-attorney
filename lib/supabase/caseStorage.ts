@@ -39,12 +39,14 @@ export interface ComplaintSection {
   id: string
   title: string
   content: string
-  type?: 'header' | 'intro' | 'parties' | 'facts' | 'cause' | 'prayer' | 'verification' | 'standard'
+  isExpanded?: boolean
+  type?: 'header' | 'intro' | 'parties' | 'facts' | 'cause' | 'prayer' | 'verification' | 'standard' | 'jurisdiction' | 'venue' | 'factual' | 'jury' | 'signature'
 }
 
 export interface AnswerDefense {
   id: string
   number: string
+  causesOfAction: string
   title: string
   content: string
   fullText: string

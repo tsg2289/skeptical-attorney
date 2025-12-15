@@ -7,28 +7,13 @@ import { downloadWordDocument as generateWordDoc } from '@/lib/docx-generator'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { supabaseCaseStorage } from '@/lib/supabase/caseStorage'
+import { supabaseCaseStorage, AnswerSections, AnswerDefense } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
 import AnswerPreviewModal from './AnswerPreviewModal'
 import AIEditChatModal from './AIEditChatModal'
 
-// Interface for defense structure
-interface Defense {
-  id: string
-  number: string
-  causesOfAction: string
-  title: string
-  content: string
-  fullText: string
-}
-
-interface AnswerSections {
-  preamble: string
-  defenses: Defense[]
-  prayer: string
-  signature: string
-  aiAnalysis?: string
-}
+// Type alias for backward compatibility in this file
+type Defense = AnswerDefense
 
 // Parse the generated answer into sections
 function parseAnswer(answer: string): AnswerSections {
