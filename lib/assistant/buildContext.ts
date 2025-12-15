@@ -1,6 +1,22 @@
 import { createClient } from '@/lib/supabase/client'
 import { CaseFrontend, Deadline } from '@/lib/supabase/caseStorage'
 
+// Database case type for Supabase queries
+interface DbCase {
+  id: string
+  case_name: string
+  case_number: string
+  case_type?: string
+  client?: string
+  trial_date?: string
+  msc_date?: string
+  court?: string
+  court_county?: string
+  deadlines?: Deadline[]
+  plaintiffs?: Array<{ id: string }>
+  defendants?: Array<{ id: string }>
+}
+
 export interface AssistantContext {
   mode: 'case' | 'dashboard' | 'profile' | 'disabled'
   caseId?: string
@@ -147,11 +163,11 @@ export async function buildDashboardContext(): Promise<AssistantContext | null> 
   
   if (error) return null
   
-  const allCases = cases || []
+  const allCases = (cases || []) as DbCase[]
   const now = new Date()
   
   // Build case summaries
-  const caseSummaries = allCases.map(c => {
+  const caseSummaries = allCases.map((c: DbCase) => {
     const deadlines = (c.deadlines || []) as Deadline[]
     const incompleteDeadlines = deadlines.filter(d => !d.completed)
     const sortedDeadlines = incompleteDeadlines
@@ -174,7 +190,7 @@ export async function buildDashboardContext(): Promise<AssistantContext | null> 
   
   // Collect all urgent deadlines across cases
   const urgentDeadlines: AssistantContext['urgentDeadlines'] = []
-  allCases.forEach(c => {
+  allCases.forEach((c: DbCase) => {
     const deadlines = (c.deadlines || []) as Deadline[]
     deadlines
       .filter(d => !d.completed && isWithinDays(d.date, 14))
@@ -192,7 +208,7 @@ export async function buildDashboardContext(): Promise<AssistantContext | null> 
   urgentDeadlines.sort((a, b) => a.daysUntil - b.daysUntil)
   
   // Count cases with trials in next 90 days
-  const casesWithUpcomingTrials = allCases.filter(c => 
+  const casesWithUpcomingTrials = allCases.filter((c: DbCase) => 
     c.trial_date && isWithinDays(c.trial_date, 90)
   ).length
   

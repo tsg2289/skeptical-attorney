@@ -138,7 +138,7 @@ export default function Settings() {
           .order('created_at', { ascending: false })
         
         if (userCases) {
-          setCases(userCases.map(c => ({
+          setCases(userCases.map((c: { id: string; case_name: string; case_number: string; created_at: string }) => ({
             id: c.id,
             caseName: c.case_name,
             caseNumber: c.case_number,

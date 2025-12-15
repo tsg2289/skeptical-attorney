@@ -236,7 +236,7 @@ export async function downloadDemandLetterDocument(data: DemandLetterData): Prom
 // ============================================
 
 export interface AnswerDataDefense {
-  id: string
+  id?: string
   number: string
   causesOfAction?: string
   title?: string
@@ -256,6 +256,7 @@ export interface AnswerData {
   generatedAnswer: string
   answerSections?: AnswerDataSections
   isMultipleDefendants?: boolean
+  useGeneralDenial?: boolean
   attorneyName?: string
   stateBarNumber?: string
   email?: string

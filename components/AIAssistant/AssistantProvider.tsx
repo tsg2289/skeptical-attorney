@@ -76,7 +76,7 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     
     checkAuth()
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: { user?: { id: string } } | null) => {
       setIsLoggedIn(!!session?.user)
     })
     

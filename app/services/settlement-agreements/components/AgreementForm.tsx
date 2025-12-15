@@ -128,7 +128,11 @@ function EditableTextarea({ section, onUpdate, onSave, onCancel }: EditableTexta
   );
 }
 
-export default function AgreementForm() {
+interface AgreementFormProps {
+  caseId?: string | null;
+}
+
+export default function AgreementForm({ caseId }: AgreementFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const titleInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
