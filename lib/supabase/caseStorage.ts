@@ -29,6 +29,12 @@ export interface Deadline {
   isCalculated?: boolean
 }
 
+export interface DemandLetterSection {
+  id: string
+  title: string
+  content: string
+}
+
 export interface CaseFrontend {
   id: string
   caseName: string
