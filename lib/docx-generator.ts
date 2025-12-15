@@ -235,18 +235,38 @@ export async function downloadDemandLetterDocument(data: DemandLetterData): Prom
 // ANSWER TYPES AND FUNCTIONS
 // ============================================
 
+export interface AnswerDataDefense {
+  id: string
+  number: string
+  causesOfAction?: string
+  title?: string
+  content: string
+}
+
+export interface AnswerDataSections {
+  preamble: string
+  defenses: AnswerDataDefense[]
+  prayer: string
+  signature: string
+}
+
 export interface AnswerData {
   plaintiffName: string
   defendantName: string
   generatedAnswer: string
+  answerSections?: AnswerDataSections
+  isMultipleDefendants?: boolean
   attorneyName?: string
   stateBarNumber?: string
   email?: string
   lawFirmName?: string
   address?: string
+  addressLine1?: string
+  addressLine2?: string
   phone?: string
   fax?: string
   county?: string
+  courtDistrict?: string
   caseNumber?: string
   judge?: string
   department?: string
