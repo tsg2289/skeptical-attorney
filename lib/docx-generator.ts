@@ -1,6 +1,240 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, PageBreak, Table, TableRow, TableCell, WidthType, BorderStyle as TableBorderStyle, Footer, SimpleField, Header } from 'docx'
 import { saveAs } from 'file-saver'
 
+// ============================================
+// DEMAND LETTER TYPES AND FUNCTIONS
+// ============================================
+
+export interface DemandLetterSection {
+  id: string
+  title: string
+  content: string
+}
+
+export interface DemandLetterData {
+  sections: DemandLetterSection[]
+  caseName?: string
+  caseNumber?: string
+  attorneyName?: string
+  stateBarNumber?: string
+  email?: string
+  lawFirmName?: string
+  address?: string
+  phone?: string
+}
+
+export function generateDemandLetterDocument(data: DemandLetterData): Document {
+  const {
+    sections,
+    attorneyName = "[Attorney Name]",
+    stateBarNumber = "[State Bar No.]",
+    email = "[email@lawfirm.com]",
+    lawFirmName = "[LAW FIRM NAME]",
+    address = "[Address]",
+    phone = "[Phone Number]",
+  } = data
+
+  const children: Paragraph[] = []
+
+  // Letterhead
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: lawFirmName.toUpperCase(),
+          bold: true,
+          size: 28,
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 100 },
+    })
+  )
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: address,
+          size: 22,
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 50 },
+    })
+  )
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `Tel: ${phone} | Email: ${email}`,
+          size: 22,
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+    })
+  )
+
+  // Date
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: new Date().toLocaleDateString('en-US', { 
+            month: 'long', 
+            day: 'numeric', 
+            year: 'numeric' 
+          }),
+          size: 24,
+        }),
+      ],
+      spacing: { after: 400 },
+    })
+  )
+
+  // Add each section
+  sections.forEach((section, index) => {
+    // Section title
+    if (section.title) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: section.title,
+              bold: true,
+              size: 24,
+            }),
+          ],
+          spacing: { before: 200, after: 100 },
+        })
+      )
+    }
+
+    // Section content - split by paragraphs
+    const paragraphs = section.content.split('\n').filter(p => p.trim())
+    paragraphs.forEach(para => {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: para.trim(),
+              size: 24,
+            }),
+          ],
+          spacing: { after: 150 },
+          alignment: AlignmentType.JUSTIFIED,
+        })
+      )
+    })
+  })
+
+  // Signature block
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: "Sincerely,",
+          size: 24,
+        }),
+      ],
+      spacing: { before: 400, after: 600 },
+    })
+  )
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: attorneyName,
+          size: 24,
+        }),
+      ],
+      spacing: { after: 50 },
+    })
+  )
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: `State Bar No. ${stateBarNumber}`,
+          size: 24,
+        }),
+      ],
+      spacing: { after: 50 },
+    })
+  )
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: lawFirmName,
+          size: 24,
+        }),
+      ],
+    })
+  )
+
+  return new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              left: 1440,
+              right: 1440,
+              top: 1440,
+              bottom: 1440,
+            },
+          },
+        },
+        children: children,
+      },
+    ],
+  })
+}
+
+export async function downloadDemandLetterDocument(data: DemandLetterData): Promise<void> {
+  console.log('Starting Demand Letter document generation...')
+  
+  try {
+    const doc = generateDemandLetterDocument(data)
+    const blob = await Packer.toBlob(doc)
+    
+    const fileName = `Demand_Letter_${new Date().toISOString().split('T')[0]}.docx`
+    
+    if (typeof saveAs === 'function') {
+      saveAs(blob, fileName)
+      return
+    }
+    
+    // Fallback
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    
+    setTimeout(() => {
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }, 100)
+    
+  } catch (error) {
+    console.error('Error generating Demand Letter document:', error)
+    throw new Error(`Failed to generate Demand Letter: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+// ============================================
+// ANSWER TYPES AND FUNCTIONS
+// ============================================
+
 export interface AnswerData {
   plaintiffName: string
   defendantName: string
