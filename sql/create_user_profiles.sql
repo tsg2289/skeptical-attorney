@@ -88,3 +88,4 @@ BEGIN
   RAISE NOTICE 'User profiles table created successfully!';
   RAISE NOTICE 'RLS policies enabled for complete data isolation.';
 END $$;
+

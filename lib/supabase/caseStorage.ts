@@ -60,6 +60,52 @@ export interface AnswerSections {
   aiAnalysis?: string
 }
 
+// Discovery Types
+export interface DiscoveryItem {
+  id: string
+  number: number
+  content: string
+  isAiGenerated?: boolean
+}
+
+export interface DiscoveryCategory {
+  id: string
+  title: string
+  items: DiscoveryItem[]
+}
+
+export interface DiscoveryMetadata {
+  propoundingParty: 'plaintiff' | 'defendant'
+  respondingParty: 'plaintiff' | 'defendant'
+  setNumber: number
+  jurisdiction: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface InterrogatoriesDocument {
+  metadata: DiscoveryMetadata
+  definitions: string[]
+  categories: DiscoveryCategory[]
+}
+
+export interface RFPDocument {
+  metadata: DiscoveryMetadata
+  definitions: string[]
+  categories: DiscoveryCategory[]
+}
+
+export interface RFADocument {
+  metadata: DiscoveryMetadata
+  items: DiscoveryItem[]
+}
+
+export interface DiscoveryDocuments {
+  interrogatories?: InterrogatoriesDocument
+  rfp?: RFPDocument
+  rfa?: RFADocument
+}
+
 export interface CaseFrontend {
   id: string
   caseName: string
@@ -79,6 +125,7 @@ export interface CaseFrontend {
   demandLetterSections?: DemandLetterSection[]
   complaintSections?: ComplaintSection[]
   answerSections?: AnswerSections
+  discoveryDocuments?: DiscoveryDocuments
   createdAt: string
   userId: string
 }
@@ -104,6 +151,7 @@ function mapCaseFromDb(dbCase: any): CaseFrontend {
     demandLetterSections: dbCase.demand_letter_sections || undefined,
     complaintSections: dbCase.complaint_sections || undefined,
     answerSections: dbCase.answer_sections || undefined,
+    discoveryDocuments: dbCase.discovery_documents || undefined,
     createdAt: dbCase.created_at,
     userId: dbCase.user_id
   }
@@ -130,6 +178,7 @@ function mapCaseToDb(updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'crea
   if (updates.demandLetterSections !== undefined) dbUpdates.demand_letter_sections = updates.demandLetterSections
   if (updates.complaintSections !== undefined) dbUpdates.complaint_sections = updates.complaintSections
   if (updates.answerSections !== undefined) dbUpdates.answer_sections = updates.answerSections
+  if (updates.discoveryDocuments !== undefined) dbUpdates.discovery_documents = updates.discoveryDocuments
   
   return dbUpdates
 }

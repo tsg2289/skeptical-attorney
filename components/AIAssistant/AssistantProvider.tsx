@@ -219,3 +219,4 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
     </AssistantContext.Provider>
   )
 }
+

@@ -9,6 +9,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, v
 import { CSS } from '@dnd-kit/utilities'
 import { supabaseCaseStorage, AnswerSections, AnswerDefense } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
+import { userProfileStorage } from '@/lib/supabase/userProfileStorage'
 import AnswerPreviewModal from './AnswerPreviewModal'
 import AIEditChatModal from './AIEditChatModal'
 
@@ -569,6 +570,29 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
     
     loadCase()
   }, [caseId])
+
+  // Load user profile on mount to pre-populate attorney info
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await userProfileStorage.getProfile()
+        if (profile) {
+          setFormData(prev => ({
+            ...prev,
+            attorneyName: prev.attorneyName || profile.fullName || '',
+            lawFirmName: prev.lawFirmName || profile.firmName || '',
+            stateBarNumber: prev.stateBarNumber || profile.barNumber || '',
+            addressLine1: prev.addressLine1 || profile.firmAddress || '',
+            phone: prev.phone || profile.firmPhone || '',
+            attorneyEmail: prev.attorneyEmail || profile.firmEmail || '',
+          }))
+        }
+      } catch (error) {
+        console.error('Error loading user profile:', error)
+      }
+    }
+    loadUserProfile()
+  }, [])
 
   // Update full answer when defenses are reordered
   useEffect(() => {

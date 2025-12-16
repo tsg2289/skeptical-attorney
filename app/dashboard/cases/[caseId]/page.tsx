@@ -1602,7 +1602,7 @@ export default function CaseDetailPage() {
                 </div>
               )}
             </div>
-            {/* Discovery Dropdown */}
+            {/* Discovery Dropdown - Case-Scoped */}
             <div
               className="relative"
               onMouseEnter={() => setIsDiscoveryHovered(true)}
@@ -1614,57 +1614,61 @@ export default function CaseDetailPage() {
               </div>
               
               {isDiscoveryHovered && (
-                <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 min-w-[200px]">
+                <div className="absolute top-full left-0 mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 min-w-[220px]">
+                  {/* New Case-Scoped Discovery */}
                   <Link
-                    href={`/services/discovery/propound-discovery?caseId=${caseItem.id}`}
-                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    href={`/dashboard/cases/${caseItem.id}/discovery`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium border-b border-gray-100"
                     onClick={() => setIsDiscoveryHovered(false)}
                   >
                     <div className="flex items-center">
-                      <span className="mr-2">📤</span>
-                      <span>Propound Discovery</span>
+                      <span className="mr-2">📋</span>
+                      <span className="font-semibold">Discovery Hub</span>
                     </div>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">All discovery documents</p>
                   </Link>
                   <Link
-                    href={`/services/discovery/respond-to-discovery?caseId=${caseItem.id}`}
-                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
-                    onClick={() => setIsDiscoveryHovered(false)}
-                  >
-                    <div className="flex items-center">
-                      <span className="mr-2">📥</span>
-                      <span>Respond to Discovery</span>
-                    </div>
-                  </Link>
-                  <Link
-                    href={`/services/discovery/subpoena?caseId=${caseItem.id}`}
-                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
-                    onClick={() => setIsDiscoveryHovered(false)}
-                  >
-                    <div className="flex items-center">
-                      <span className="mr-2">⚖️</span>
-                      <span>Subpoena</span>
-                    </div>
-                  </Link>
-                  <Link
-                    href={`/services/discovery/meet-and-confer?caseId=${caseItem.id}`}
-                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
-                    onClick={() => setIsDiscoveryHovered(false)}
-                  >
-                    <div className="flex items-center">
-                      <span className="mr-2">🤝</span>
-                      <span>Meet and Confer</span>
-                    </div>
-                  </Link>
-                  <Link
-                    href={`/services/discovery/written-discovery?caseId=${caseItem.id}`}
+                    href={`/dashboard/cases/${caseItem.id}/discovery/interrogatories`}
                     className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
                     onClick={() => setIsDiscoveryHovered(false)}
                   >
                     <div className="flex items-center">
                       <span className="mr-2">📝</span>
-                      <span>Written Discovery</span>
+                      <span>Interrogatories</span>
                     </div>
                   </Link>
+                  <Link
+                    href={`/dashboard/cases/${caseItem.id}/discovery/rfp`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsDiscoveryHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">📂</span>
+                      <span>Requests for Production</span>
+                    </div>
+                  </Link>
+                  <Link
+                    href={`/dashboard/cases/${caseItem.id}/discovery/rfa`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
+                    onClick={() => setIsDiscoveryHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">✅</span>
+                      <span>Requests for Admission</span>
+                    </div>
+                  </Link>
+                  <div className="border-t border-gray-100 mt-1 pt-1">
+                    <Link
+                      href={`/services/discovery/respond-to-discovery?caseId=${caseItem.id}`}
+                      className="block px-4 py-3 text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors text-xs"
+                      onClick={() => setIsDiscoveryHovered(false)}
+                    >
+                      <div className="flex items-center">
+                        <span className="mr-2">📥</span>
+                        <span>Respond to Discovery</span>
+                      </div>
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>

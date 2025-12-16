@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X } from 'lucide-react'
-import { Document, Packer, Paragraph, TextRun } from 'docx'
-import { saveAs } from 'file-saver'
 import { CaseFrontend, supabaseCaseStorage, ComplaintSection } from '@/lib/supabase/caseStorage'
+import { downloadComplaintDocument, ComplaintData } from '@/lib/docx-generator'
+import { userProfileStorage } from '@/lib/supabase/userProfileStorage'
 import AIEditChatModal from './AIEditChatModal'
 
 interface ComplaintOutputProps {
@@ -590,86 +590,36 @@ Executed on [DATE], at [CITY], California.
 
   const handleDownloadWord = async () => {
     try {
-      const cleanedComplaint = cleanComplaintText(getFullComplaint())
-      const complaintLines = cleanedComplaint.split('\n')
-      const allContent = [...complaintLines]
+      // Load user profile for attorney info
+      const profile = await userProfileStorage.getProfile()
       
-      if (showProofOfService) {
-        allContent.push('', ...proofOfServiceText.split('\n'))
+      const cleanedComplaint = cleanComplaintText(getFullComplaint())
+      
+      // Get plaintiff and defendant names from case data or parse from complaint
+      let plaintiffName = '[PLAINTIFF NAME]'
+      let defendantName = '[DEFENDANT NAME]'
+      
+      if (caseData) {
+        plaintiffName = caseData.plaintiffs?.map(p => p.name).filter(Boolean).join(', ') || plaintiffName
+        defendantName = caseData.defendants?.map(d => d.name).filter(Boolean).join(', ') || defendantName
       }
       
-      const paragraphs = allContent.map((line) => {
-        let alignment: "left" | "center" | "right" | undefined = "left"
-        let bold = false
-        let indentFirst = 0.5
-
-        if (line === 'SUPERIOR COURT OF CALIFORNIA' || 
-            line.includes('COUNTY OF') ||
-            line === 'COMPLAINT' || 
-            line === 'PARTIES') {
-          alignment = "center"
-          bold = true
-          indentFirst = 0
-        }
-
-        if (line.match(/^(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH)\s+CAUSE\s+OF\s+ACTION/i)) {
-          bold = true
-          alignment = "center"
-          indentFirst = 0
-        }
-
-        if (line === 'PRAYER FOR RELIEF' || line === 'JURY DEMAND') {
-          bold = true
-          indentFirst = 0
-        }
-        
-        return new Paragraph({
-          children: [
-            new TextRun({
-              text: line || ' ',
-              font: 'Times New Roman',
-              size: 24,
-              bold: bold
-            })
-          ],
-          alignment: alignment,
-          indent: {
-            firstLine: indentFirst * 1440
-          },
-          spacing: {
-            line: 480,
-            lineRule: "auto"
-          }
-        })
-      })
-
-      const doc = new Document({
-        sections: [
-          {
-            properties: {
-              page: {
-                margin: {
-                  top: 1080,
-                  right: 1440,
-                  bottom: 1080,
-                  left: 1440
-                }
-              }
-            },
-            children: paragraphs
-          }
-        ]
-      })
-
-      const buffer = await Packer.toBuffer(doc)
-      const fileName = showProofOfService 
-        ? `Complaint-with-Proof-of-Service-${new Date().toISOString().slice(0, 10)}.docx`
-        : `Complaint-${new Date().toISOString().slice(0, 10)}.docx`
+      const complaintData: ComplaintData = {
+        plaintiffName,
+        defendantName,
+        complaintText: cleanedComplaint,
+        attorneyName: profile?.fullName || undefined,
+        stateBarNumber: profile?.barNumber || undefined,
+        email: profile?.firmEmail || undefined,
+        lawFirmName: profile?.firmName || undefined,
+        address: profile?.firmAddress || undefined,
+        phone: profile?.firmPhone || undefined,
+        county: caseData?.courtCounty || 'LOS ANGELES',
+        caseNumber: caseData?.caseNumber || undefined,
+        includeProofOfService: showProofOfService,
+      }
       
-      const blob = new Blob([new Uint8Array(buffer)], { 
-        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' 
-      })
-      saveAs(blob, fileName)
+      await downloadComplaintDocument(complaintData)
     } catch (err) {
       console.error('Failed to generate Word document:', err)
       alert('Failed to generate Word document. Please try copying the text instead.')
