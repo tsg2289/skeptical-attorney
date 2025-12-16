@@ -302,7 +302,7 @@ export default function RFACanvas({ caseData, onCaseUpdate }: Props) {
                       autoResize(e.target)
                     }}
                     onFocus={(e) => autoResize(e.target)}
-                    ref={(textarea) => textarea && autoResize(textarea)}
+                    ref={(textarea) => { if (textarea) autoResize(textarea) }}
                     className="flex-1 min-h-[80px] p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 resize-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 focus:bg-white transition-colors"
                     placeholder="REQUEST FOR ADMISSION NO. X:&#10;Admit that..."
                   />
