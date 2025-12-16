@@ -106,6 +106,42 @@ export interface DiscoveryDocuments {
   rfa?: RFADocument
 }
 
+// Motion Types
+export interface MotionCaseCitation {
+  id: string
+  caseName: string
+  citation: string
+  year?: number
+  court: string
+  relevantText: string
+  courtListenerId?: string
+  url?: string
+}
+
+export interface MotionSection {
+  id: string
+  title: string
+  content: string
+  isExpanded?: boolean
+  type?: 'caption' | 'notice' | 'introduction' | 'statement-of-facts' | 'legal-argument' | 
+         'point-heading' | 'conclusion' | 'declaration' | 'proof-of-service' | 'memorandum' | 'standard'
+  citations?: MotionCaseCitation[]
+}
+
+export interface MotionDocument {
+  id: string
+  motionType: string
+  title: string
+  sections: MotionSection[]
+  createdAt: string
+  updatedAt: string
+  status: 'draft' | 'filed' | 'pending' | 'heard'
+  hearingDate?: string
+  hearingTime?: string
+  department?: string
+  reservationNumber?: string
+}
+
 export interface CaseFrontend {
   id: string
   caseName: string
@@ -126,6 +162,7 @@ export interface CaseFrontend {
   complaintSections?: ComplaintSection[]
   answerSections?: AnswerSections
   discoveryDocuments?: DiscoveryDocuments
+  motionDocuments?: MotionDocument[]
   createdAt: string
   userId: string
 }
@@ -152,6 +189,7 @@ function mapCaseFromDb(dbCase: any): CaseFrontend {
     complaintSections: dbCase.complaint_sections || undefined,
     answerSections: dbCase.answer_sections || undefined,
     discoveryDocuments: dbCase.discovery_documents || undefined,
+    motionDocuments: dbCase.motion_documents || undefined,
     createdAt: dbCase.created_at,
     userId: dbCase.user_id
   }
@@ -179,6 +217,7 @@ function mapCaseToDb(updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'crea
   if (updates.complaintSections !== undefined) dbUpdates.complaint_sections = updates.complaintSections
   if (updates.answerSections !== undefined) dbUpdates.answer_sections = updates.answerSections
   if (updates.discoveryDocuments !== undefined) dbUpdates.discovery_documents = updates.discoveryDocuments
+  if (updates.motionDocuments !== undefined) dbUpdates.motion_documents = updates.motionDocuments
   
   return dbUpdates
 }

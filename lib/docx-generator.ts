@@ -1878,3 +1878,475 @@ export async function downloadComplaintDocument(data: ComplaintData): Promise<vo
     throw new Error(`Failed to generate Complaint document: ${error instanceof Error ? error.message : String(error)}`)
   }
 }
+
+// ============================================
+// MOTION DOCUMENT TYPES AND FUNCTIONS
+// ============================================
+
+export interface MotionData {
+  motionType: string
+  plaintiffName: string
+  defendantName: string
+  motionText: string
+  attorneyName?: string
+  stateBarNumber?: string
+  email?: string
+  lawFirmName?: string
+  address?: string
+  phone?: string
+  fax?: string
+  county?: string
+  caseNumber?: string
+  hearingDate?: string
+  hearingTime?: string
+  department?: string
+}
+
+const MOTION_TYPE_TITLES: Record<string, string> = {
+  'motion-to-compel-discovery': 'MOTION TO COMPEL FURTHER RESPONSES TO DISCOVERY',
+  'motion-to-compel-deposition': 'MOTION TO COMPEL DEPOSITION',
+  'demurrer': 'DEMURRER',
+  'motion-to-strike': 'MOTION TO STRIKE',
+  'motion-for-summary-judgment': 'MOTION FOR SUMMARY JUDGMENT',
+  'motion-for-summary-adjudication': 'MOTION FOR SUMMARY ADJUDICATION',
+  'motion-in-limine': 'MOTION IN LIMINE',
+  'motion-for-protective-order': 'MOTION FOR PROTECTIVE ORDER',
+  'motion-to-quash-subpoena': 'MOTION TO QUASH SUBPOENA',
+  'motion-for-sanctions': 'MOTION FOR SANCTIONS',
+  'ex-parte-application': 'EX PARTE APPLICATION',
+  'opposition': 'OPPOSITION',
+  'reply': 'REPLY BRIEF',
+}
+
+export function generateMotionDocument(data: MotionData): Document {
+  const {
+    motionType,
+    plaintiffName,
+    defendantName,
+    motionText,
+    attorneyName = "[Attorney Name]",
+    stateBarNumber = "[State Bar No.]",
+    email = "[email@lawfirm.com]",
+    lawFirmName = "[LAW FIRM NAME]",
+    address = "[Address]",
+    phone = "[Phone Number]",
+    fax = "[Fax Number]",
+    county = "LOS ANGELES",
+    caseNumber = "[Case No.]",
+    hearingDate = "[HEARING DATE]",
+    hearingTime = "8:30 a.m.",
+    department = "[DEPT.]",
+  } = data
+
+  const children: (Paragraph | Table)[] = []
+  const motionTitle = MOTION_TYPE_TITLES[motionType] || 'MOTION'
+
+  // California pleading line spacing - 24pt exactly
+  const PLEADING_LINE_HEIGHT = 480
+
+  // Create header with fixed line numbers 1-28 in a floating table
+  const createLineNumberHeader = () => {
+    const lineNumberText: TextRun[] = []
+    
+    for (let i = 0; i < 3; i++) {
+      lineNumberText.push(new TextRun({ text: ' ', size: 24, font: 'Times New Roman' }))
+      lineNumberText.push(new TextRun({ text: '', break: 1, size: 24, font: 'Times New Roman' }))
+    }
+    
+    for (let i = 1; i <= 28; i++) {
+      lineNumberText.push(new TextRun({ text: String(i), size: 24, font: 'Times New Roman' }))
+      lineNumberText.push(new TextRun({ text: '', break: 1, size: 24, font: 'Times New Roman' }))
+    }
+    
+    for (let i = 0; i < 4; i++) {
+      lineNumberText.push(new TextRun({ text: ' ', size: 24, font: 'Times New Roman' }))
+      if (i < 3) {
+        lineNumberText.push(new TextRun({ text: '', break: 1, size: 24, font: 'Times New Roman' }))
+      }
+    }
+    
+    const lineNumberParagraph = new Paragraph({
+      children: lineNumberText,
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any, before: 0, after: 0 },
+      alignment: AlignmentType.RIGHT,
+    })
+    
+    const lineNumberTable = new Table({
+      width: { size: 900, type: WidthType.DXA },
+      float: {
+        horizontalAnchor: 'page' as any,
+        verticalAnchor: 'page' as any,
+        absoluteHorizontalPosition: 360,
+        absoluteVerticalPosition: 0,
+      },
+      borders: {
+        top: { style: TableBorderStyle.NONE, size: 0 },
+        bottom: { style: TableBorderStyle.NONE, size: 0 },
+        left: { style: TableBorderStyle.NONE, size: 0 },
+        right: { style: TableBorderStyle.DOUBLE, size: 6, color: "000000" },
+        insideHorizontal: { style: TableBorderStyle.NONE, size: 0 },
+        insideVertical: { style: TableBorderStyle.NONE, size: 0 },
+      },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 900, type: WidthType.DXA },
+              children: [lineNumberParagraph],
+              margins: { right: 100 },
+              borders: {
+                top: { style: TableBorderStyle.NONE, size: 0 },
+                bottom: { style: TableBorderStyle.NONE, size: 0 },
+                left: { style: TableBorderStyle.NONE, size: 0 },
+                right: { style: TableBorderStyle.DOUBLE, size: 6, color: "000000" },
+              },
+            }),
+          ],
+        }),
+      ],
+    })
+    
+    const rightBorderText: TextRun[] = []
+    for (let i = 1; i <= 35; i++) {
+      rightBorderText.push(new TextRun({ text: ' ', size: 24, font: 'Times New Roman' }))
+      if (i < 35) {
+        rightBorderText.push(new TextRun({ text: '', break: 1, size: 24, font: 'Times New Roman' }))
+      }
+    }
+    
+    const rightBorderParagraph = new Paragraph({
+      children: rightBorderText,
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any, before: 0, after: 0 },
+    })
+    
+    const rightBorderTable = new Table({
+      width: { size: 100, type: WidthType.DXA },
+      float: {
+        horizontalAnchor: 'page' as any,
+        verticalAnchor: 'page' as any,
+        absoluteHorizontalPosition: 10800,
+        absoluteVerticalPosition: 0,
+      },
+      borders: {
+        top: { style: TableBorderStyle.NONE, size: 0 },
+        bottom: { style: TableBorderStyle.NONE, size: 0 },
+        left: { style: TableBorderStyle.SINGLE, size: 6, color: "000000" },
+        right: { style: TableBorderStyle.NONE, size: 0 },
+        insideHorizontal: { style: TableBorderStyle.NONE, size: 0 },
+        insideVertical: { style: TableBorderStyle.NONE, size: 0 },
+      },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 100, type: WidthType.DXA },
+              children: [rightBorderParagraph],
+              borders: {
+                top: { style: TableBorderStyle.NONE, size: 0 },
+                bottom: { style: TableBorderStyle.NONE, size: 0 },
+                left: { style: TableBorderStyle.SINGLE, size: 6, color: "000000" },
+                right: { style: TableBorderStyle.NONE, size: 0 },
+              },
+            }),
+          ],
+        }),
+      ],
+    })
+    
+    return new Header({ children: [lineNumberTable, rightBorderTable] })
+  }
+
+  // Helper for single-spaced header paragraphs
+  const createHeaderParagraph = (text: string, options: any = {}) => {
+    return new Paragraph({
+      children: [
+        new TextRun({
+          text: text,
+          size: 24,
+          font: 'Times New Roman',
+          ...options.textOptions
+        }),
+      ],
+      spacing: { line: 240, lineRule: 'auto' as any, before: 0, after: 0, ...options.spacing },
+      ...options
+    })
+  }
+
+  // Helper for body paragraphs with pleading spacing
+  const createParagraph = (text: string, options: any = {}) => {
+    return new Paragraph({
+      children: [
+        new TextRun({
+          text: text,
+          size: 24,
+          font: 'Times New Roman',
+          ...options.textOptions
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any, before: 0, after: 0, ...options.spacing },
+      ...options
+    })
+  }
+
+  // Attorney Header (single-spaced)
+  children.push(createHeaderParagraph(`${attorneyName}, State Bar No. ${stateBarNumber}`))
+  children.push(createHeaderParagraph(lawFirmName))
+  children.push(createHeaderParagraph(address))
+  children.push(createHeaderParagraph(`Telephone: ${phone}`))
+  children.push(createHeaderParagraph(`Facsimile: ${fax}`))
+  children.push(createHeaderParagraph(email))
+  children.push(createHeaderParagraph(''))
+  children.push(createHeaderParagraph(`Attorney for Moving Party`))
+  children.push(createHeaderParagraph(''))
+  children.push(createHeaderParagraph(''))
+
+  // Court Header
+  children.push(createHeaderParagraph('SUPERIOR COURT OF THE STATE OF CALIFORNIA', { alignment: AlignmentType.CENTER }))
+  children.push(createHeaderParagraph(`COUNTY OF ${county.toUpperCase()}`, { alignment: AlignmentType.CENTER }))
+  children.push(createHeaderParagraph(''))
+
+  // Case Caption Table
+  const captionTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: TableBorderStyle.NONE, size: 0 },
+      bottom: { style: TableBorderStyle.NONE, size: 0 },
+      left: { style: TableBorderStyle.NONE, size: 0 },
+      right: { style: TableBorderStyle.NONE, size: 0 },
+      insideHorizontal: { style: TableBorderStyle.NONE, size: 0 },
+      insideVertical: { style: TableBorderStyle.NONE, size: 0 },
+    },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: {
+              bottom: { style: TableBorderStyle.SINGLE, size: 4, color: "000000" },
+              right: { style: TableBorderStyle.SINGLE, size: 4, color: "000000" },
+              top: { style: TableBorderStyle.NONE, size: 0 },
+              left: { style: TableBorderStyle.NONE, size: 0 },
+            },
+            children: [
+              createHeaderParagraph(`${plaintiffName.toUpperCase()},`),
+              createHeaderParagraph(''),
+              createHeaderParagraph('          Plaintiff,'),
+              createHeaderParagraph(''),
+              createHeaderParagraph('     vs.'),
+              createHeaderParagraph(''),
+              createHeaderParagraph(`${defendantName.toUpperCase()},`),
+              createHeaderParagraph(''),
+              createHeaderParagraph('          Defendant.'),
+            ],
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: {
+              bottom: { style: TableBorderStyle.NONE, size: 0 },
+              right: { style: TableBorderStyle.NONE, size: 0 },
+              top: { style: TableBorderStyle.NONE, size: 0 },
+              left: { style: TableBorderStyle.NONE, size: 0 },
+            },
+            margins: { left: 200 },
+            children: [
+              createHeaderParagraph(`Case No. ${caseNumber}`),
+              createHeaderParagraph(''),
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: motionTitle,
+                    size: 24,
+                    font: 'Times New Roman',
+                    bold: true,
+                  }),
+                ],
+                spacing: { line: 240, lineRule: 'auto' as any },
+              }),
+              createHeaderParagraph(''),
+              createHeaderParagraph(`Hearing Date: ${hearingDate}`),
+              createHeaderParagraph(`Time: ${hearingTime}`),
+              createHeaderParagraph(`Dept: ${department}`),
+            ],
+          }),
+        ],
+      }),
+    ],
+  })
+  children.push(captionTable)
+  children.push(createHeaderParagraph(''))
+
+  // Parse and add motion content
+  const lines = motionText.split('\n')
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim()
+    
+    // Skip empty attorney header lines (we already added our own)
+    if (trimmedLine.match(/^[A-Z\s]+,\s*State Bar/i) ||
+        trimmedLine.match(/^Attorney for/i) ||
+        trimmedLine === 'SUPERIOR COURT OF CALIFORNIA' ||
+        trimmedLine.match(/^COUNTY OF/i) ||
+        trimmedLine.match(/^Case No\./i) ||
+        trimmedLine.match(/Plaintiff,?$/i) ||
+        trimmedLine.match(/Defendant\.?$/i) ||
+        trimmedLine === 'vs.' ||
+        trimmedLine === 'v.') {
+      continue
+    }
+    
+    // Centered headings
+    if (trimmedLine.match(/^NOTICE\s+OF\s+MOTION/i) ||
+        trimmedLine.match(/^MEMORANDUM\s+OF\s+POINTS\s+AND\s+AUTHORITIES/i) ||
+        trimmedLine.match(/^POINTS\s+AND\s+AUTHORITIES/i) ||
+        trimmedLine.match(/^DECLARATION/i) ||
+        trimmedLine.match(/^PROOF\s+OF\s+SERVICE/i) ||
+        trimmedLine.match(/^CONCLUSION/i) ||
+        trimmedLine === motionTitle) {
+      children.push(new Paragraph({
+        children: [
+          new TextRun({
+            text: trimmedLine,
+            size: 24,
+            font: 'Times New Roman',
+            bold: true,
+          }),
+        ],
+        spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        alignment: AlignmentType.CENTER,
+      }))
+    }
+    // Section headings (I., II., III., A., B., etc.)
+    else if (trimmedLine.match(/^[IVX]+\.\s+[A-Z]/i) || 
+             trimmedLine.match(/^[A-Z]\.\s+[A-Z]/i) ||
+             trimmedLine.match(/^(INTRODUCTION|STATEMENT\s+OF\s+FACTS|LEGAL\s+ARGUMENT|ARGUMENT)/i)) {
+      children.push(new Paragraph({
+        children: [
+          new TextRun({
+            text: trimmedLine,
+            size: 24,
+            font: 'Times New Roman',
+            bold: true,
+            underline: {},
+          }),
+        ],
+        spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+      }))
+    }
+    // Numbered paragraphs
+    else if (trimmedLine.match(/^\d+\.\s+/)) {
+      children.push(new Paragraph({
+        children: [
+          new TextRun({
+            text: trimmedLine,
+            size: 24,
+            font: 'Times New Roman',
+          }),
+        ],
+        spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        indent: { firstLine: 720 },
+        alignment: AlignmentType.JUSTIFIED,
+      }))
+    }
+    // Regular paragraphs
+    else if (trimmedLine.length > 0) {
+      children.push(createParagraph(trimmedLine, { indent: { firstLine: 720 } }))
+    }
+    // Blank lines
+    else {
+      children.push(createParagraph(''))
+    }
+  }
+
+  // Add filler lines
+  for (let i = 0; i < 3; i++) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: '/ / /', size: 24, font: 'Times New Roman' })],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+      alignment: AlignmentType.CENTER,
+    }))
+  }
+
+  // Create footer
+  const createFooter = () => {
+    return new Footer({
+      children: [
+        new Paragraph({
+          children: [
+            new TextRun({ text: "-", size: 24, font: 'Times New Roman' }),
+            new TextRun({ children: [PageNumber.CURRENT], size: 24, font: 'Times New Roman' }),
+            new TextRun({ text: "-", size: 24, font: 'Times New Roman' }),
+          ],
+          alignment: AlignmentType.CENTER,
+          border: {
+            bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
+          },
+          spacing: { after: 120 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: motionTitle, size: 24, font: 'Times New Roman' }),
+          ],
+          alignment: AlignmentType.CENTER,
+        }),
+      ],
+    })
+  }
+
+  return new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 1440,
+              bottom: 2880,
+              left: 1440,
+              right: 1440,
+              header: 0,
+              footer: 360,
+            },
+          },
+        },
+        headers: { default: createLineNumberHeader() },
+        footers: { default: createFooter() },
+        children: children,
+      },
+    ],
+  })
+}
+
+export async function downloadMotionDocument(data: MotionData): Promise<void> {
+  console.log('Starting Motion document generation...')
+  
+  try {
+    const doc = generateMotionDocument(data)
+    const blob = await Packer.toBlob(doc)
+    
+    const motionTitle = MOTION_TYPE_TITLES[data.motionType] || 'Motion'
+    const cleanTitle = motionTitle.replace(/[^a-zA-Z0-9]/g, '_')
+    const fileName = `${cleanTitle}_${new Date().toISOString().split('T')[0]}.docx`
+    
+    if (typeof saveAs === 'function') {
+      saveAs(blob, fileName)
+      return
+    }
+    
+    // Fallback
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    
+    setTimeout(() => {
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }, 100)
+    
+  } catch (error) {
+    console.error('Error generating Motion document:', error)
+    throw new Error(`Failed to generate Motion document: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
