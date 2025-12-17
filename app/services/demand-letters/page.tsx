@@ -1,9 +1,13 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage';
+import { createClient } from '@/lib/supabase/client';
+import { useTrialMode } from '@/lib/contexts/TrialModeContext';
 
 interface CardSection {
   id: string;
@@ -12,6 +16,25 @@ interface CardSection {
 }
 
 export default function DemandLetterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white">
+          <Header />
+          <div className="p-6 text-gray-600">Loading demand letter generator...</div>
+          <Footer />
+        </div>
+      }
+    >
+      <DemandLetterPageContent />
+    </Suspense>
+  );
+}
+
+function DemandLetterPageContent() {
+  const searchParams = useSearchParams();
+  const { isTrialMode, canAccessDatabase, isTrialCaseId } = useTrialMode();
+  
   const [sections, setSections] = useState<CardSection[]>([
     { 
       id: '0', 
@@ -20,7 +43,7 @@ export default function DemandLetterPage() {
     },
     { 
       id: '1', 
-      title: 'Introduction', 
+      title: 'INTRODUCTION', 
       content: 'This firm represents [Client Name] for injuries sustained in a collision on [Date] in [City, CA]. Based on the evidence—including police reports, photographs, witness statements, and property damage assessments—your insured, [Insured Name], is 100% liable for causing this collision.' 
     },
     { 
@@ -242,6 +265,44 @@ export default function DemandLetterPage() {
       autoResizeTextarea(textarea as HTMLTextAreaElement);
     });
   }, [sections]);
+
+  // Load case data from caseId if provided
+  useEffect(() => {
+    const loadCase = async () => {
+      const caseId = searchParams?.get('caseId');
+      
+      // SECURITY: Block real case IDs in trial mode
+      if (caseId && isTrialMode && !isTrialCaseId(caseId)) {
+        console.warn('[SECURITY] Attempted to access real case ID in trial mode - blocked');
+        return;
+      }
+      
+      if (caseId && !isTrialMode && canAccessDatabase()) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          const foundCase = await supabaseCaseStorage.getCase(caseId);
+          if (foundCase) {
+            console.log(`[AUDIT] Demand letter page accessed for case: ${caseId}`);
+            
+            // Populate case description with case facts
+            if (foundCase.facts) {
+              setSections(prevSections =>
+                prevSections.map(section =>
+                  section.id === '0'
+                    ? { ...section, content: foundCase.facts || section.content }
+                    : section
+                )
+              );
+            }
+          }
+        }
+      }
+    };
+    
+    loadCase();
+  }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId]);
 
   // Split sections into Case Description and other sections
   const caseDescription = sections.find(s => s.id === '0');
