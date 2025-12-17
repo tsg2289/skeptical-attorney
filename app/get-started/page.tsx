@@ -7,6 +7,7 @@ import Footer from '@/components/Footer'
 import Link from 'next/link'
 import { Lock, User, Mail, Building, Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import HelpModal from '@/components/HelpModal'
 
 export default function SignUp() {
   const [formData, setFormData] = useState({
@@ -21,6 +22,7 @@ export default function SignUp() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [showHelpModal, setShowHelpModal] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -71,6 +73,7 @@ export default function SignUp() {
 
       if (data.user) {
         setSuccess(true)
+        setShowHelpModal(true)
         // Show success message and inform user to check email
       }
     } catch (err: any) {
@@ -91,6 +94,7 @@ export default function SignUp() {
     return (
       <div className="min-h-screen bg-white">
         <Header />
+        <HelpModal isOpen={showHelpModal} onClose={() => setShowHelpModal(false)} />
         <section className="py-20 bg-white">
           <div className="max-w-md mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white p-8 rounded-3xl shadow-lg border border-gray-100 text-center">
@@ -113,12 +117,20 @@ export default function SignUp() {
                   try again
                 </button>
               </p>
-              <Link
-                href="/login"
-                className="inline-block text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Back to Login
-              </Link>
+              <div className="mt-6 flex flex-col gap-3">
+                <button
+                  onClick={() => setShowHelpModal(true)}
+                  className="inline-flex items-center justify-center w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl font-semibold hover:from-blue-700 hover:to-blue-800 transition-all"
+                >
+                  View Quick Help
+                </button>
+                <Link
+                  href="/login"
+                  className="inline-block text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Back to Login
+                </Link>
+              </div>
             </div>
           </div>
         </section>
