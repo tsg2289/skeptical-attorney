@@ -463,51 +463,25 @@ function DemandLetterPageContent() {
                           autoResizeTextarea(textarea);
                         }
                       }}
-                      className="w-full min-h-48 p-4 pr-28 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
+                      className="w-full min-h-48 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
                       placeholder="Enter section content here..."
                     />
-                    {/* AI Edit Button */}
+                    {/* AI Sparkle Button - Opens AI Edit Chat */}
                     <button
                       onClick={() => setEditingSection({ id: section.id, title: section.title })}
-                      className="absolute bottom-3 right-14 p-2.5 bg-gradient-to-br from-purple-600 to-purple-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+                      className="absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
                       aria-label="Edit with AI"
                       title="Edit with AI Assistant"
                     >
                       <svg 
-                        className="w-4 h-4 text-white" 
-                        fill="none" 
-                        stroke="currentColor" 
+                        className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
+                        fill="currentColor" 
                         viewBox="0 0 24 24"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                        <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+                        <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
                       </svg>
-                    </button>
-                    {/* AI Sparkle Button */}
-                    <button
-                      onClick={() => handleAIAssist(section.id)}
-                      disabled={aiLoading === section.id || section.id !== '1'}
-                      className={`absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group ${
-                        aiLoading === section.id ? 'opacity-50 cursor-not-allowed' : ''
-                      } ${section.id !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      aria-label="AI Assist"
-                      title={section.id === '1' ? 'AI Assist - Generate Introduction' : 'AI Assist is only available for Case Description and Introduction sections'}
-                    >
-                      {aiLoading === section.id ? (
-                        <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      ) : (
-                        <svg 
-                          className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
-                          fill="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
-                          <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
-                          <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
-                        </svg>
-                      )}
                     </button>
                   </div>
                   {aiError && section.id === '1' && (
