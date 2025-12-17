@@ -89,3 +89,4 @@ BEGIN
   RAISE NOTICE 'RLS policies enabled for complete data isolation.';
 END $$;
 
+

@@ -6,10 +6,12 @@ import Link from 'next/link'
 import { FileText, Scale, Shield } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import TrialModeBanner from '@/components/TrialModeBanner'
 import MotionForm from './components/MotionForm'
 import MotionOutput from './components/MotionOutput'
 import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
+import { useTrialMode } from '@/lib/contexts/TrialModeContext'
 
 export default function LawAndMotionPage() {
   return (
@@ -29,6 +31,7 @@ export default function LawAndMotionPage() {
 
 function LawAndMotionPageContent() {
   const searchParams = useSearchParams()
+  const { isTrialMode, trialCaseId, saveToTrial, loadFromTrial, canAccessDatabase, isTrialCaseId } = useTrialMode()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
   const [generatedMotion, setGeneratedMotion] = useState<string>('')
@@ -39,7 +42,14 @@ function LawAndMotionPageContent() {
   useEffect(() => {
     const loadCase = async () => {
       const caseId = searchParams?.get('caseId')
-      if (caseId) {
+      
+      // SECURITY: Block real case IDs in trial mode
+      if (caseId && isTrialMode && !isTrialCaseId(caseId)) {
+        console.warn('[SECURITY] Attempted to access real case ID in trial mode - blocked')
+        return
+      }
+      
+      if (caseId && !isTrialMode && canAccessDatabase()) {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         
@@ -51,11 +61,28 @@ function LawAndMotionPageContent() {
             console.log(`[AUDIT] Law and Motion page accessed for case: ${caseId}`)
           }
         }
+      } else if (isTrialMode) {
+        // Load from session storage in trial mode
+        const savedMotion = loadFromTrial('motion-content', '')
+        const savedMotionType = loadFromTrial('motion-type', '')
+        if (savedMotion) {
+          setGeneratedMotion(savedMotion)
+          setCurrentMotionType(savedMotionType)
+          setShowForm(false)
+        }
       }
     }
     
     loadCase()
-  }, [searchParams])
+  }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId, loadFromTrial])
+
+  // Auto-save to session storage in trial mode
+  useEffect(() => {
+    if (isTrialMode && generatedMotion) {
+      saveToTrial('motion-content', generatedMotion)
+      saveToTrial('motion-type', currentMotionType)
+    }
+  }, [generatedMotion, currentMotionType, isTrialMode, saveToTrial])
 
   const handleMotionGenerated = (motion: string, motionType: string) => {
     setGeneratedMotion(motion)
@@ -67,14 +94,19 @@ function LawAndMotionPageContent() {
     setGeneratedMotion('')
     setCurrentMotionType('')
     setShowForm(true)
+    if (isTrialMode) {
+      saveToTrial('motion-content', '')
+      saveToTrial('motion-type', '')
+    }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Header />
+      <TrialModeBanner />
       
-      {/* Case Name Header - Only show when accessed from case dashboard */}
-      {currentCase && (
+      {/* Case Name Header - Only show when accessed from case dashboard (not trial mode) */}
+      {currentCase && !isTrialMode && (
         <div className="bg-gradient-to-r from-blue-600 to-purple-700 text-white py-4 shadow-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between">
@@ -175,7 +207,8 @@ function LawAndMotionPageContent() {
             isGenerating={isGenerating}
             setIsGenerating={setIsGenerating}
             caseData={currentCase}
-            fromCaseDashboard={!!currentCase}
+            fromCaseDashboard={!!currentCase && !isTrialMode}
+            isTrialMode={isTrialMode}
           />
         ) : (
           <MotionOutput
@@ -183,6 +216,7 @@ function LawAndMotionPageContent() {
             motionType={currentMotionType}
             onNewMotion={handleNewMotion}
             caseData={currentCase}
+            isTrialMode={isTrialMode}
           />
         )}
       </div>

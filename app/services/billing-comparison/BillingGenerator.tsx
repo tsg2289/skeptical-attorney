@@ -22,9 +22,10 @@ interface Description {
 
 interface BillingGeneratorProps {
   caseId?: string | null;
+  isTrialMode?: boolean;
 }
 
-export default function BillingGenerator({ caseId: propCaseId }: BillingGeneratorProps) {
+export default function BillingGenerator({ caseId: propCaseId, isTrialMode = false }: BillingGeneratorProps) {
   const searchParams = useSearchParams();
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(propCaseId || null);
   const [caseName, setCaseName] = useState('');

@@ -2,6 +2,7 @@
 
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import TrialModeBanner from '@/components/TrialModeBanner'
 import Link from 'next/link'
 
 const discoveryTools = [
@@ -17,6 +18,7 @@ export default function DiscoveryLandingPage() {
   return (
     <div className="min-h-screen bg-white">
       <Header />
+      <TrialModeBanner />
 
       <section className="bg-gradient-to-br from-blue-50 via-white to-blue-50 pt-16 pb-20">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -50,12 +52,4 @@ export default function DiscoveryLandingPage() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
 

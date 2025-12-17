@@ -12,6 +12,7 @@ interface MotionFormProps {
   setIsGenerating: (val: boolean) => void
   caseData?: CaseFrontend | null
   fromCaseDashboard?: boolean
+  isTrialMode?: boolean
 }
 
 const MOTION_TYPES = [
@@ -36,6 +37,7 @@ export default function MotionForm({
   setIsGenerating,
   caseData,
   fromCaseDashboard = false,
+  isTrialMode = false,
 }: MotionFormProps) {
   const [motionType, setMotionType] = useState('')
   const [facts, setFacts] = useState('')

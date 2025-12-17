@@ -5,10 +5,12 @@ import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import TrialModeBanner from '@/components/TrialModeBanner'
 import AnswerGenerator from './components/AnswerGenerator'
 import { Toaster } from 'react-hot-toast'
 import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
+import { useTrialMode } from '@/lib/contexts/TrialModeContext'
 
 export default function AnswerPage() {
   return (
@@ -28,13 +30,21 @@ export default function AnswerPage() {
 
 function AnswerPageContent() {
   const searchParams = useSearchParams()
+  const { isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId } = useTrialMode()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
 
   useEffect(() => {
     const loadCase = async () => {
       const caseId = searchParams?.get('caseId')
-      if (caseId) {
+      
+      // SECURITY: Block real case IDs in trial mode
+      if (caseId && isTrialMode && !isTrialCaseId(caseId)) {
+        console.warn('[SECURITY] Attempted to access real case ID in trial mode - blocked')
+        return
+      }
+      
+      if (caseId && !isTrialMode && canAccessDatabase()) {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         
@@ -49,17 +59,22 @@ function AnswerPageContent() {
             console.log(`[AUDIT] Answer page accessed for case: ${caseId}`)
           }
         }
+      } else if (isTrialMode) {
+        // Set trial case ID for trial mode
+        setCurrentCaseId(trialCaseId)
       }
     }
     
     loadCase()
-  }, [searchParams])
+  }, [searchParams, isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId])
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
+      <TrialModeBanner />
       
-      {/* Case Name Header - Only show when accessed from case dashboard */}
-      {currentCase && (
+      {/* Case Name Header - Only show when accessed from case dashboard (not trial mode) */}
+      {currentCase && !isTrialMode && (
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between">
@@ -107,7 +122,7 @@ function AnswerPageContent() {
       {/* Answer Generator App */}
       <section className="py-12 bg-gradient-to-br from-blue-50 via-white to-blue-50 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <AnswerGenerator caseId={currentCaseId} />
+          <AnswerGenerator caseId={currentCaseId} isTrialMode={isTrialMode} />
         </div>
       </section>
 
@@ -126,5 +141,3 @@ function AnswerPageContent() {
     </div>
   )
 }
-
-

@@ -4,15 +4,21 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Scale, FileText, Download, Copy, Check } from 'lucide-react'
+import Header from '@/components/Header'
+import Footer from '@/components/Footer'
+import TrialModeBanner from '@/components/TrialModeBanner'
 import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
+import { useTrialMode } from '@/lib/contexts/TrialModeContext'
 
 export default function WrittenDiscoveryPage() {
   return (
     <Suspense
       fallback={
         <div className="min-h-screen bg-white">
+          <Header />
           <div className="p-6 text-gray-600">Loading written discovery...</div>
+          <Footer />
         </div>
       }
     >
@@ -29,6 +35,7 @@ interface DiscoveryRequest {
 
 const WrittenDiscoveryGenerator = () => {
   const searchParams = useSearchParams()
+  const { isTrialMode, trialCaseId, saveToTrial, loadFromTrial, canAccessDatabase, isTrialCaseId } = useTrialMode()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
   
@@ -58,7 +65,14 @@ const WrittenDiscoveryGenerator = () => {
   useEffect(() => {
     const loadCase = async () => {
       const caseId = searchParams?.get('caseId')
-      if (caseId) {
+      
+      // SECURITY: Block real case IDs in trial mode
+      if (caseId && isTrialMode && !isTrialCaseId(caseId)) {
+        console.warn('[SECURITY] Attempted to access real case ID in trial mode - blocked')
+        return
+      }
+      
+      if (caseId && !isTrialMode && canAccessDatabase()) {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         
@@ -82,11 +96,35 @@ const WrittenDiscoveryGenerator = () => {
             }
           }
         }
+      } else if (isTrialMode) {
+        // Load from session storage in trial mode
+        const savedCaseInfo = loadFromTrial('discovery-case-info', null)
+        const savedCaseFacts = loadFromTrial('discovery-case-facts', '')
+        const savedDocument = loadFromTrial('discovery-document', '')
+        const savedCustomRequests = loadFromTrial('discovery-custom-requests', [''])
+        
+        if (savedCaseInfo) setCaseInfo(savedCaseInfo)
+        if (savedCaseFacts) setCaseFactsInput(savedCaseFacts)
+        if (savedDocument) setGeneratedDocument(savedDocument)
+        if (savedCustomRequests.length > 0) setCustomRequests(savedCustomRequests)
       }
     }
     
     loadCase()
-  }, [searchParams])
+  }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId, loadFromTrial])
+
+  // Auto-save to session storage in trial mode
+  useEffect(() => {
+    if (isTrialMode) {
+      const timer = setTimeout(() => {
+        saveToTrial('discovery-case-info', caseInfo)
+        saveToTrial('discovery-case-facts', caseFactsInput)
+        saveToTrial('discovery-document', generatedDocument)
+        saveToTrial('discovery-custom-requests', customRequests)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [caseInfo, caseFactsInput, generatedDocument, customRequests, isTrialMode, saveToTrial])
 
   const predefinedRequests = {
     interrogatory: [
@@ -379,8 +417,11 @@ Defendant: ${caseInfo.defendant}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      {/* Case Name Header - Only show when accessed from case dashboard */}
-      {currentCase && (
+      <Header />
+      <TrialModeBanner />
+      
+      {/* Case Name Header - Only show when accessed from case dashboard (not trial mode) */}
+      {currentCase && !isTrialMode && (
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between">
@@ -722,14 +763,15 @@ Defendant: ${caseInfo.defendant}
               ) : (
                 <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
                   <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p>Fill out the form and click "Generate Discovery Document" to see your document here.</p>
+                  <p>Fill out the form and click &quot;Generate Discovery Document&quot; to see your document here.</p>
                 </div>
               )}
             </div>
           </div>
         </div>
       </div>
+      
+      <Footer />
     </div>
   )
 }
-

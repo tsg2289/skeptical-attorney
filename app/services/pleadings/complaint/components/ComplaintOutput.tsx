@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X } from 'lucide-react'
 import { CaseFrontend, supabaseCaseStorage, ComplaintSection } from '@/lib/supabase/caseStorage'
 import { downloadComplaintDocument, ComplaintData } from '@/lib/docx-generator'
@@ -11,9 +11,23 @@ interface ComplaintOutputProps {
   complaint: string
   onNewComplaint: () => void
   caseData?: CaseFrontend | null
+  // Trial mode props
+  isTrialMode?: boolean
+  trialSections?: ComplaintSection[]
+  onTrialSectionsChange?: (sections: ComplaintSection[]) => void
 }
 
-export default function ComplaintOutput({ complaint, onNewComplaint, caseData }: ComplaintOutputProps) {
+// Regex to match valid UUIDs (for security validation)
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export default function ComplaintOutput({ 
+  complaint, 
+  onNewComplaint, 
+  caseData,
+  isTrialMode = false,
+  trialSections = [],
+  onTrialSectionsChange
+}: ComplaintOutputProps) {
   const [copied, setCopied] = useState(false)
   const [showProofOfService, setShowProofOfService] = useState(false)
   const [sections, setSections] = useState<ComplaintSection[]>([])
@@ -31,17 +45,35 @@ export default function ComplaintOutput({ complaint, onNewComplaint, caseData }:
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
+  // Track if we've initialized from trial sections
+  const initializedFromTrial = useRef(false)
+
   // Load saved sections if they exist, otherwise parse from complaint
   useEffect(() => {
-    if (caseData?.complaintSections && caseData.complaintSections.length > 0) {
+    if (isTrialMode && trialSections.length > 0 && !initializedFromTrial.current) {
+      // Use trial sections if in trial mode
+      setSections(trialSections)
+      initializedFromTrial.current = true
+    } else if (!isTrialMode && caseData?.complaintSections && caseData.complaintSections.length > 0) {
       // Use saved sections from database
       setSections(caseData.complaintSections as ComplaintSection[])
-    } else {
+    } else if (complaint) {
       // Parse from generated complaint
       const parsedSections = parseComplaintIntoSections(complaint)
       setSections(parsedSections)
     }
-  }, [complaint, caseData?.complaintSections])
+  }, [complaint, caseData?.complaintSections, isTrialMode, trialSections])
+
+  // Notify parent of section changes in trial mode (with debounce)
+  useEffect(() => {
+    if (isTrialMode && onTrialSectionsChange && sections.length > 0) {
+      // Debounce to avoid too many updates
+      const timer = setTimeout(() => {
+        onTrialSectionsChange(sections)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [sections, isTrialMode, onTrialSectionsChange])
 
   // Auto-resize textarea helper
   const autoResizeTextarea = (textarea: HTMLTextAreaElement | null) => {
@@ -79,8 +111,8 @@ export default function ComplaintOutput({ complaint, onNewComplaint, caseData }:
       i++
     }
     
-    // Build header from case data if available, otherwise use parsed header
-    if (caseData) {
+    // Build header from case data if available (and not trial mode), otherwise use parsed header
+    if (caseData && !isTrialMode) {
       const attorneyHeader = buildAttorneyHeader(caseData)
       const caseCaption = buildCaseCaption(caseData)
       result.push({
@@ -457,10 +489,29 @@ export default function ComplaintOutput({ complaint, onNewComplaint, caseData }:
     setDragOverIndex(null)
   }
 
-  // Save draft to Supabase
+  // Save draft - supports both trial mode and authenticated mode
   const handleSaveDraft = async () => {
+    // TRIAL MODE: Save to session storage via parent callback
+    if (isTrialMode) {
+      if (onTrialSectionsChange) {
+        onTrialSectionsChange(sections)
+      }
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+      return
+    }
+
+    // AUTHENTICATED MODE: Save to database
     if (!caseData?.id) {
       setSaveError('No case selected. Please access this page from the case dashboard.')
+      setTimeout(() => setSaveError(null), 5000)
+      return
+    }
+
+    // SECURITY: Verify this is a valid UUID (real case ID) before database operations
+    if (!UUID_REGEX.test(caseData.id)) {
+      console.warn('[SECURITY] Attempted to save non-UUID case ID to database - blocked')
+      setSaveError('Invalid case ID. Cannot save to database.')
       setTimeout(() => setSaveError(null), 5000)
       return
     }
@@ -590,8 +641,8 @@ Executed on [DATE], at [CITY], California.
 
   const handleDownloadWord = async () => {
     try {
-      // Load user profile for attorney info
-      const profile = await userProfileStorage.getProfile()
+      // Load user profile for attorney info (will be empty in trial mode)
+      const profile = isTrialMode ? null : await userProfileStorage.getProfile()
       
       const cleanedComplaint = cleanComplaintText(getFullComplaint())
       
@@ -599,7 +650,7 @@ Executed on [DATE], at [CITY], California.
       let plaintiffName = '[PLAINTIFF NAME]'
       let defendantName = '[DEFENDANT NAME]'
       
-      if (caseData) {
+      if (caseData && !isTrialMode) {
         plaintiffName = caseData.plaintiffs?.map(p => p.name).filter(Boolean).join(', ') || plaintiffName
         defendantName = caseData.defendants?.map(d => d.name).filter(Boolean).join(', ') || defendantName
       }
@@ -666,6 +717,12 @@ Executed on [DATE], at [CITY], California.
     }
   }
 
+  // Determine if save/AI buttons should be enabled
+  // In trial mode: always enabled
+  // In authenticated mode: only if case ID exists
+  const canSave = isTrialMode || !!caseData?.id
+  const canUseAI = isTrialMode || !!caseData?.id
+
   return (
     <div className="space-y-6">
       {/* Header Card */}
@@ -683,41 +740,44 @@ Executed on [DATE], at [CITY], California.
               {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
               <span className="text-sm">{copied ? 'Copied!' : 'Copy All'}</span>
             </button>
-            <button
-              onClick={handleSaveDraft}
-              disabled={saving || !caseData?.id}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
-                saving ? 'opacity-50 cursor-not-allowed' : ''
-              } ${!caseData?.id 
-                ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
-                : saveSuccess 
-                  ? 'bg-green-600 text-white'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-              title={!caseData?.id ? 'Access from case dashboard to enable saving' : 'Save your draft'}
-            >
-              {saving ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="text-sm">Saving...</span>
-                </>
-              ) : saveSuccess ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span className="text-sm">Saved!</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                  </svg>
-                  <span className="text-sm">Save Draft</span>
-                </>
-              )}
-            </button>
+            {/* Save Draft Button - Only for authenticated users */}
+            {!isTrialMode && (
+              <button
+                onClick={handleSaveDraft}
+                disabled={saving || !canSave}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                  saving ? 'opacity-50 cursor-not-allowed' : ''
+                } ${!canSave 
+                  ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
+                  : saveSuccess 
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+                title={!caseData?.id ? 'Access from case dashboard to enable saving' : 'Save your draft'}
+              >
+                {saving ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="text-sm">Saving...</span>
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span className="text-sm">Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    <span className="text-sm">Save Draft</span>
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={handleAddProofOfService}
               className={`flex items-center space-x-2 px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
@@ -768,6 +828,7 @@ Executed on [DATE], at [CITY], California.
           </div>
           <p className="text-green-700 text-sm mt-1">
             Edit each section below. Drag and drop to reorder. Each cause of action includes its allegations.
+            {isTrialMode && ' Your work is saved in your browser while you test.'}
           </p>
         </div>
       </div>
@@ -866,12 +927,12 @@ Executed on [DATE], at [CITY], California.
                   {/* AI Edit Chat Button */}
                   <button
                     onClick={() => handleOpenAIChat(section)}
-                    disabled={!caseData?.id}
+                    disabled={!canUseAI}
                     className={`absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group ${
-                      !caseData?.id ? 'opacity-50 cursor-not-allowed' : ''
+                      !canUseAI ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                     aria-label="AI Edit Assistant"
-                    title={caseData?.id ? 'Open AI Edit Assistant - Edit this section interactively' : 'Access from case dashboard to enable AI editing'}
+                    title={canUseAI ? 'Open AI Edit Assistant - Edit this section interactively' : 'Access from case dashboard to enable AI editing'}
                   >
                     <svg 
                       className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 

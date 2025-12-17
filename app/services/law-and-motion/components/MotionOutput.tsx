@@ -12,9 +12,10 @@ interface MotionOutputProps {
   motionType: string
   onNewMotion: () => void
   caseData?: CaseFrontend | null
+  isTrialMode?: boolean
 }
 
-export default function MotionOutput({ motion, motionType, onNewMotion, caseData }: MotionOutputProps) {
+export default function MotionOutput({ motion, motionType, onNewMotion, caseData, isTrialMode = false }: MotionOutputProps) {
   const [copied, setCopied] = useState(false)
   const [sections, setSections] = useState<MotionSection[]>([])
   
@@ -400,39 +401,42 @@ export default function MotionOutput({ motion, motionType, onNewMotion, caseData
               {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
               <span className="text-sm">{copied ? 'Copied!' : 'Copy All'}</span>
             </button>
-            <button
-              onClick={handleSaveDraft}
-              disabled={saving || !caseData?.id}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
-                saving ? 'opacity-50 cursor-not-allowed' : ''
-              } ${!caseData?.id 
-                ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
-                : saveSuccess 
-                  ? 'bg-green-600 text-white'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-              title={!caseData?.id ? 'Access from case dashboard to enable saving' : 'Save your draft'}
-            >
-              {saving ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  <span className="text-sm">Saving...</span>
-                </>
-              ) : saveSuccess ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span className="text-sm">Saved!</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span className="text-sm">Save Draft</span>
-                </>
-              )}
-            </button>
+            {/* Save Draft Button - Only for authenticated users */}
+            {!isTrialMode && (
+              <button
+                onClick={handleSaveDraft}
+                disabled={saving || !caseData?.id}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                  saving ? 'opacity-50 cursor-not-allowed' : ''
+                } ${!caseData?.id 
+                  ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
+                  : saveSuccess 
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+                title={!caseData?.id ? 'Access from case dashboard to enable saving' : 'Save your draft'}
+              >
+                {saving ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="text-sm">Saving...</span>
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span className="text-sm">Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span className="text-sm">Save Draft</span>
+                  </>
+                )}
+              </button>
+            )}
             <button
               onClick={handleDownloadWord}
               className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
@@ -450,8 +454,8 @@ export default function MotionOutput({ motion, motionType, onNewMotion, caseData
           </div>
         </div>
 
-        {/* Save Error Message */}
-        {saveError && (
+        {/* Save Error Message - Only for authenticated users */}
+        {!isTrialMode && saveError && (
           <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3">
             <div className="flex items-center space-x-2">
               <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -635,4 +639,5 @@ export default function MotionOutput({ motion, motionType, onNewMotion, caseData
     </div>
   )
 }
+
 

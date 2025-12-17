@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import type { ReactNode } from 'react'
 import { AssistantProvider, AssistantButton } from '@/components/AIAssistant'
+import { TrialModeProvider } from '@/lib/contexts/TrialModeContext'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -20,10 +21,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AssistantProvider>
-          {children}
-          <AssistantButton />
-        </AssistantProvider>
+        <TrialModeProvider>
+          <AssistantProvider>
+            {children}
+            <AssistantButton />
+          </AssistantProvider>
+        </TrialModeProvider>
       </body>
     </html>
   )

@@ -5,8 +5,10 @@ import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import TrialModeBanner from '@/components/TrialModeBanner'
 import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
+import { useTrialMode } from '@/lib/contexts/TrialModeContext'
 
 export default function MeetAndConferPage() {
   return (
@@ -26,13 +28,21 @@ export default function MeetAndConferPage() {
 
 function MeetAndConferPageContent() {
   const searchParams = useSearchParams()
+  const { isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId } = useTrialMode()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
 
   useEffect(() => {
     const loadCase = async () => {
       const caseId = searchParams?.get('caseId')
-      if (caseId) {
+      
+      // SECURITY: Block real case IDs in trial mode
+      if (caseId && isTrialMode && !isTrialCaseId(caseId)) {
+        console.warn('[SECURITY] Attempted to access real case ID in trial mode - blocked')
+        return
+      }
+      
+      if (caseId && !isTrialMode && canAccessDatabase()) {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         
@@ -44,17 +54,21 @@ function MeetAndConferPageContent() {
             console.log(`[AUDIT] Meet and Confer page accessed for case: ${caseId}`)
           }
         }
+      } else if (isTrialMode) {
+        setCurrentCaseId(trialCaseId)
       }
     }
     
     loadCase()
-  }, [searchParams])
+  }, [searchParams, isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId])
+
   return (
     <div className="min-h-screen bg-white">
       <Header />
+      <TrialModeBanner />
       
-      {/* Case Name Header - Only show when accessed from case dashboard */}
-      {currentCase && (
+      {/* Case Name Header - Only show when accessed from case dashboard (not trial mode) */}
+      {currentCase && !isTrialMode && (
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between">
@@ -109,7 +123,7 @@ function MeetAndConferPageContent() {
                 Coming Soon
               </h2>
               <p className="text-xl text-gray-600 leading-relaxed">
-                We're working hard to bring you the Meet and Confer tool. Check back soon!
+                We&apos;re working hard to bring you the Meet and Confer tool. Check back soon!
               </p>
             </div>
           </div>
@@ -120,7 +134,3 @@ function MeetAndConferPageContent() {
     </div>
   )
 }
-
-
-
-

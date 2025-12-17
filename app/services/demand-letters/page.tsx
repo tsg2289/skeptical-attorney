@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useRef, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import TrialModeBanner from '@/components/TrialModeBanner';
 import { supabaseCaseStorage, CaseFrontend, DemandLetterSection } from '@/lib/supabase/caseStorage';
 import { createClient } from '@/lib/supabase/client';
+import { useTrialMode } from '@/lib/contexts/TrialModeContext';
 import PreviewModal from './components/PreviewModal';
 import AIEditChatModal from './components/AIEditChatModal';
 
@@ -31,6 +33,8 @@ export default function DemandLetterPage() {
 
 function DemandLetterPageContent() {
   const searchParams = useSearchParams();
+  const { isTrialMode, trialCaseId, saveToTrial, loadFromTrial, canAccessDatabase, isTrialCaseId } = useTrialMode();
+  
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null);
   const [sections, setSections] = useState<CardSection[]>([
@@ -124,16 +128,13 @@ function DemandLetterPageContent() {
       return;
     }
 
-    // CRITICAL: Ensure we only send data from the current case
-    // Verify we have a case ID and user is authenticated
-    if (sectionId === '0' && currentCaseId) {
+    // For authenticated users, verify case access
+    if (sectionId === '0' && currentCaseId && !isTrialMode) {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Row Level Security ensures we can only access our own cases
         const verifiedCase = await supabaseCaseStorage.getCase(currentCaseId);
-        // Double-check: ensure we're only using this case's data
         if (!verifiedCase) {
           setAiError('Case not found. Please ensure you are working with a valid case.');
           setTimeout(() => setAiError(null), 5000);
@@ -156,20 +157,18 @@ function DemandLetterPageContent() {
         apiEndpoint = '/api/ai/populate-sections';
       }
 
-      // CRITICAL: Only send sections from THIS demand letter session
-      // Do not include any data from other cases
       const requestBody = sectionId === '0' 
         ? { 
-            caseDescription: section.content, // Only current case description
-            allSections: sections, // Only current demand letter sections
-            caseId: currentCaseId // Explicitly scope to this case
+            caseDescription: section.content,
+            allSections: sections,
+            caseId: isTrialMode ? trialCaseId : currentCaseId
           }
         : {
             sectionId,
             sectionTitle: section.title,
-            currentContent: section.content, // Only current section content
-            allSections: sections, // Only current demand letter sections
-            caseId: currentCaseId // Explicitly scope to this case
+            currentContent: section.content,
+            allSections: sections,
+            caseId: isTrialMode ? trialCaseId : currentCaseId
           };
 
       const response = await fetch(apiEndpoint, {
@@ -181,14 +180,12 @@ function DemandLetterPageContent() {
       });
 
       if (!response.ok) {
-        // Check if response is JSON
         const contentType = response.headers.get('content-type');
         let errorData;
         
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
         } else {
-          // Response is HTML (error page), get text instead
           const text = await response.text();
           console.error('Non-JSON error response:', text.substring(0, 200));
           throw new Error(`Server error: ${response.status} ${response.statusText}. Please check your API configuration.`);
@@ -205,7 +202,6 @@ function DemandLetterPageContent() {
       
       // If Case Description, update all sections
       if (sectionId === '0' && data.sections) {
-        // Update each section with generated content
         setSections(prevSections => 
           prevSections.map(sec => {
             if (data.sections[sec.id]) {
@@ -215,7 +211,6 @@ function DemandLetterPageContent() {
           })
         );
       } else {
-        // Single section update (Introduction)
         updateSection(sectionId, 'content', data.content);
       }
     } catch (error) {
@@ -259,10 +254,7 @@ function DemandLetterPageContent() {
 
     const newSections = [...sections];
     
-    // Remove the dragged item
     newSections.splice(draggedIndex, 1);
-    
-    // Insert at new position (but never at index 0)
     newSections.splice(dropIndex, 0, draggedSection);
     
     setSections(newSections);
@@ -275,12 +267,10 @@ function DemandLetterPageContent() {
     setDragOverIndex(null);
   };
 
-  // Save demand letter sections to the database
+  // Save demand letter sections to the database (only for authenticated users)
   const handleSaveDraft = async () => {
-    if (!currentCaseId) {
-      setAiError('No case selected. Please access this page from the case dashboard.');
-      setTimeout(() => setAiError(null), 5000);
-      return;
+    if (isTrialMode || !currentCaseId) {
+      return; // Don't save in trial mode
     }
 
     setSaving(true);
@@ -320,36 +310,38 @@ function DemandLetterPageContent() {
     }
   };
 
-  // Get case description content for context (source of truth for AI)
+  // Get case description content for context
   const getCaseDescriptionContent = () => {
     const caseDescSection = sections.find(s => s.id === '0');
     return caseDescSection?.content || '';
   };
 
-  // Populate case description from case facts - ONLY for the specific case
+  // Load case data or trial data
   useEffect(() => {
-    const loadCase = async () => {
+    const loadData = async () => {
       const caseId = searchParams?.get('caseId');
-      if (caseId) {
-        // Verify user is authenticated via Supabase
+      
+      // SECURITY: Block real case IDs in trial mode
+      if (caseId && isTrialMode && !isTrialCaseId(caseId)) {
+        console.warn('[SECURITY] Attempted to access real case ID in trial mode - blocked');
+      }
+      
+      if (caseId && !isTrialMode && canAccessDatabase()) {
+        // Authenticated flow - load from database
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
-          // CRITICAL: Only retrieve the specific case by ID
-          // Row Level Security ensures user can only access their own cases
           const foundCase = await supabaseCaseStorage.getCase(caseId);
           
           if (foundCase) {
-            // Store the case ID to ensure all operations are scoped to this case
             setCurrentCaseId(caseId);
-            setCurrentCase(foundCase); // Store full case object for header display
+            setCurrentCase(foundCase);
             
             // Load saved demand letter sections if they exist
             if (foundCase.demandLetterSections && foundCase.demandLetterSections.length > 0) {
               setSections(foundCase.demandLetterSections);
             } else if (foundCase.facts) {
-              // Only populate Case Description with facts if no saved sections exist
               setSections(prevSections => 
                 prevSections.map(section => 
                   section.id === '0' 
@@ -360,11 +352,27 @@ function DemandLetterPageContent() {
             }
           }
         }
+      } else if (isTrialMode) {
+        // Trial mode - load from session storage
+        const savedSections = loadFromTrial<CardSection[]>('demand-letter-sections', []);
+        if (savedSections.length > 0) {
+          setSections(savedSections);
+        }
       }
     };
     
-    loadCase();
-  }, [searchParams]);
+    loadData();
+  }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId, loadFromTrial]);
+
+  // Auto-save to session storage in trial mode
+  useEffect(() => {
+    if (isTrialMode && sections.length > 0) {
+      const timer = setTimeout(() => {
+        saveToTrial('demand-letter-sections', sections);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [sections, isTrialMode, saveToTrial]);
 
   // Auto-resize textareas when sections change
   useEffect(() => {
@@ -378,12 +386,16 @@ function DemandLetterPageContent() {
   const caseDescription = sections.find(s => s.id === '0');
   const otherSections = sections.filter(s => s.id !== '0');
 
+  // Check if AI features should be enabled
+  const canUseAI = isTrialMode || !!currentCaseId;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <Header />
+      <TrialModeBanner />
       
-      {/* Case Name Header - Only show when accessed from case dashboard */}
-      {currentCase && (
+      {/* Case Name Header - Only show when accessed from case dashboard (not trial mode) */}
+      {currentCase && !isTrialMode && (
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between">
@@ -466,7 +478,7 @@ function DemandLetterPageContent() {
                       aiLoading === caseDescription.id ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                     aria-label="AI Assist"
-                    title="AI Assist - Improve case description"
+                    title="AI Assist - Populate all sections from case description"
                   >
                     {aiLoading === caseDescription.id ? (
                       <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
@@ -567,12 +579,12 @@ function DemandLetterPageContent() {
                     {/* AI Edit Chat Button */}
                     <button
                       onClick={() => handleOpenAIChat(section)}
-                      disabled={aiLoading === section.id || !currentCaseId}
+                      disabled={aiLoading === section.id || !canUseAI}
                       className={`absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group ${
                         aiLoading === section.id ? 'opacity-50 cursor-not-allowed' : ''
-                      } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      } ${!canUseAI ? 'opacity-50 cursor-not-allowed' : ''}`}
                       aria-label="AI Edit Assistant"
-                      title={currentCaseId ? 'Open AI Edit Assistant - Edit this section interactively' : 'Access from case dashboard to enable AI editing'}
+                      title="Open AI Edit Assistant - Edit this section interactively"
                     >
                       {aiLoading === section.id ? (
                         <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
@@ -636,26 +648,29 @@ function DemandLetterPageContent() {
                 Draft saved!
               </span>
             )}
-            <button 
-              onClick={handleSaveDraft}
-              disabled={saving || !currentCaseId}
-              className={`px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2 ${
-                saving ? 'opacity-50 cursor-not-allowed' : ''
-              } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
-              title={!currentCaseId ? 'Access from case dashboard to enable saving' : 'Save your draft'}
-            >
-              {saving ? (
-                <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Saving...
-                </>
-              ) : (
-                'Save Draft'
-              )}
-            </button>
+            {/* Save Draft Button - Only show for authenticated users */}
+            {!isTrialMode && (
+              <button 
+                onClick={handleSaveDraft}
+                disabled={saving || !currentCaseId}
+                className={`px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2 ${
+                  saving ? 'opacity-50 cursor-not-allowed' : ''
+                } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={!currentCaseId ? 'Access from case dashboard to enable saving' : 'Save your draft'}
+              >
+                {saving ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Draft'
+                )}
+              </button>
+            )}
             <button 
               onClick={() => setShowPreview(true)}
               className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
@@ -679,7 +694,6 @@ function DemandLetterPageContent() {
         caseInfo={{
           caseName: currentCase?.caseName,
           caseNumber: currentCase?.caseNumber,
-          // Get attorney from first plaintiff's attorneys
           attorneyName: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.name,
           stateBarNumber: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.barNumber,
           email: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.email,
@@ -690,7 +704,7 @@ function DemandLetterPageContent() {
       />
 
       {/* AI Edit Chat Modal */}
-      {editingSection && currentCaseId && (
+      {editingSection && (
         <AIEditChatModal
           isOpen={aiChatOpen}
           onClose={() => {
@@ -701,7 +715,7 @@ function DemandLetterPageContent() {
           sectionTitle={editingSection.title}
           currentContent={editingSection.content}
           caseDescription={getCaseDescriptionContent()}
-          caseId={currentCaseId}
+          caseId={isTrialMode ? trialCaseId : (currentCaseId || '')}
           parties={{
             client: currentCase?.client,
             plaintiffs: currentCase?.plaintiffs,
@@ -713,8 +727,3 @@ function DemandLetterPageContent() {
     </div>
   );
 }
-
-
-
-
-

@@ -438,9 +438,10 @@ function SortableDefenseCard({ defense, editingDefenseId, editingDefense, onEdit
 
 interface AnswerGeneratorProps {
   caseId?: string | null
+  isTrialMode?: boolean
 }
 
-export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
+export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerGeneratorProps) {
   const [formData, setFormData] = useState({
     plaintiffName: '',
     defendantName: '',
@@ -1639,37 +1640,39 @@ export default function AnswerGenerator({ caseId }: AnswerGeneratorProps) {
                   Save & Download Options
                 </h3>
                 <div className="flex flex-wrap gap-3 items-center">
-                  {/* Save Success Indicator */}
-                  {saveSuccess && (
+                  {/* Save Success Indicator - Only for authenticated users */}
+                  {!isTrialMode && saveSuccess && (
                     <span className="text-green-600 text-sm font-medium flex items-center gap-1">
                       <Check className="w-4 h-4" />
                       Draft saved!
                     </span>
                   )}
-                  {/* Save Draft Button */}
-                  <button
-                    onClick={handleSaveDraft}
-                    disabled={saving || !caseId || !answerSections}
-                    className={`flex items-center px-4 py-2 rounded-xl border border-primary-300 text-primary-700 font-semibold transition-all hover:bg-primary-50 hover:scale-105 ${
-                      saving || !caseId || !answerSections ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    title={!caseId ? 'Access from case dashboard to enable saving' : !answerSections ? 'Generate an answer first' : 'Save your draft'}
-                  >
-                    {saving ? (
-                      <>
-                        <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Draft
-                      </>
-                    )}
-                  </button>
+                  {/* Save Draft Button - Only for authenticated users */}
+                  {!isTrialMode && (
+                    <button
+                      onClick={handleSaveDraft}
+                      disabled={saving || !caseId || !answerSections}
+                      className={`flex items-center px-4 py-2 rounded-xl border border-primary-300 text-primary-700 font-semibold transition-all hover:bg-primary-50 hover:scale-105 ${
+                        saving || !caseId || !answerSections ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      title={!caseId ? 'Access from case dashboard to enable saving' : !answerSections ? 'Generate an answer first' : 'Save your draft'}
+                    >
+                      {saving ? (
+                        <>
+                          <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          Save Draft
+                        </>
+                      )}
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowPreview(true)}
                     className="flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold transition-all hover:scale-105 hover:shadow-lg"
