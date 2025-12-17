@@ -94,8 +94,8 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
     })
   )
 
-  // Add each section
-  sections.forEach((section, index) => {
+  // Add each section (filter out Case Description which has id '0')
+  sections.filter(s => s.id !== '0').forEach((section, index) => {
     // Section title
     if (section.title) {
       children.push(
