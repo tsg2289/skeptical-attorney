@@ -17,6 +17,9 @@ interface CardSection {
   content: string;
 }
 
+// UUID regex for security validation
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function DemandLetterPage() {
   return (
     <Suspense
@@ -90,6 +93,10 @@ function DemandLetterPageContent() {
   const [aiError, setAiError] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [editingSection, setEditingSection] = useState<{id: string; title: string} | null>(null);
+  const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto';
@@ -282,6 +289,12 @@ function DemandLetterPageContent() {
       }
       
       if (caseId && !isTrialMode && canAccessDatabase()) {
+        // SECURITY: Validate UUID format before database operations
+        if (!UUID_REGEX.test(caseId)) {
+          console.warn('[SECURITY] Invalid case ID format - blocked');
+          return;
+        }
+        
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         
@@ -289,9 +302,13 @@ function DemandLetterPageContent() {
           const foundCase = await supabaseCaseStorage.getCase(caseId);
           if (foundCase) {
             console.log(`[AUDIT] Demand letter page accessed for case: ${caseId}`);
+            setCurrentCaseId(caseId);
             
-            // Populate case description with case facts
-            if (foundCase.facts) {
+            // Load saved demand letter sections if they exist
+            if (foundCase.demandLetterSections && foundCase.demandLetterSections.length > 0) {
+              setSections(foundCase.demandLetterSections);
+            } else if (foundCase.facts) {
+              // If no saved sections, populate case description with case facts
               setSections(prevSections =>
                 prevSections.map(section =>
                   section.id === '0'
@@ -307,6 +324,58 @@ function DemandLetterPageContent() {
     
     loadCase();
   }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId]);
+
+  // Save draft - secure implementation with no data leakage
+  const handleSaveDraft = async () => {
+    // SECURITY: Require a valid case ID
+    if (!currentCaseId) {
+      setSaveError('No case selected. Please access this page from the case dashboard.');
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
+
+    // SECURITY: Validate UUID format to prevent injection
+    if (!UUID_REGEX.test(currentCaseId)) {
+      console.warn('[SECURITY] Attempted to save with invalid case ID format - blocked');
+      setSaveError('Invalid case ID. Cannot save to database.');
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
+
+    // SECURITY: Block saves in trial mode
+    if (isTrialMode) {
+      setSaveError('Saving is disabled in trial mode.');
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
+
+    setSaving(true);
+    setSaveSuccess(false);
+    setSaveError(null);
+
+    try {
+      // SECURITY: supabaseCaseStorage.updateCase uses Row Level Security
+      // which ensures user can only update their own cases
+      const result = await supabaseCaseStorage.updateCase(currentCaseId, {
+        demandLetterSections: sections,
+      });
+
+      if (result) {
+        setSaveSuccess(true);
+        console.log(`[AUDIT] Demand letter draft saved for case: ${currentCaseId}`);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        setSaveError('Failed to save draft. Please try again.');
+        setTimeout(() => setSaveError(null), 5000);
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      setSaveError('An error occurred while saving. Please try again.');
+      setTimeout(() => setSaveError(null), 5000);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Split sections into Case Description and other sections
   const caseDescription = sections.find(s => s.id === '0');
@@ -519,16 +588,53 @@ function DemandLetterPageContent() {
           </div>
 
           {/* Action Buttons */}
-          <div className="glass p-6 rounded-2xl flex gap-4 justify-end">
-            <button className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300">
-              Save Draft
-            </button>
-            <button 
-              onClick={() => setShowPreview(true)}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Preview Letter
-            </button>
+          <div className="glass p-6 rounded-2xl flex flex-col gap-4">
+            {/* Save Status Messages */}
+            {saveSuccess && (
+              <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Draft saved successfully!
+              </div>
+            )}
+            {saveError && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                {saveError}
+              </div>
+            )}
+            
+            <div className="flex gap-4 justify-end">
+              <button 
+                onClick={handleSaveDraft}
+                disabled={saving || !currentCaseId}
+                className={`px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2 ${
+                  saving ? 'opacity-50 cursor-not-allowed' : ''
+                } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={!currentCaseId ? 'Access from case dashboard to enable saving' : 'Save draft to case'}
+              >
+                {saving ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Draft'
+                )}
+              </button>
+              <button 
+                onClick={() => setShowPreview(true)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Preview Letter
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -551,7 +657,7 @@ function DemandLetterPageContent() {
           sectionTitle={editingSection.title}
           currentContent={sections.find(s => s.id === editingSection.id)?.content || ''}
           caseDescription={sections.find(s => s.id === '0')?.content || ''}
-          caseId=""
+          caseId={currentCaseId || ''}
           onApplyEdit={(newContent) => {
             updateSection(editingSection.id, 'content', newContent);
             setEditingSection(null);
