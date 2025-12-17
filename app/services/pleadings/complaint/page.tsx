@@ -91,7 +91,10 @@ function ComplaintPageContent() {
           plaintiffs: [],
           defendants: [],
           courtCounty: 'Los Angeles',
-        } as CaseFrontend)
+          deadlines: [],
+          createdAt: new Date().toISOString(),
+          userId: 'trial-user',
+        })
       }
     }
     
