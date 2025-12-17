@@ -1,90 +1,68 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
-import TrialModeBanner from '@/components/TrialModeBanner';
-import { supabaseCaseStorage, CaseFrontend, DemandLetterSection } from '@/lib/supabase/caseStorage';
-import { createClient } from '@/lib/supabase/client';
-import { useTrialMode } from '@/lib/contexts/TrialModeContext';
-import PreviewModal from './components/PreviewModal';
-import AIEditChatModal from './components/AIEditChatModal';
 
-// Type alias for backward compatibility
-type CardSection = DemandLetterSection;
-
-export default function DemandLetterPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-          <Header />
-          <div className="p-6 text-gray-600">Loading demand letter...</div>
-          <Footer />
-        </div>
-      }
-    >
-      <DemandLetterPageContent />
-    </Suspense>
-  );
+interface CardSection {
+  id: string;
+  title: string;
+  content: string;
 }
 
-function DemandLetterPageContent() {
-  const searchParams = useSearchParams();
-  const { isTrialMode, trialCaseId, saveToTrial, loadFromTrial, canAccessDatabase, isTrialCaseId } = useTrialMode();
-  
-  const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
-  const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null);
+export default function DemandLetterPage() {
   const [sections, setSections] = useState<CardSection[]>([
     { 
       id: '0', 
       title: 'Case Description', 
-      content: 'Summarize your case here—include the key facts, basis for liability, and damages sought. After entering this information, use the AI function to auto-populate the Introduction, Facts, Liability, Damages, and Demand sections below.' 
+      content: 'Describe the case details here. Include information about the client, date of incident, location, insured party, and any other relevant details that will help generate the demand letter sections.' 
     },
     { 
       id: '1', 
       title: 'Introduction', 
-      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
+      content: 'This firm represents [Client Name] for injuries sustained in a collision on [Date] in [City, CA]. Based on the evidence—including police reports, photographs, witness statements, and property damage assessments—your insured, [Insured Name], is 100% liable for causing this collision.' 
     },
     { 
       id: '2', 
       title: 'FACTS', 
-      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
+      content: 'On [Date], at approximately [Time], our client [Client Name] was [describe what client was doing – e.g., traveling northbound on Main Street, stopped at a red light, etc.] when the incident occurred.\n\nLocation: [Street Address/Intersection], [City], California\n\nWeather Conditions: [Clear/Rainy/Foggy/etc.]\n\nTraffic Conditions: [Heavy/Light/Moderate]\n\nWitnesses: [List any witnesses or indicate if police report contains witness statements]\n\nPolice Report Number: [Report Number, if applicable]\n\nThese facts are supported by the police report, witness statements, and our client\'s account of the incident.' 
     },
     { 
       id: '3', 
       title: 'LIABILITY', 
-      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
+      content: 'On the date of the incident, your insured negligently operated his/her vehicle at or near [intersection/street name] in [City], California. As our investigation and the police report confirm, your insured [describe negligent act – e.g., failed to yield, ran a red light, rear-ended our client\'s vehicle, etc.], causing a violent collision with our client\'s vehicle.\n\nOur client was operating her vehicle lawfully and exercising due care at all times. There is no evidence of comparative fault. Accordingly, your insured bears full responsibility for the resulting damages pursuant to California Civil Code §1714 and applicable negligence law.' 
     },
     { 
       id: '4', 
-      title: 'DAMAGES', 
-      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
+      title: 'INJURIES AND MEDICAL TREATMENT', 
+      content: 'As a direct result of this collision, our client sustained serious injuries, including but not limited to:\n\n[List key injuries – e.g., cervical strain, lumbar sprain, concussion, right shoulder contusion, etc.]\n\nFollowing the collision, our client was transported to [Hospital or Urgent Care Name], where she underwent [diagnostic tests – e.g., X-rays, CT scan, MRI, etc.]. She was later referred to [Specialist Name or Facility] for ongoing evaluation and physical therapy.\n\nTreatment Timeline:\n\n[Date]: Initial evaluation and imaging at [Facility].\n\n[Date–Date]: Physical therapy at [Facility].\n\n[Date]: Follow-up with [Specialist] recommending continued conservative treatment and limited activity.\n\nDespite consistent medical care and adherence to treatment recommendations, our client continues to experience residual pain and limitations that affect daily living and employment.' 
     },
     { 
       id: '5', 
-      title: 'SETTLEMENT DEMAND', 
-      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
+      title: 'ECONOMIC DAMAGES', 
+      content: 'Medical Expenses (to date): $[Amount]\nFuture Medical Expenses (estimated): $[Amount]\nProperty Damage: $[Amount, if not yet resolved]\nLost Wages: $[Amount]\nMiscellaneous Out-of-Pocket Costs: $[Amount]\n\nTotal Economic Damages: $[Total]' 
     },
     { 
       id: '6', 
+      title: 'NON-ECONOMIC DAMAGES', 
+      content: 'In addition to the above economic losses, our client has endured substantial pain, suffering, inconvenience, and emotional distress as a result of your insured\'s negligence. California law recognizes the right to recover for these general damages.\n\nOur client\'s pain was significant and prolonged, requiring months of rehabilitation and causing ongoing limitations in daily life. She was unable to participate in normal activities and remains fearful of driving.' 
+    },
+    { 
+      id: '7', 
+      title: 'SETTLEMENT DEMAND', 
+      content: 'Based on the clear liability, the documented medical expenses, ongoing pain and suffering, and the totality of the circumstances, we hereby demand $[Demand Amount] in full and final settlement of all claims arising out of this incident.\n\nThis demand is made with a full understanding of the facts and law applicable to this claim and represents a fair and reasonable resolution consistent with California personal injury standards. Please provide your response within thirty (30) days of the date of this letter.\n\nIf the settlement demand amount is not paid in full by [Date], our client and this firm will pursue all legal action necessary to recover the damages caused, including but not limited to filing a lawsuit seeking all available remedies under California law, recovery of costs, prejudgment interest, and any other damages permitted by law. We trust that you will give this matter the serious attention it deserves and look forward to resolving this matter without the need for litigation.' 
+    },
+    { 
+      id: '8', 
       title: 'DOCUMENTATION PROVIDED', 
-      content: 'Enter your Case Description above, then click \'Populate with AI\' to generate this section.' 
+      content: 'Enclosed for your review are copies of the following supporting documents:\n\nPolice Report\n\nPhotographs of Vehicle Damage\n\nMedical Records and Bills\n\nProof of Lost Wages\n\nPhysical Therapy Notes' 
     },
   ]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  
-  // AI Chat Modal state
-  const [aiChatOpen, setAiChatOpen] = useState(false);
-  const [editingSection, setEditingSection] = useState<CardSection | null>(null);
 
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto';
@@ -128,21 +106,6 @@ function DemandLetterPageContent() {
       return;
     }
 
-    // For authenticated users, verify case access
-    if (sectionId === '0' && currentCaseId && !isTrialMode) {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        const verifiedCase = await supabaseCaseStorage.getCase(currentCaseId);
-        if (!verifiedCase) {
-          setAiError('Case not found. Please ensure you are working with a valid case.');
-          setTimeout(() => setAiError(null), 5000);
-          return;
-        }
-      }
-    }
-
     setAiLoading(sectionId);
     setAiError(null);
 
@@ -160,15 +123,13 @@ function DemandLetterPageContent() {
       const requestBody = sectionId === '0' 
         ? { 
             caseDescription: section.content,
-            allSections: sections,
-            caseId: isTrialMode ? trialCaseId : currentCaseId
+            allSections: sections
           }
         : {
             sectionId,
             sectionTitle: section.title,
             currentContent: section.content,
             allSections: sections,
-            caseId: isTrialMode ? trialCaseId : currentCaseId
           };
 
       const response = await fetch(apiEndpoint, {
@@ -180,12 +141,14 @@ function DemandLetterPageContent() {
       });
 
       if (!response.ok) {
+        // Check if response is JSON
         const contentType = response.headers.get('content-type');
         let errorData;
         
         if (contentType && contentType.includes('application/json')) {
           errorData = await response.json();
         } else {
+          // Response is HTML (error page), get text instead
           const text = await response.text();
           console.error('Non-JSON error response:', text.substring(0, 200));
           throw new Error(`Server error: ${response.status} ${response.statusText}. Please check your API configuration.`);
@@ -202,6 +165,7 @@ function DemandLetterPageContent() {
       
       // If Case Description, update all sections
       if (sectionId === '0' && data.sections) {
+        // Update each section with generated content
         setSections(prevSections => 
           prevSections.map(sec => {
             if (data.sections[sec.id]) {
@@ -211,6 +175,7 @@ function DemandLetterPageContent() {
           })
         );
       } else {
+        // Single section update (Introduction)
         updateSection(sectionId, 'content', data.content);
       }
     } catch (error) {
@@ -254,7 +219,10 @@ function DemandLetterPageContent() {
 
     const newSections = [...sections];
     
+    // Remove the dragged item
     newSections.splice(draggedIndex, 1);
+    
+    // Insert at new position (but never at index 0)
     newSections.splice(dropIndex, 0, draggedSection);
     
     setSections(newSections);
@@ -266,113 +234,6 @@ function DemandLetterPageContent() {
     setDraggedIndex(null);
     setDragOverIndex(null);
   };
-
-  // Save demand letter sections to the database (only for authenticated users)
-  const handleSaveDraft = async () => {
-    if (isTrialMode || !currentCaseId) {
-      return; // Don't save in trial mode
-    }
-
-    setSaving(true);
-    setSaveSuccess(false);
-
-    try {
-      const result = await supabaseCaseStorage.updateCase(currentCaseId, {
-        demandLetterSections: sections,
-      });
-
-      if (result) {
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      } else {
-        setAiError('Failed to save draft. Please try again.');
-        setTimeout(() => setAiError(null), 5000);
-      }
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      setAiError('An error occurred while saving. Please try again.');
-      setTimeout(() => setAiError(null), 5000);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Handler to open AI chat for a section
-  const handleOpenAIChat = (section: CardSection) => {
-    setEditingSection(section);
-    setAiChatOpen(true);
-  };
-
-  // Handler to apply AI edits from chat
-  const handleApplyAIEdit = (newContent: string) => {
-    if (editingSection) {
-      updateSection(editingSection.id, 'content', newContent);
-    }
-  };
-
-  // Get case description content for context
-  const getCaseDescriptionContent = () => {
-    const caseDescSection = sections.find(s => s.id === '0');
-    return caseDescSection?.content || '';
-  };
-
-  // Load case data or trial data
-  useEffect(() => {
-    const loadData = async () => {
-      const caseId = searchParams?.get('caseId');
-      
-      // SECURITY: Block real case IDs in trial mode
-      if (caseId && isTrialMode && !isTrialCaseId(caseId)) {
-        console.warn('[SECURITY] Attempted to access real case ID in trial mode - blocked');
-      }
-      
-      if (caseId && !isTrialMode && canAccessDatabase()) {
-        // Authenticated flow - load from database
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          const foundCase = await supabaseCaseStorage.getCase(caseId);
-          
-          if (foundCase) {
-            setCurrentCaseId(caseId);
-            setCurrentCase(foundCase);
-            
-            // Load saved demand letter sections if they exist
-            if (foundCase.demandLetterSections && foundCase.demandLetterSections.length > 0) {
-              setSections(foundCase.demandLetterSections);
-            } else if (foundCase.facts) {
-              setSections(prevSections => 
-                prevSections.map(section => 
-                  section.id === '0' 
-                    ? { ...section, content: foundCase.facts || section.content }
-                    : section
-                )
-              );
-            }
-          }
-        }
-      } else if (isTrialMode) {
-        // Trial mode - load from session storage
-        const savedSections = loadFromTrial<CardSection[]>('demand-letter-sections', []);
-        if (savedSections.length > 0) {
-          setSections(savedSections);
-        }
-      }
-    };
-    
-    loadData();
-  }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId, loadFromTrial]);
-
-  // Auto-save to session storage in trial mode
-  useEffect(() => {
-    if (isTrialMode && sections.length > 0) {
-      const timer = setTimeout(() => {
-        saveToTrial('demand-letter-sections', sections);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [sections, isTrialMode, saveToTrial]);
 
   // Auto-resize textareas when sections change
   useEffect(() => {
@@ -386,45 +247,9 @@ function DemandLetterPageContent() {
   const caseDescription = sections.find(s => s.id === '0');
   const otherSections = sections.filter(s => s.id !== '0');
 
-  // Check if AI features should be enabled
-  const canUseAI = isTrialMode || !!currentCaseId;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <Header />
-      <TrialModeBanner />
-      
-      {/* Case Name Header - Only show when accessed from case dashboard (not trial mode) */}
-      {currentCase && !isTrialMode && (
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <Link 
-                  href={`/dashboard/cases/${currentCase.id}`}
-                  className="hover:opacity-80 transition-opacity"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                </Link>
-                <div>
-                  <h2 className="text-xl font-bold">{currentCase.caseName}</h2>
-                  {currentCase.caseNumber && (
-                    <p className="text-sm text-blue-100">Case #: {currentCase.caseNumber}</p>
-                  )}
-                </div>
-              </div>
-              <Link
-                href={`/dashboard/cases/${currentCase.id}`}
-                className="text-sm hover:underline text-blue-100"
-              >
-                Back to Case
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
       
       <div className="min-h-screen p-6">
         <div className="max-w-7xl mx-auto">
@@ -478,7 +303,7 @@ function DemandLetterPageContent() {
                       aiLoading === caseDescription.id ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                     aria-label="AI Assist"
-                    title="AI Assist - Populate all sections from case description"
+                    title="AI Assist - Improve case description"
                   >
                     {aiLoading === caseDescription.id ? (
                       <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
@@ -576,15 +401,15 @@ function DemandLetterPageContent() {
                       className="w-full min-h-48 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
                       placeholder="Enter section content here... (Template will be added later)"
                     />
-                    {/* AI Edit Chat Button */}
+                    {/* AI Sparkle Button */}
                     <button
-                      onClick={() => handleOpenAIChat(section)}
-                      disabled={aiLoading === section.id || !canUseAI}
+                      onClick={() => handleAIAssist(section.id)}
+                      disabled={aiLoading === section.id || section.id !== '1'}
                       className={`absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group ${
                         aiLoading === section.id ? 'opacity-50 cursor-not-allowed' : ''
-                      } ${!canUseAI ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      aria-label="AI Edit Assistant"
-                      title="Open AI Edit Assistant - Edit this section interactively"
+                      } ${section.id !== '1' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      aria-label="AI Assist"
+                      title={section.id === '1' ? 'AI Assist - Generate Introduction' : 'AI Assist is only available for Case Description and Introduction sections'}
                     >
                       {aiLoading === section.id ? (
                         <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
@@ -639,91 +464,23 @@ function DemandLetterPageContent() {
           </div>
 
           {/* Action Buttons */}
-          <div className="glass p-6 rounded-2xl flex gap-4 justify-end items-center">
-            {saveSuccess && (
-              <span className="text-green-600 text-sm font-medium flex items-center gap-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Draft saved!
-              </span>
-            )}
-            {/* Save Draft Button - Only show for authenticated users */}
-            {!isTrialMode && (
-              <button 
-                onClick={handleSaveDraft}
-                disabled={saving || !currentCaseId}
-                className={`px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2 ${
-                  saving ? 'opacity-50 cursor-not-allowed' : ''
-                } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title={!currentCaseId ? 'Access from case dashboard to enable saving' : 'Save your draft'}
-              >
-                {saving ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Saving...
-                  </>
-                ) : (
-                  'Save Draft'
-                )}
-              </button>
-            )}
-            <button 
-              onClick={() => setShowPreview(true)}
-              className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              Preview Letter
+          <div className="glass p-6 rounded-2xl flex gap-4 justify-end">
+            <button className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300">
+              Save Draft
             </button>
             <button className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl">
-              Generate PDF
+              Preview Letter
             </button>
           </div>
         </div>
       </div>
       
       <Footer />
-      
-      {/* Preview Modal */}
-      <PreviewModal
-        isOpen={showPreview}
-        onClose={() => setShowPreview(false)}
-        sections={sections}
-        caseInfo={{
-          caseName: currentCase?.caseName,
-          caseNumber: currentCase?.caseNumber,
-          attorneyName: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.name,
-          stateBarNumber: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.barNumber,
-          email: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.email,
-          lawFirmName: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.firm,
-          address: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.address,
-          phone: currentCase?.plaintiffs?.[0]?.attorneys?.[0]?.phone,
-        }}
-      />
-
-      {/* AI Edit Chat Modal */}
-      {editingSection && (
-        <AIEditChatModal
-          isOpen={aiChatOpen}
-          onClose={() => {
-            setAiChatOpen(false);
-            setEditingSection(null);
-          }}
-          sectionId={editingSection.id}
-          sectionTitle={editingSection.title}
-          currentContent={editingSection.content}
-          caseDescription={getCaseDescriptionContent()}
-          caseId={isTrialMode ? trialCaseId : (currentCaseId || '')}
-          parties={{
-            client: currentCase?.client,
-            plaintiffs: currentCase?.plaintiffs,
-            defendants: currentCase?.defendants,
-          }}
-          onApplyEdit={handleApplyAIEdit}
-        />
-      )}
     </div>
   );
 }
+
+
+
+
+
