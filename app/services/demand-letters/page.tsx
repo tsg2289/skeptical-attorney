@@ -7,14 +7,32 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import PreviewModal from './components/PreviewModal';
 import AIEditChatModal from './components/AIEditChatModal';
-import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage';
+import { supabaseCaseStorage, CaseFrontend, Attorney } from '@/lib/supabase/caseStorage';
 import { createClient } from '@/lib/supabase/client';
 import { useTrialMode } from '@/lib/contexts/TrialModeContext';
+import { userProfileStorage, UserProfile } from '@/lib/supabase/userProfileStorage';
 
 interface CardSection {
   id: string;
   title: string;
   content: string;
+}
+
+interface Recipient {
+  id: string;
+  name: string;
+  firm: string;
+  address: string;
+  phone: string;
+  email: string;
+}
+
+type SendViaOption = 'Email' | 'Certified Mail' | 'Regular Mail' | 'Fax' | 'Hand Delivery';
+
+interface REInfo {
+  caseName: string;
+  dateOfLoss: string;
+  caseNumber: string;
 }
 
 // UUID regex for security validation
@@ -94,13 +112,82 @@ function DemandLetterPageContent() {
   const [showPreview, setShowPreview] = useState(false);
   const [editingSection, setEditingSection] = useState<{id: string; title: string} | null>(null);
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null);
+  const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [recipients, setRecipients] = useState<Recipient[]>([
+    { id: '1', name: '', firm: '', address: '', phone: '', email: '' }
+  ]);
+  const [sendVia, setSendVia] = useState<SendViaOption>('Certified Mail');
+  const [availableAttorneys, setAvailableAttorneys] = useState<Attorney[]>([]);
+  const [selectedAttorneyIds, setSelectedAttorneyIds] = useState<Record<string, string>>({ '1': 'manual' });
+  const [reInfo, setReInfo] = useState<REInfo>({
+    caseName: '',
+    dateOfLoss: '',
+    caseNumber: '',
+  });
 
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto';
     textarea.style.height = `${Math.max(192, textarea.scrollHeight)}px`; // min height of 192px (h-48)
+  };
+
+  // Handle attorney selection from dropdown for a specific recipient
+  const handleAttorneySelect = (recipientId: string, attorneyId: string) => {
+    setSelectedAttorneyIds(prev => ({ ...prev, [recipientId]: attorneyId }));
+    
+    if (attorneyId === 'manual') {
+      // Clear fields for manual entry
+      setRecipients(prev => prev.map(r => 
+        r.id === recipientId 
+          ? { ...r, name: '', firm: '', address: '', phone: '', email: '' }
+          : r
+      ));
+      return;
+    }
+    
+    const attorney = availableAttorneys.find(a => a.id === attorneyId);
+    if (attorney) {
+      setRecipients(prev => prev.map(r => 
+        r.id === recipientId 
+          ? { 
+              ...r, 
+              name: attorney.name || '', 
+              firm: attorney.firm || '', 
+              address: attorney.address || '', 
+              phone: attorney.phone || '', 
+              email: attorney.email || '' 
+            }
+          : r
+      ));
+    }
+  };
+
+  // Update a specific recipient field
+  const updateRecipient = (recipientId: string, field: keyof Recipient, value: string) => {
+    setRecipients(prev => prev.map(r => 
+      r.id === recipientId ? { ...r, [field]: value } : r
+    ));
+  };
+
+  // Add a new recipient
+  const addRecipient = () => {
+    const newId = Date.now().toString();
+    setRecipients(prev => [...prev, { id: newId, name: '', firm: '', address: '', phone: '', email: '' }]);
+    setSelectedAttorneyIds(prev => ({ ...prev, [newId]: 'manual' }));
+  };
+
+  // Remove a recipient
+  const removeRecipient = (recipientId: string) => {
+    if (recipients.length <= 1) return; // Keep at least one recipient
+    setRecipients(prev => prev.filter(r => r.id !== recipientId));
+    setSelectedAttorneyIds(prev => {
+      const newIds = { ...prev };
+      delete newIds[recipientId];
+      return newIds;
+    });
   };
 
   const updateSection = (id: string, field: 'title' | 'content', value: string) => {
@@ -277,6 +364,21 @@ function DemandLetterPageContent() {
     });
   }, [sections]);
 
+  // Load user profile for letterhead info
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const profile = await userProfileStorage.getProfile();
+        if (profile) {
+          setUserProfile(profile);
+        }
+      } catch (error) {
+        console.error('Error loading user profile:', error);
+      }
+    };
+    loadUserProfile();
+  }, []);
+
   // Load case data from caseId if provided
   useEffect(() => {
     const loadCase = async () => {
@@ -303,20 +405,51 @@ function DemandLetterPageContent() {
           if (foundCase) {
             console.log(`[AUDIT] Demand letter page accessed for case: ${caseId}`);
             setCurrentCaseId(caseId);
+            setCurrentCase(foundCase);
             
             // Load saved demand letter sections if they exist
             if (foundCase.demandLetterSections && foundCase.demandLetterSections.length > 0) {
               setSections(foundCase.demandLetterSections);
             } else if (foundCase.facts) {
-              // If no saved sections, populate case description with case facts
+              // No saved sections but have facts - populate case description only, clear others
               setSections(prevSections =>
                 prevSections.map(section =>
                   section.id === '0'
-                    ? { ...section, content: foundCase.facts || section.content }
-                    : section
+                    ? { ...section, content: foundCase.facts || '' }
+                    : { ...section, content: '' }
                 )
               );
             }
+            
+            // Collect all attorneys from all defendants
+            const allAttorneys: Attorney[] = [];
+            foundCase.defendants?.forEach(defendant => {
+              if (defendant.attorneys) {
+                allAttorneys.push(...defendant.attorneys);
+              }
+            });
+            setAvailableAttorneys(allAttorneys);
+            
+            // Auto-select first attorney if available
+            const firstAttorney = allAttorneys[0];
+            if (firstAttorney) {
+              setSelectedAttorneyIds({ '1': firstAttorney.id });
+              setRecipients([{
+                id: '1',
+                name: firstAttorney.name || '',
+                firm: firstAttorney.firm || '',
+                address: firstAttorney.address || '',
+                phone: firstAttorney.phone || '',
+                email: firstAttorney.email || '',
+              }]);
+            }
+            
+            // Populate RE: section info from case
+            setReInfo({
+              caseName: foundCase.caseName || '',
+              dateOfLoss: '', // User will need to enter this
+              caseNumber: foundCase.caseNumber || '',
+            });
           }
         }
       }
@@ -385,6 +518,38 @@ function DemandLetterPageContent() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <Header />
       
+      {/* Case Name Header - Only show when accessed from case dashboard */}
+      {currentCase && !isTrialMode && searchParams?.get('caseId') && (
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Link 
+                  href={`/dashboard/cases/${currentCase.id}`}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </Link>
+                <div>
+                  <h2 className="text-xl font-bold">{currentCase.caseName}</h2>
+                  {currentCase.caseNumber && (
+                    <p className="text-sm text-blue-100">Case #: {currentCase.caseNumber}</p>
+                  )}
+                </div>
+              </div>
+              <Link
+                href={`/dashboard/cases/${currentCase.id}`}
+                className="text-sm hover:underline text-blue-100"
+              >
+                Back to Case
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-screen p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
@@ -394,6 +559,220 @@ function DemandLetterPageContent() {
               <p className="text-gray-600 mt-1">Create your demand letter using the card-based interface</p>
             </div>
           </header>
+
+          {/* Recipient Card - Who the demand letter is sent to */}
+          <div className="mb-8">
+            <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="text-blue-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-semibold text-gray-900">Recipient Information</h2>
+                </div>
+                <button
+                  onClick={addRecipient}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Add Recipient
+                </button>
+              </div>
+              
+              {/* Send Via - Applies to all recipients */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Send Via</label>
+                <select
+                  value={sendVia}
+                  onChange={(e) => setSendVia(e.target.value as SendViaOption)}
+                  className="w-full md:w-1/2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="Certified Mail">Certified Mail, Return Receipt Requested</option>
+                  <option value="Email">Email</option>
+                  <option value="Regular Mail">Regular Mail</option>
+                  <option value="Fax">Fax</option>
+                  <option value="Hand Delivery">Hand Delivery</option>
+                </select>
+              </div>
+
+              {/* Recipients List */}
+              <div className="space-y-4">
+                {recipients.map((recipient, index) => (
+                  <div key={recipient.id} className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-medium text-gray-600">Recipient {index + 1}</span>
+                      {recipients.length > 1 && (
+                        <button
+                          onClick={() => removeRecipient(recipient.id)}
+                          className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded transition-colors"
+                          title="Remove recipient"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Recipient - Dropdown with attorneys from case */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          {availableAttorneys.length > 0 ? 'Select Recipient' : 'Recipient Name'}
+                        </label>
+                        {availableAttorneys.length > 0 ? (
+                          <select
+                            value={selectedAttorneyIds[recipient.id] || 'manual'}
+                            onChange={(e) => handleAttorneySelect(recipient.id, e.target.value)}
+                            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="manual">-- Enter Manually --</option>
+                            {availableAttorneys.map(attorney => (
+                              <option key={attorney.id} value={attorney.id}>
+                                {attorney.name}{attorney.firm ? ` (${attorney.firm})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            value={recipient.name}
+                            onChange={(e) => updateRecipient(recipient.id, 'name', e.target.value)}
+                            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Attorney Name"
+                          />
+                        )}
+                      </div>
+                      
+                      {/* Recipient Name - Show when manual entry is selected */}
+                      {availableAttorneys.length > 0 && selectedAttorneyIds[recipient.id] === 'manual' && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Recipient Name</label>
+                          <input
+                            type="text"
+                            value={recipient.name}
+                            onChange={(e) => updateRecipient(recipient.id, 'name', e.target.value)}
+                            className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Attorney Name"
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Law Firm / Company */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Law Firm / Company</label>
+                        <input
+                          type="text"
+                          value={recipient.firm}
+                          onChange={(e) => updateRecipient(recipient.id, 'firm', e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Law Firm or Insurance Company"
+                        />
+                      </div>
+                      
+                      {/* Address */}
+                      <div className="md:col-span-2">
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Address</label>
+                        <input
+                          type="text"
+                          value={recipient.address}
+                          onChange={(e) => updateRecipient(recipient.id, 'address', e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Street Address, City, State ZIP"
+                        />
+                      </div>
+                      
+                      {/* Phone */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Phone</label>
+                        <input
+                          type="text"
+                          value={recipient.phone}
+                          onChange={(e) => updateRecipient(recipient.id, 'phone', e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="(555) 555-5555"
+                        />
+                      </div>
+                      
+                      {/* Email */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={recipient.email}
+                          onChange={(e) => updateRecipient(recipient.id, 'email', e.target.value)}
+                          className="w-full px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="email@lawfirm.com"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* RE: Section Card */}
+          <div className="mb-8">
+            <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="text-blue-600">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-semibold text-gray-900">RE: Section</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Confidential Label */}
+                <div className="md:col-span-2">
+                  <div className="px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl">
+                    <span className="text-sm font-semibold text-blue-700">CONFIDENTIAL DEMAND LETTER</span>
+                  </div>
+                </div>
+                
+                {/* Case Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Case Name</label>
+                  <input
+                    type="text"
+                    value={reInfo.caseName}
+                    onChange={(e) => setReInfo(prev => ({ ...prev, caseName: e.target.value }))}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Smith v. Jones"
+                  />
+                </div>
+                
+                {/* Date of Loss */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Date of Loss</label>
+                  <input
+                    type="date"
+                    value={reInfo.dateOfLoss}
+                    onChange={(e) => setReInfo(prev => ({ ...prev, dateOfLoss: e.target.value }))}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                {/* Case Number */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Case/Claim Number</label>
+                  <input
+                    type="text"
+                    value={reInfo.caseNumber}
+                    onChange={(e) => setReInfo(prev => ({ ...prev, caseNumber: e.target.value }))}
+                    className="w-full px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Case number or claim number"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Case Description Section - Separate at Top */}
           {caseDescription && (
@@ -542,15 +921,15 @@ function DemandLetterPageContent() {
                       aria-label="Edit with AI"
                       title="Edit with AI Assistant"
                     >
-                      <svg 
-                        className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
-                        fill="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
-                        <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
-                        <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
-                      </svg>
+                        <svg 
+                          className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
+                          fill="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                          <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+                          <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
+                        </svg>
                     </button>
                   </div>
                   {aiError && section.id === '1' && (
@@ -589,15 +968,7 @@ function DemandLetterPageContent() {
 
           {/* Action Buttons */}
           <div className="glass p-6 rounded-2xl flex flex-col gap-4">
-            {/* Save Status Messages */}
-            {saveSuccess && (
-              <div className="text-sm text-green-600 bg-green-50 p-3 rounded-lg border border-green-200 flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Draft saved successfully!
-              </div>
-            )}
+            {/* Error message stays as banner */}
             {saveError && (
               <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -607,13 +978,18 @@ function DemandLetterPageContent() {
               </div>
             )}
             
-            <div className="flex gap-4 justify-end">
+            <div className="flex gap-4 justify-end items-center">
               <button 
                 onClick={handleSaveDraft}
                 disabled={saving || !currentCaseId}
-                className={`px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2 ${
+                className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
                   saving ? 'opacity-50 cursor-not-allowed' : ''
-                } ${!currentCaseId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${!currentCaseId 
+                  ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
+                  : saveSuccess 
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
                 title={!currentCaseId ? 'Access from case dashboard to enable saving' : 'Save draft to case'}
               >
                 {saving ? (
@@ -622,18 +998,30 @@ function DemandLetterPageContent() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Saving...
+                    <span>Saving...</span>
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Saved!</span>
                   </>
                 ) : (
-                  'Save Draft'
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    <span>Save Draft</span>
+                  </>
                 )}
-              </button>
+            </button>
               <button 
                 onClick={() => setShowPreview(true)}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
               >
-                Preview Letter
-              </button>
+              Preview Letter
+            </button>
             </div>
           </div>
         </div>
@@ -646,6 +1034,17 @@ function DemandLetterPageContent() {
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
         sections={sections}
+        caseInfo={{
+          attorneyName: userProfile?.fullName || undefined,
+          lawFirmName: userProfile?.firmName || undefined,
+          stateBarNumber: userProfile?.barNumber || undefined,
+          address: userProfile?.firmAddress || undefined,
+          phone: userProfile?.firmPhone || undefined,
+          email: userProfile?.firmEmail || undefined,
+        }}
+        recipients={recipients}
+        sendVia={sendVia}
+        reInfo={reInfo}
       />
 
       {/* AI Edit Chat Modal */}

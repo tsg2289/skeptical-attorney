@@ -11,16 +11,37 @@ export interface DemandLetterSection {
   content: string
 }
 
+interface Recipient {
+  id: string
+  name: string
+  firm: string
+  address: string
+  phone: string
+  email: string
+}
+
+interface REInfo {
+  caseName: string
+  dateOfLoss: string
+  caseNumber: string
+}
+
 export interface DemandLetterData {
   sections: DemandLetterSection[]
   caseName?: string
   caseNumber?: string
+  // Sender (attorney) info
   attorneyName?: string
   stateBarNumber?: string
   email?: string
   lawFirmName?: string
   address?: string
   phone?: string
+  // Recipients info (multiple)
+  recipients?: Recipient[]
+  sendVia?: string
+  // RE: section info
+  reInfo?: REInfo
 }
 
 export function generateDemandLetterDocument(data: DemandLetterData): Document {
@@ -32,6 +53,11 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
     lawFirmName = "[LAW FIRM NAME]",
     address = "[Address]",
     phone = "[Phone Number]",
+    // Recipients info (multiple)
+    recipients = [],
+    sendVia = "Certified Mail",
+    // RE: section info
+    reInfo,
   } = data
 
   const children: Paragraph[] = []
@@ -73,7 +99,23 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
         }),
       ],
       alignment: AlignmentType.CENTER,
-      spacing: { after: 200 },
+      spacing: { after: 100 },
+    })
+  )
+
+  // Horizontal line separator after letterhead
+  children.push(
+    new Paragraph({
+      children: [],
+      border: {
+        bottom: {
+          color: '000000',
+          space: 1,
+          style: BorderStyle.SINGLE,
+          size: 6,
+        },
+      },
+      spacing: { after: 300 },
     })
   )
 
@@ -90,7 +132,198 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
           size: 24,
         }),
       ],
-      spacing: { after: 400 },
+      spacing: { after: 200 },
+    })
+  )
+
+  // Send Via
+  if (sendVia) {
+    const sendViaText = sendVia === 'Certified Mail' 
+      ? 'VIA CERTIFIED MAIL, RETURN RECEIPT REQUESTED'
+      : `VIA ${sendVia.toUpperCase()}`
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: sendViaText,
+            bold: true,
+            size: 24,
+          }),
+        ],
+        spacing: { after: 200 },
+      })
+    )
+  }
+
+  // Recipients Address Blocks (multiple)
+  if (recipients && recipients.length > 0) {
+    recipients.forEach((recipient, index) => {
+      // Add spacing between recipients
+      if (index > 0) {
+        children.push(
+          new Paragraph({
+            children: [],
+            spacing: { after: 150 },
+          })
+        )
+      }
+      
+      if (recipient.name) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: recipient.name,
+                size: 24,
+              }),
+            ],
+            spacing: { after: 50 },
+          })
+        )
+      }
+      if (recipient.firm) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: recipient.firm,
+                size: 24,
+              }),
+            ],
+            spacing: { after: 50 },
+          })
+        )
+      }
+      if (recipient.address) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: recipient.address,
+                size: 24,
+              }),
+            ],
+            spacing: { after: 50 },
+          })
+        )
+      }
+      if (recipient.email) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: recipient.email,
+                size: 24,
+              }),
+            ],
+            spacing: { after: 50 },
+          })
+        )
+      }
+    })
+    
+    // Add spacing after all recipients
+    children.push(
+      new Paragraph({
+        children: [],
+        spacing: { after: 150 },
+      })
+    )
+  }
+
+  // RE: Section
+  if (reInfo && (reInfo.caseName || reInfo.dateOfLoss || reInfo.caseNumber)) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: 'RE:',
+            bold: true,
+            size: 24,
+          }),
+        ],
+        spacing: { after: 50 },
+      })
+    )
+
+    // Confidential Demand Letter
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: '     CONFIDENTIAL DEMAND LETTER',
+            bold: true,
+            size: 24,
+          }),
+        ],
+        spacing: { after: 50 },
+      })
+    )
+
+    // Case Name
+    if (reInfo.caseName) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `     Case: ${reInfo.caseName}`,
+              size: 24,
+            }),
+          ],
+          spacing: { after: 50 },
+        })
+      )
+    }
+
+    // Date of Loss
+    if (reInfo.dateOfLoss) {
+      const formattedDate = new Date(reInfo.dateOfLoss).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `     Date of Loss: ${formattedDate}`,
+              size: 24,
+            }),
+          ],
+          spacing: { after: 50 },
+        })
+      )
+    }
+
+    // Case/Claim Number
+    if (reInfo.caseNumber) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: `     Our File No./Claim No.: ${reInfo.caseNumber}`,
+              size: 24,
+            }),
+          ],
+          spacing: { after: 50 },
+        })
+      )
+    }
+
+    // Add spacing after RE: section
+    children.push(
+      new Paragraph({
+        children: [],
+        spacing: { after: 150 },
+      })
+    )
+  }
+
+  // Spacing before content
+  children.push(
+    new Paragraph({
+      children: [],
+      spacing: { after: 200 },
     })
   )
 
@@ -102,8 +335,9 @@ export function generateDemandLetterDocument(data: DemandLetterData): Document {
         new Paragraph({
           children: [
             new TextRun({
-              text: section.title,
+              text: `${section.title.toUpperCase()}:`,
               bold: true,
+              underline: {},
               size: 24,
             }),
           ],
