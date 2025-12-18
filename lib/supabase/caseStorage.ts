@@ -155,6 +155,10 @@ export interface CaseFrontend {
   juryTrial?: boolean
   courtCounty?: string
   court?: string
+  judgeName?: string
+  departmentNumber?: string
+  complaintFiledDate?: string
+  includeDoes?: boolean
   deadlines: Deadline[]
   plaintiffs: Party[]
   defendants: Party[]
@@ -182,6 +186,10 @@ function mapCaseFromDb(dbCase: any): CaseFrontend {
     juryTrial: dbCase.jury_trial,
     courtCounty: dbCase.court_county,
     court: dbCase.court,
+    judgeName: dbCase.judge_name,
+    departmentNumber: dbCase.department_number,
+    complaintFiledDate: dbCase.complaint_filed_date,
+    includeDoes: dbCase.include_does ?? true,
     deadlines: dbCase.deadlines || [],
     plaintiffs: dbCase.plaintiffs || [],
     defendants: dbCase.defendants || [],
@@ -210,6 +218,10 @@ function mapCaseToDb(updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'crea
   if (updates.juryTrial !== undefined) dbUpdates.jury_trial = updates.juryTrial
   if (updates.courtCounty !== undefined) dbUpdates.court_county = updates.courtCounty
   if (updates.court !== undefined) dbUpdates.court = updates.court
+  if (updates.judgeName !== undefined) dbUpdates.judge_name = updates.judgeName
+  if (updates.departmentNumber !== undefined) dbUpdates.department_number = updates.departmentNumber
+  if (updates.complaintFiledDate !== undefined) dbUpdates.complaint_filed_date = updates.complaintFiledDate
+  if (updates.includeDoes !== undefined) dbUpdates.include_does = updates.includeDoes
   if (updates.deadlines !== undefined) dbUpdates.deadlines = updates.deadlines
   if (updates.plaintiffs !== undefined) dbUpdates.plaintiffs = updates.plaintiffs
   if (updates.defendants !== undefined) dbUpdates.defendants = updates.defendants

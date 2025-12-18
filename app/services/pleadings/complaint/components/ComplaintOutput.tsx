@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, ListOrdered } from 'lucide-react'
 import { CaseFrontend, supabaseCaseStorage, ComplaintSection } from '@/lib/supabase/caseStorage'
 import { downloadComplaintDocument, ComplaintData } from '@/lib/docx-generator'
 import { userProfileStorage } from '@/lib/supabase/userProfileStorage'
 import AIEditChatModal from './AIEditChatModal'
+import CaseCaptionCard, { CaseCaptionData } from './CaseCaptionCard'
 
 interface ComplaintOutputProps {
   complaint: string
@@ -48,6 +49,146 @@ export default function ComplaintOutput({
   // Track if we've initialized from trial sections
   const initializedFromTrial = useRef(false)
 
+  // Case Caption Card state
+  const [captionData, setCaptionData] = useState<CaseCaptionData>({
+    attorneys: [{
+      id: '1',
+      name: '',
+      barNumber: '',
+      firm: '',
+      address: '',
+      phone: '',
+      fax: '',
+      email: '',
+    }],
+    plaintiffs: [''],
+    defendants: [''],
+    includeDoes: caseData?.includeDoes ?? true,
+    county: caseData?.courtCounty || 'Los Angeles',
+    caseNumber: caseData?.caseNumber || '',
+    judgeName: caseData?.judgeName || '',
+    departmentNumber: caseData?.departmentNumber || '',
+    documentType: 'COMPLAINT',
+    demandJuryTrial: true,
+    complaintFiledDate: caseData?.complaintFiledDate || '',
+    trialDate: caseData?.trialDate || '',
+  })
+
+  // Initialize caption data from caseData
+  useEffect(() => {
+    if (caseData) {
+      // Extract all attorneys from all plaintiffs
+      const allAttorneys = caseData.plaintiffs?.flatMap(p => 
+        p.attorneys?.map(att => ({
+          id: att.id || String(Date.now()),
+          name: att.name || '',
+          barNumber: att.barNumber || '',
+          firm: att.firm || '',
+          address: att.address || '',
+          phone: att.phone || '',
+          fax: '',
+          email: att.email || '',
+        })) || []
+      ) || []
+
+      setCaptionData(prev => ({
+        ...prev,
+        attorneys: allAttorneys.length > 0 ? allAttorneys : prev.attorneys,
+        plaintiffs: caseData.plaintiffs?.map(p => p.name).filter(Boolean) || 
+                    (caseData.client ? [caseData.client] : prev.plaintiffs),
+        defendants: caseData.defendants?.map(d => d.name).filter(Boolean) || prev.defendants,
+        includeDoes: caseData.includeDoes ?? prev.includeDoes,
+        county: caseData.courtCounty || 'Los Angeles',
+        caseNumber: caseData.caseNumber || '',
+        judgeName: caseData.judgeName || prev.judgeName,
+        departmentNumber: caseData.departmentNumber || prev.departmentNumber,
+        complaintFiledDate: caseData.complaintFiledDate || prev.complaintFiledDate,
+        trialDate: caseData.trialDate || prev.trialDate,
+      }))
+    }
+  }, [caseData])
+
+  // Debounced save for caption fields
+  const saveCaptionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  
+  // Handler for CaseCaptionCard changes
+  const handleCaptionChange = useCallback((data: CaseCaptionData) => {
+    setCaptionData(data)
+    // Update the header section content with the new data
+    setSections(prev => prev.map(section => {
+      if (section.type === 'header') {
+        const headerContent = buildHeaderContent(data)
+        return { ...section, content: headerContent }
+      }
+      return section
+    }))
+    
+    // Auto-save caption fields to database (debounced)
+    if (caseData?.id && !isTrialMode) {
+      if (saveCaptionTimeoutRef.current) {
+        clearTimeout(saveCaptionTimeoutRef.current)
+      }
+      saveCaptionTimeoutRef.current = setTimeout(async () => {
+        try {
+          await supabaseCaseStorage.updateCase(caseData.id, {
+            judgeName: data.judgeName || undefined,
+            departmentNumber: data.departmentNumber || undefined,
+            complaintFiledDate: data.complaintFiledDate || undefined,
+            trialDate: data.trialDate || undefined,
+            includeDoes: data.includeDoes,
+          })
+        } catch (err) {
+          console.error('Failed to auto-save caption fields:', err)
+        }
+      }, 1000) // 1 second debounce
+    }
+  }, [caseData?.id, isTrialMode])
+
+  // Build header content from caption data
+  const buildHeaderContent = (data: CaseCaptionData): string => {
+    const lines: string[] = []
+    
+    // Attorney info (use first attorney for header display)
+    const primaryAttorney = data.attorneys[0]
+    if (primaryAttorney?.name) {
+      lines.push(`${primaryAttorney.name.toUpperCase()}, State Bar No. ${primaryAttorney.barNumber}`)
+    }
+    if (primaryAttorney?.email) lines.push(primaryAttorney.email)
+    if (primaryAttorney?.firm) lines.push(primaryAttorney.firm.toUpperCase())
+    if (primaryAttorney?.address) lines.push(primaryAttorney.address)
+    if (primaryAttorney?.phone) lines.push(`Telephone: ${primaryAttorney.phone}`)
+    lines.push('')
+    
+    // Join plaintiff names
+    const plaintiffNames = data.plaintiffs.filter(Boolean).join(', ') || '[PLAINTIFF NAME]'
+    lines.push(`Attorney for Plaintiff ${plaintiffNames}`)
+    lines.push('')
+    
+    // Court header
+    lines.push('SUPERIOR COURT OF CALIFORNIA')
+    lines.push(`COUNTY OF ${data.county.toUpperCase()}`)
+    lines.push('')
+    
+    // Parties
+    lines.push(plaintiffNames)
+    lines.push(`    Plaintiff${data.plaintiffs.filter(Boolean).length > 1 ? 's' : ''},`)
+    lines.push('')
+    lines.push('v.')
+    lines.push('')
+    const defendantNames = data.defendants.filter(Boolean).join(', ') || '[DEFENDANT NAME]'
+    lines.push(defendantNames)
+    lines.push(`    Defendant${data.defendants.filter(Boolean).length > 1 ? 's' : ''}.`)
+    lines.push('')
+    lines.push(`Case No. ${data.caseNumber}`)
+    lines.push('')
+    lines.push(data.documentType)
+    if (data.demandJuryTrial) {
+      lines.push('[DEMAND FOR JURY TRIAL]')
+    }
+    
+    return lines.join('\n')
+  }
+
   // Load saved sections if they exist, otherwise parse from complaint
   useEffect(() => {
     if (isTrialMode && trialSections.length > 0 && !initializedFromTrial.current) {
@@ -56,7 +197,39 @@ export default function ComplaintOutput({
       initializedFromTrial.current = true
     } else if (!isTrialMode && caseData?.complaintSections && caseData.complaintSections.length > 0) {
       // Use saved sections from database
-      setSections(caseData.complaintSections as ComplaintSection[])
+      let savedSections = caseData.complaintSections as ComplaintSection[]
+      
+      // Ensure General Factual Allegations exists in saved sections
+      const hasGeneralFactual = savedSections.some(s => s.type === 'factual' && s.title.toLowerCase().includes('general'))
+      
+      if (!hasGeneralFactual) {
+        const headerIndex = savedSections.findIndex(s => s.type === 'header')
+        const jurisdictionIndex = savedSections.findIndex(s => s.type === 'jurisdiction')
+        const venueIndex = savedSections.findIndex(s => s.type === 'venue')
+        const firstCauseIndex = savedSections.findIndex(s => s.type === 'cause')
+        
+        let insertIndex = 1
+        if (venueIndex >= 0) insertIndex = venueIndex + 1
+        else if (jurisdictionIndex >= 0) insertIndex = jurisdictionIndex + 1
+        else if (headerIndex >= 0) insertIndex = headerIndex + 1
+        
+        if (firstCauseIndex >= 0 && insertIndex > firstCauseIndex) insertIndex = firstCauseIndex
+        if (insertIndex > savedSections.length) insertIndex = savedSections.length
+        
+        savedSections = [
+          ...savedSections.slice(0, insertIndex),
+          {
+            id: String(Date.now()),
+            title: 'General Factual Allegations',
+            content: 'The following allegations are common to all causes of action:\n\n1. [Add factual allegations that apply to all causes of action]',
+            isExpanded: true,
+            type: 'factual'
+          },
+          ...savedSections.slice(insertIndex)
+        ]
+      }
+      
+      setSections(savedSections)
     } else if (complaint) {
       // Parse from generated complaint
       const parsedSections = parseComplaintIntoSections(complaint)
@@ -250,29 +423,35 @@ export default function ComplaintOutput({
       }
       // Check for Prayer for Relief
       else if (cleanLine.match(/^PRAYER\s+(FOR\s+RELIEF)?/i) || cleanLine.match(/^WHEREFORE/i)) {
-        // Save any pending general factual
-        if (inGeneralFactual && generalFactualContent.length > 0) {
-          result.push({
-            id: String(sectionId++),
-            title: 'General Factual Allegations',
-            content: generalFactualContent.join('\n'),
-            isExpanded: true,
-            type: 'factual'
-          })
-          inGeneralFactual = false
-          generalFactualContent = []
+        // Only create new prayer section if we're NOT already in a prayer section
+        if (currentSection?.type === 'prayer') {
+          // Already in prayer section, just add this line to it
+          currentSection.lines.push(lines[i])
+        } else {
+          // Save any pending general factual
+          if (inGeneralFactual && generalFactualContent.length > 0) {
+            result.push({
+              id: String(sectionId++),
+              title: 'General Factual Allegations',
+              content: generalFactualContent.join('\n'),
+              isExpanded: true,
+              type: 'factual'
+            })
+            inGeneralFactual = false
+            generalFactualContent = []
+          }
+          
+          if (currentSection) {
+            result.push({
+              id: String(sectionId++),
+              title: currentSection.title,
+              content: currentSection.lines.join('\n'),
+              isExpanded: true,
+              type: currentSection.type
+            })
+          }
+          currentSection = { id: String(sectionId), title: 'Prayer for Relief', lines: [lines[i]], type: 'prayer' }
         }
-        
-        if (currentSection) {
-          result.push({
-            id: String(sectionId++),
-            title: currentSection.title,
-            content: currentSection.lines.join('\n'),
-            isExpanded: true,
-            type: currentSection.type
-          })
-        }
-        currentSection = { id: String(sectionId), title: 'Prayer for Relief', lines: [lines[i]], type: 'prayer' }
       }
       // Check for Jury Demand
       else if (cleanLine.match(/^JURY\s+DEMAND/i) || cleanLine.match(/^DEMAND\s+FOR\s+JURY/i)) {
@@ -331,6 +510,45 @@ export default function ComplaintOutput({
         content: currentSection.lines.join('\n'),
         isExpanded: true,
         type: currentSection.type
+      })
+    }
+    
+    // Ensure General Factual Allegations section exists between Jurisdiction and First Cause
+    const hasGeneralFactual = result.some(s => s.type === 'factual' && s.title.toLowerCase().includes('general'))
+
+    if (!hasGeneralFactual) {
+      // Find the best position: after header/jurisdiction/venue, before causes
+      const headerIndex = result.findIndex(s => s.type === 'header')
+      const jurisdictionIndex = result.findIndex(s => s.type === 'jurisdiction')
+      const venueIndex = result.findIndex(s => s.type === 'venue')
+      const firstCauseIndex = result.findIndex(s => s.type === 'cause')
+      
+      // Determine insert position
+      let insertIndex = 1 // Default: after header
+      if (venueIndex >= 0) {
+        insertIndex = venueIndex + 1
+      } else if (jurisdictionIndex >= 0) {
+        insertIndex = jurisdictionIndex + 1
+      } else if (headerIndex >= 0) {
+        insertIndex = headerIndex + 1
+      }
+      
+      // If there's a first cause, make sure we insert before it
+      if (firstCauseIndex >= 0 && insertIndex > firstCauseIndex) {
+        insertIndex = firstCauseIndex
+      }
+      
+      // Make sure we don't insert beyond array bounds
+      if (insertIndex > result.length) {
+        insertIndex = result.length
+      }
+      
+      result.splice(insertIndex, 0, {
+        id: String(sectionId++),
+        title: 'General Factual Allegations',
+        content: 'The following allegations are common to all causes of action:\n\n1. [Add factual allegations that apply to all causes of action]',
+        isExpanded: true,
+        type: 'factual'
       })
     }
     
@@ -449,6 +667,11 @@ export default function ComplaintOutput({
     }])
   }
 
+  // Renumber all paragraphs across all sections
+  const handleRenumberAll = () => {
+    setSections(prev => renumberSections(prev))
+  }
+
   const getFullComplaint = () => {
     return sections.map(s => s.content).join('\n\n')
   }
@@ -545,9 +768,12 @@ export default function ComplaintOutput({
   const ordinalWords = ['FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH', 'SIXTH', 'SEVENTH', 'EIGHTH', 'NINTH', 'TENTH', 'ELEVENTH', 'TWELFTH', 'THIRTEENTH', 'FOURTEENTH', 'FIFTEENTH']
 
   // Renumber all paragraph numbers and cause of action ordinals
+  // Prayer for Relief uses separate numbering that starts from 1
   const renumberSections = (sectionsToRenumber: ComplaintSection[]): ComplaintSection[] => {
     let paragraphNumber = 1
+    let prayerNumber = 1
     let causeNumber = 0
+    let inPrayerSection = false
 
     return sectionsToRenumber.map(section => {
       let newContent = section.content
@@ -558,8 +784,15 @@ export default function ComplaintOutput({
         return section
       }
 
+      // Check if we're entering Prayer for Relief section
+      if (section.type === 'prayer' || section.title.toLowerCase().includes('prayer')) {
+        inPrayerSection = true
+        prayerNumber = 1 // Reset prayer numbering
+      }
+
       // Update cause of action ordinal in title and content
       if (section.type === 'cause') {
+        inPrayerSection = false // Reset - we're back in main body
         const oldOrdinalMatch = section.title.match(/^(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|THIRTEENTH|FOURTEENTH|FIFTEENTH)\s+CAUSE\s+OF\s+ACTION/i)
         if (oldOrdinalMatch) {
           const newOrdinal = ordinalWords[causeNumber] || `${causeNumber + 1}TH`
@@ -583,8 +816,14 @@ export default function ComplaintOutput({
         const match = line.match(/^(\s*)(\d+)\.\s+(.*)$/)
         if (match) {
           const [, whitespace, , rest] = match
-          const newLine = `${whitespace}${paragraphNumber}. ${rest}`
-          paragraphNumber++
+          // Use prayer numbering for Prayer for Relief section, body numbering otherwise
+          const currentNumber = inPrayerSection ? prayerNumber : paragraphNumber
+          const newLine = `${whitespace}${currentNumber}. ${rest}`
+          if (inPrayerSection) {
+            prayerNumber++
+          } else {
+            paragraphNumber++
+          }
           return newLine
         }
         return line
@@ -641,32 +880,43 @@ Executed on [DATE], at [CITY], California.
 
   const handleDownloadWord = async () => {
     try {
-      // Load user profile for attorney info (will be empty in trial mode)
-      const profile = isTrialMode ? null : await userProfileStorage.getProfile()
+      // Exclude header section from complaint text (docx-generator creates its own formatted header)
+      const bodyContent = sections
+        .filter(s => s.type !== 'header')
+        .map(s => s.content)
+        .join('\n\n')
+      const cleanedComplaint = cleanComplaintText(bodyContent)
       
-      const cleanedComplaint = cleanComplaintText(getFullComplaint())
+      // Join multiple plaintiffs/defendants for the Word document
+      const plaintiffNames = captionData.plaintiffs.filter(Boolean).join(', ') || '[PLAINTIFF NAME]'
+      const defendantNames = captionData.defendants.filter(Boolean).join(', ') || '[DEFENDANT NAME]'
       
-      // Get plaintiff and defendant names from case data or parse from complaint
-      let plaintiffName = '[PLAINTIFF NAME]'
-      let defendantName = '[DEFENDANT NAME]'
+      // Use first attorney for Word document header (primary attorney)
+      const primaryAttorney = captionData.attorneys[0]
       
-      if (caseData && !isTrialMode) {
-        plaintiffName = caseData.plaintiffs?.map(p => p.name).filter(Boolean).join(', ') || plaintiffName
-        defendantName = caseData.defendants?.map(d => d.name).filter(Boolean).join(', ') || defendantName
-      }
+      // Format defendant names with Does if enabled
+      const defendantDisplay = captionData.includeDoes 
+        ? `${defendantNames}; and DOES 1 through 50, inclusive`
+        : defendantNames
       
+      // Use captionData from CaseCaptionCard for all header fields
       const complaintData: ComplaintData = {
-        plaintiffName,
-        defendantName,
+        plaintiffName: plaintiffNames,
+        defendantName: defendantDisplay,
         complaintText: cleanedComplaint,
-        attorneyName: profile?.fullName || undefined,
-        stateBarNumber: profile?.barNumber || undefined,
-        email: profile?.firmEmail || undefined,
-        lawFirmName: profile?.firmName || undefined,
-        address: profile?.firmAddress || undefined,
-        phone: profile?.firmPhone || undefined,
-        county: caseData?.courtCounty || 'LOS ANGELES',
-        caseNumber: caseData?.caseNumber || undefined,
+        attorneyName: primaryAttorney?.name || undefined,
+        stateBarNumber: primaryAttorney?.barNumber || undefined,
+        email: primaryAttorney?.email || undefined,
+        lawFirmName: primaryAttorney?.firm || undefined,
+        address: primaryAttorney?.address || undefined,
+        phone: primaryAttorney?.phone || undefined,
+        fax: primaryAttorney?.fax || undefined,
+        county: captionData.county || 'LOS ANGELES',
+        caseNumber: captionData.caseNumber || undefined,
+        judgeName: captionData.judgeName || undefined,
+        departmentNumber: captionData.departmentNumber || undefined,
+        complaintFiledDate: captionData.complaintFiledDate || undefined,
+        trialDate: captionData.trialDate || undefined,
         includeProofOfService: showProofOfService,
       }
       
@@ -790,6 +1040,14 @@ Executed on [DATE], at [CITY], California.
               <span className="text-sm">{showProofOfService ? 'Remove' : 'Add'} Proof of Service</span>
             </button>
             <button
+              onClick={handleRenumberAll}
+              className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
+              title="Renumber all paragraphs sequentially"
+            >
+              <ListOrdered className="w-4 h-4" />
+              <span className="text-sm">Renumber All</span>
+            </button>
+            <button
               onClick={handleDownloadWord}
               className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
             >
@@ -844,6 +1102,37 @@ Executed on [DATE], at [CITY], California.
       <div className="flex flex-col gap-6">
         {sections.map((section, index) => {
           const badge = getSectionBadge(section.type)
+          
+          // Render CaseCaptionCard for header section
+          if (section.type === 'header') {
+            return (
+              <div
+                key={section.id}
+                className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300"
+              >
+                {/* Section Header */}
+                <div className="flex justify-between items-center mb-4 gap-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Case Caption & Attorney Header</h3>
+                  </div>
+                  
+                  {/* Badge */}
+                  <span className={`px-3 py-1 ${badge.bg} ${badge.text} text-sm font-medium rounded-full whitespace-nowrap`}>
+                    {badge.label}
+                  </span>
+                </div>
+                
+                {/* CaseCaptionCard */}
+                <CaseCaptionCard
+                  initialData={captionData}
+                  onChange={handleCaptionChange}
+                  disabled={false}
+                />
+              </div>
+            )
+          }
+          
           return (
             <div
               key={section.id}

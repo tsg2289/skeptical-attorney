@@ -1669,6 +1669,10 @@ export interface ComplaintData {
   fax?: string
   county?: string
   caseNumber?: string
+  judgeName?: string
+  departmentNumber?: string
+  complaintFiledDate?: string
+  trialDate?: string
   includeProofOfService?: boolean
 }
 
@@ -1686,6 +1690,10 @@ export function generateComplaintDocument(data: ComplaintData): Document {
     fax = "[Fax Number]",
     county = "LOS ANGELES",
     caseNumber = "[Case No.]",
+    judgeName,
+    departmentNumber,
+    complaintFiledDate,
+    trialDate,
   } = data
 
   const children: (Paragraph | Table)[] = []
@@ -1903,6 +1911,8 @@ export function generateComplaintDocument(data: ComplaintData): Document {
             margins: { left: 200 },
             children: [
               createHeaderParagraph(`Case No. ${caseNumber}`),
+              ...(judgeName ? [createHeaderParagraph(`Honorable ${judgeName}`)] : []),
+              ...(departmentNumber ? [createHeaderParagraph(`Dept. ${departmentNumber}`)] : []),
               createHeaderParagraph(''),
               new Paragraph({
                 children: [
@@ -1917,6 +1927,8 @@ export function generateComplaintDocument(data: ComplaintData): Document {
               }),
               createHeaderParagraph(''),
               createHeaderParagraph('[DEMAND FOR JURY TRIAL]'),
+              ...(complaintFiledDate ? [createHeaderParagraph(''), createHeaderParagraph(`Complaint Filed: ${new Date(complaintFiledDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`)] : []),
+              ...(trialDate ? [createHeaderParagraph(''), createHeaderParagraph(`Trial Date: ${new Date(trialDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`)] : []),
             ],
           }),
         ],
