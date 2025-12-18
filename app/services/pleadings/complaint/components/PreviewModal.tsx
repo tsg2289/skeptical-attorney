@@ -83,6 +83,8 @@ export default function PreviewModal({
         complaintFiledDate: captionData.complaintFiledDate || undefined,
         trialDate: captionData.trialDate || undefined,
         includeProofOfService: showProofOfService,
+        causesOfAction: captionData.causesOfAction || [],
+        demandJuryTrial: captionData.demandJuryTrial,
       };
 
       await downloadComplaintDocument(complaintData);
@@ -191,9 +193,23 @@ export default function PreviewModal({
                       {captionData.departmentNumber && (
                         <p className="text-sm text-black">Dept. {captionData.departmentNumber}</p>
                       )}
-                      <p className="text-sm font-bold mt-4 text-black">{captionData.documentType}</p>
+                      
+                      {/* Document Type with Causes of Action */}
+                      <div className="mt-4">
+                        <p className="text-sm font-bold text-black uppercase">
+                          {captionData.documentType}{captionData.causesOfAction && captionData.causesOfAction.length > 0 ? ' FOR DAMAGES' : ''}
+                        </p>
+                        {captionData.causesOfAction && captionData.causesOfAction.length > 0 && (
+                          <div className="mt-2 text-xs text-black space-y-0.5">
+                            {captionData.causesOfAction.map((cause, index) => (
+                              <p key={index}>{index + 1}. {cause}</p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      
                       {captionData.demandJuryTrial && (
-                        <p className="text-sm font-bold text-black">[DEMAND FOR JURY TRIAL]</p>
+                        <p className="text-sm font-bold mt-2 text-black">DEMAND FOR JURY TRIAL</p>
                       )}
                       {captionData.complaintFiledDate && (
                         <p className="text-sm mt-4 text-black">

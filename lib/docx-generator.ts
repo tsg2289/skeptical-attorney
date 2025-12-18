@@ -1674,6 +1674,8 @@ export interface ComplaintData {
   complaintFiledDate?: string
   trialDate?: string
   includeProofOfService?: boolean
+  causesOfAction?: string[]
+  demandJuryTrial?: boolean
 }
 
 export function generateComplaintDocument(data: ComplaintData): Document {
@@ -1694,6 +1696,8 @@ export function generateComplaintDocument(data: ComplaintData): Document {
     departmentNumber,
     complaintFiledDate,
     trialDate,
+    causesOfAction = [],
+    demandJuryTrial = true,
   } = data
 
   const children: (Paragraph | Table)[] = []
@@ -1914,10 +1918,11 @@ export function generateComplaintDocument(data: ComplaintData): Document {
               ...(judgeName ? [createHeaderParagraph(`Honorable ${judgeName}`)] : []),
               ...(departmentNumber ? [createHeaderParagraph(`Dept. ${departmentNumber}`)] : []),
               createHeaderParagraph(''),
+              // Document type with FOR DAMAGES if causes exist
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: 'COMPLAINT',
+                    text: causesOfAction.length > 0 ? 'COMPLAINT FOR DAMAGES' : 'COMPLAINT',
                     size: 24,
                     font: 'Times New Roman',
                     bold: true,
@@ -1925,8 +1930,22 @@ export function generateComplaintDocument(data: ComplaintData): Document {
                 ],
                 spacing: { line: 240, lineRule: 'auto' as any },
               }),
+              // List each cause of action with number
+              ...causesOfAction.map((cause, index) => 
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: `${index + 1}. ${cause}`,
+                      size: 20,
+                      font: 'Times New Roman',
+                    }),
+                  ],
+                  spacing: { line: 240, lineRule: 'auto' as any },
+                })
+              ),
               createHeaderParagraph(''),
-              createHeaderParagraph('[DEMAND FOR JURY TRIAL]'),
+              // Only show jury demand if enabled
+              ...(demandJuryTrial ? [createHeaderParagraph('DEMAND FOR JURY TRIAL')] : []),
               ...(complaintFiledDate ? [createHeaderParagraph(''), createHeaderParagraph(`Complaint Filed: ${new Date(complaintFiledDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`)] : []),
               ...(trialDate ? [createHeaderParagraph(''), createHeaderParagraph(`Trial Date: ${new Date(trialDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`)] : []),
             ],

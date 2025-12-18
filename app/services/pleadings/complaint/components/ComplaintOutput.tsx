@@ -76,7 +76,61 @@ export default function ComplaintOutput({
     demandJuryTrial: true,
     complaintFiledDate: caseData?.complaintFiledDate || '',
     trialDate: caseData?.trialDate || '',
+    causesOfAction: [],
   })
+
+  // Helper function to extract cause of action names from sections
+  const extractCausesOfAction = useCallback((sectionsList: ComplaintSection[]): string[] => {
+    return sectionsList
+      .filter(s => s.type === 'cause')
+      .map(s => {
+        // Try to extract the cause name from title like "FIRST CAUSE OF ACTION (Negligence - CACI 400)"
+        // or "FIRST CAUSE OF ACTION: Negligence"
+        const titleClean = s.title.replace(/\*+/g, '').trim()
+        
+        // Pattern 1: "FIRST CAUSE OF ACTION (Negligence - CACI 400)" - extract from parentheses in title
+        const parenMatch = titleClean.match(/CAUSE\s+OF\s+ACTION[^(]*\(([^)]+)\)/i)
+        if (parenMatch) {
+          return parenMatch[1].trim().toUpperCase()
+        }
+        
+        // Pattern 2: "FIRST CAUSE OF ACTION: Negligence" or "FIRST CAUSE OF ACTION - Negligence"
+        const colonMatch = titleClean.match(/CAUSE\s+OF\s+ACTION\s*[:\-–—]\s*(.+)/i)
+        if (colonMatch) {
+          return colonMatch[1].trim().toUpperCase()
+        }
+        
+        // Pattern 3: Check if cause name is in the content (first line starting with parentheses)
+        // e.g., content starts with "(Negligence)" or "(Negligence - CACI 400)"
+        if (s.content) {
+          const contentLines = s.content.split('\n')
+          for (const line of contentLines) {
+            const trimmedLine = line.trim()
+            // Match "(CauseName)" or "(CauseName - CACI XXX)" pattern
+            const contentParenMatch = trimmedLine.match(/^\(([^)]+)\)/)
+            if (contentParenMatch) {
+              // Extract just the cause name, removing CACI reference if present
+              const causeText = contentParenMatch[1].trim()
+              // Remove CACI reference like "- CACI 400" or just "CACI 400"
+              const causeName = causeText.replace(/\s*[-–—]?\s*CACI\s*\d+\s*/gi, '').trim()
+              if (causeName) {
+                return causeName.toUpperCase()
+              }
+            }
+          }
+        }
+        
+        // Pattern 4: Just strip ordinal prefix and "CAUSE OF ACTION" text
+        const stripped = titleClean.replace(/^(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH)\s+CAUSE\s+OF\s+ACTION\s*/i, '').trim()
+        if (stripped) {
+          return stripped.toUpperCase()
+        }
+        
+        // Fallback: return the ordinal (e.g., "FIRST CAUSE OF ACTION")
+        return titleClean.toUpperCase()
+      })
+      .filter(Boolean)
+  }, [])
 
   // Initialize caption data from caseData
   useEffect(() => {
@@ -251,6 +305,20 @@ export default function ComplaintOutput({
       return () => clearTimeout(timer)
     }
   }, [sections, isTrialMode, onTrialSectionsChange])
+
+  // Update causesOfAction in captionData when sections change
+  useEffect(() => {
+    if (sections.length > 0) {
+      const causes = extractCausesOfAction(sections)
+      setCaptionData(prev => {
+        // Only update if causes actually changed to avoid infinite loops
+        if (JSON.stringify(prev.causesOfAction) !== JSON.stringify(causes)) {
+          return { ...prev, causesOfAction: causes }
+        }
+        return prev
+      })
+    }
+  }, [sections, extractCausesOfAction])
 
   // Auto-resize textarea helper
   const autoResizeTextarea = (textarea: HTMLTextAreaElement | null) => {

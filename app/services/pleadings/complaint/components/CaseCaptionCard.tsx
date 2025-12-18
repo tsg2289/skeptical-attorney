@@ -27,6 +27,7 @@ export interface CaseCaptionData {
   demandJuryTrial: boolean
   complaintFiledDate: string
   trialDate: string
+  causesOfAction: string[] // List of cause of action names for caption
 }
 
 interface CaseCaptionCardProps {
@@ -60,6 +61,7 @@ export default function CaseCaptionCard({ initialData, onChange, disabled }: Cas
     demandJuryTrial: initialData.demandJuryTrial ?? true,
     complaintFiledDate: initialData.complaintFiledDate || '',
     trialDate: initialData.trialDate || '',
+    causesOfAction: initialData.causesOfAction || [],
   })
 
   // Track if this is first render to avoid calling onChange on mount
