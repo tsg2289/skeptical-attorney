@@ -943,107 +943,217 @@ export function generateWordDocument(data: AnswerData): Document {
     alignment: AlignmentType.JUSTIFIED,
   }))
 
-  // Parse and add defenses from generatedAnswer
-  const defensePattern = /(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|THIRTEENTH|FOURTEENTH|FIFTEENTH|SIXTEENTH|SEVENTEENTH|EIGHTEENTH|NINETEENTH|TWENTIETH)\s+AFFIRMATIVE\s+DEFENSE/gi
-  const matches = [...generatedAnswer.matchAll(defensePattern)]
+  // Use answerSections if available, otherwise parse from generatedAnswer
+  const answerSections = data.answerSections
   
-  if (matches.length > 0) {
-    for (let i = 0; i < matches.length; i++) {
-      const startIndex = matches[i].index!
-      const endIndex = i < matches.length - 1 ? matches[i + 1].index! : generatedAnswer.length
-      const defenseText = generatedAnswer.substring(startIndex, endIndex).trim()
-      const lines = defenseText.split('\n').map(line => line.trim()).filter(line => line.length > 0)
-      
-      const number = matches[i][1]
-      let title = ''
-      let content = ''
-      
-      // Extract title from parenthetical lines
-      for (let j = 1; j < lines.length; j++) {
-        const line = lines[j]
-        if (line.startsWith('(') && line.endsWith(')')) {
-          if (line.toLowerCase().includes('to all causes of action')) continue
-          if (!title) title = line.replace(/[()]/g, '').trim()
-        }
-      }
-      
-      // Get content
-      const contentStart = lines.findIndex((line, idx) => idx > 0 && !(line.startsWith('(') && line.endsWith(')')))
-      if (contentStart > 0) {
-        content = lines.slice(contentStart).join('\n').trim()
-      } else {
-        content = lines.slice(1).filter(line => !(line.startsWith('(') && line.endsWith(')'))).join('\n').trim()
+  if (answerSections && answerSections.defenses && answerSections.defenses.length > 0) {
+    // Use structured data directly
+    answerSections.defenses.forEach((defense, index) => {
+      // Get content and strip any prayer text (WHEREFORE...)
+      let content = defense.content || ''
+      const whereforeIndex = content.indexOf('WHEREFORE')
+      if (whereforeIndex > 0) {
+        content = content.substring(0, whereforeIndex).trim()
       }
       
       if (content) {
         // Defense heading
         children.push(new Paragraph({
-            children: [
-              new TextRun({
-                text: `${number} AFFIRMATIVE DEFENSE`,
-                size: 24,
+          children: [
+            new TextRun({
+              text: `${defense.number} AFFIRMATIVE DEFENSE`,
+              size: 24,
               font: 'Times New Roman',
-                bold: true,
-                underline: {},
-              }),
-            ],
+              bold: true,
+              underline: {},
+            }),
+          ],
           spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
-            alignment: AlignmentType.CENTER,
+          alignment: AlignmentType.CENTER,
         }))
 
-        children.push(new Paragraph({
-            children: [
-              new TextRun({
-              text: '(To All Causes of Action)',
-                size: 24,
-              font: 'Times New Roman',
-                bold: true,
-              }),
-            ],
-          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
-            alignment: AlignmentType.CENTER,
-        }))
-
-        if (title) {
+        // Causes of action applied
+        if (defense.causesOfAction) {
           children.push(new Paragraph({
-              children: [
-                new TextRun({
-                  text: `(${title})`,
-                  size: 24,
+            children: [
+              new TextRun({
+                text: `(${defense.causesOfAction})`,
+                size: 24,
                 font: 'Times New Roman',
-                  bold: true,
-                }),
-              ],
+                bold: true,
+              }),
+            ],
             spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
-              alignment: AlignmentType.CENTER,
+            alignment: AlignmentType.CENTER,
+          }))
+        } else {
+          children.push(new Paragraph({
+            children: [
+              new TextRun({
+                text: '(To All Causes of Action)',
+                size: 24,
+                font: 'Times New Roman',
+                bold: true,
+              }),
+            ],
+            spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+            alignment: AlignmentType.CENTER,
+          }))
+        }
+
+        // Defense title
+        if (defense.title) {
+          children.push(new Paragraph({
+            children: [
+              new TextRun({
+                text: `(${defense.title})`,
+                size: 24,
+                font: 'Times New Roman',
+                bold: true,
+              }),
+            ],
+            spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+            alignment: AlignmentType.CENTER,
           }))
         }
 
         // Defense content
         children.push(new Paragraph({
-            children: [
-              new TextRun({
+          children: [
+            new TextRun({
               text: content,
-                size: 24,
+              size: 24,
               font: 'Times New Roman',
-              }),
-            ],
+            }),
+          ],
           spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
           indent: { firstLine: 720 },
-            alignment: AlignmentType.JUSTIFIED,
+          alignment: AlignmentType.JUSTIFIED,
         }))
+      }
+    })
+  } else {
+    // Fallback: Parse from generatedAnswer
+    const defensePattern = /(FIRST|SECOND|THIRD|FOURTH|FIFTH|SIXTH|SEVENTH|EIGHTH|NINTH|TENTH|ELEVENTH|TWELFTH|THIRTEENTH|FOURTEENTH|FIFTEENTH|SIXTEENTH|SEVENTEENTH|EIGHTEENTH|NINETEENTH|TWENTIETH|TWENTY-FIRST|TWENTY-SECOND|TWENTY-THIRD|TWENTY-FOURTH|TWENTY-FIFTH|TWENTY-SIXTH|TWENTY-SEVENTH|TWENTY-EIGHTH|TWENTY-NINTH|THIRTIETH)\s+AFFIRMATIVE\s+DEFENSE/gi
+    const matches = [...generatedAnswer.matchAll(defensePattern)]
+    
+    if (matches.length > 0) {
+      for (let i = 0; i < matches.length; i++) {
+        const startIndex = matches[i].index!
+        const endIndex = i < matches.length - 1 ? matches[i + 1].index! : generatedAnswer.length
+        let defenseText = generatedAnswer.substring(startIndex, endIndex).trim()
+        
+        // Strip prayer text from defense content
+        const whereforeIndex = defenseText.indexOf('WHEREFORE')
+        if (whereforeIndex > 0) {
+          defenseText = defenseText.substring(0, whereforeIndex).trim()
+        }
+        
+        const lines = defenseText.split('\n').map(line => line.trim()).filter(line => line.length > 0)
+        
+        const number = matches[i][1]
+        let title = ''
+        let content = ''
+        
+        // Extract title from parenthetical lines
+        for (let j = 1; j < lines.length; j++) {
+          const line = lines[j]
+          if (line.startsWith('(') && line.endsWith(')')) {
+            if (line.toLowerCase().includes('to all causes of action')) continue
+            if (!title) title = line.replace(/[()]/g, '').trim()
+          }
+        }
+        
+        // Get content
+        const contentStart = lines.findIndex((line, idx) => idx > 0 && !(line.startsWith('(') && line.endsWith(')')))
+        if (contentStart > 0) {
+          content = lines.slice(contentStart).join('\n').trim()
+        } else {
+          content = lines.slice(1).filter(line => !(line.startsWith('(') && line.endsWith(')'))).join('\n').trim()
+        }
+        
+        if (content) {
+          // Defense heading
+          children.push(new Paragraph({
+            children: [
+              new TextRun({
+                text: `${number} AFFIRMATIVE DEFENSE`,
+                size: 24,
+                font: 'Times New Roman',
+                bold: true,
+                underline: {},
+              }),
+            ],
+            spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+            alignment: AlignmentType.CENTER,
+          }))
+
+          children.push(new Paragraph({
+            children: [
+              new TextRun({
+                text: '(To All Causes of Action)',
+                size: 24,
+                font: 'Times New Roman',
+                bold: true,
+              }),
+            ],
+            spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+            alignment: AlignmentType.CENTER,
+          }))
+
+          if (title) {
+            children.push(new Paragraph({
+              children: [
+                new TextRun({
+                  text: `(${title})`,
+                  size: 24,
+                  font: 'Times New Roman',
+                  bold: true,
+                }),
+              ],
+              spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+              alignment: AlignmentType.CENTER,
+            }))
+          }
+
+          // Defense content
+          children.push(new Paragraph({
+            children: [
+              new TextRun({
+                text: content,
+                size: 24,
+                font: 'Times New Roman',
+              }),
+            ],
+            spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+            indent: { firstLine: 720 },
+            alignment: AlignmentType.JUSTIFIED,
+          }))
+        }
       }
     }
   }
 
-  // Prayer Section
-  const prayerMatch = generatedAnswer.match(/WHEREFORE/i)
-  if (prayerMatch) {
-    const prayerStart = prayerMatch.index!
-    const prayerText = generatedAnswer.substring(prayerStart).trim()
-    const aiIndex = prayerText.indexOf('---')
-    const finalPrayerText = aiIndex > 0 ? prayerText.substring(0, aiIndex).trim() : prayerText
-    
+  // Prayer Section - use answerSections if available
+  let prayerText = ''
+  if (answerSections && answerSections.prayer) {
+    prayerText = answerSections.prayer
+  } else {
+    const prayerMatch = generatedAnswer.match(/WHEREFORE/i)
+    if (prayerMatch) {
+      const prayerStart = prayerMatch.index!
+      const extractedPrayer = generatedAnswer.substring(prayerStart).trim()
+      const aiIndex = extractedPrayer.indexOf('---')
+      prayerText = aiIndex > 0 ? extractedPrayer.substring(0, aiIndex).trim() : extractedPrayer
+      // Also remove signature block if present
+      const datedIndex = prayerText.indexOf('Dated:')
+      if (datedIndex > 0) {
+        prayerText = prayerText.substring(0, datedIndex).trim()
+      }
+    }
+  }
+  
+  if (prayerText) {
     // Page filler before prayer
     children.push(new Paragraph({
       children: [new TextRun({ text: '/ / /', size: 24, font: 'Times New Roman' })],
@@ -1061,21 +1171,143 @@ export function generateWordDocument(data: AnswerData): Document {
       alignment: AlignmentType.CENTER,
     }))
 
-    const prayerLines = finalPrayerText.split('\n').filter(line => line.trim().length > 0)
+    const prayerLines = prayerText.split('\n').filter(line => line.trim().length > 0)
     prayerLines.forEach((line) => {
       children.push(new Paragraph({
         children: [
-              new TextRun({
-                text: line.trim(),
-                size: 24,
+          new TextRun({
+            text: line.trim(),
+            size: 24,
             font: 'Times New Roman',
-            }),
-          ],
+          }),
+        ],
         spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
         indent: { firstLine: 720 },
       }))
     })
   }
+
+  // Signature Block
+  const currentDate = new Date().toLocaleDateString('en-US', { 
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric' 
+  })
+
+  // Add spacing before signature
+  children.push(new Paragraph({
+    children: [new TextRun({ text: '', size: 24, font: 'Times New Roman' })],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+  children.push(new Paragraph({
+    children: [new TextRun({ text: '', size: 24, font: 'Times New Roman' })],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+
+  // Dated line
+  children.push(new Paragraph({
+    children: [
+      new TextRun({
+        text: `Dated: ${currentDate}`,
+        size: 24,
+        font: 'Times New Roman',
+      }),
+    ],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+
+  // Blank lines for signature space
+  children.push(new Paragraph({
+    children: [new TextRun({ text: '', size: 24, font: 'Times New Roman' })],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+
+  // Respectfully submitted
+  children.push(new Paragraph({
+    children: [
+      new TextRun({
+        text: 'Respectfully submitted,',
+        size: 24,
+        font: 'Times New Roman',
+      }),
+    ],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+
+  // Law firm name
+  if (lawFirmName && lawFirmName !== '[LAW FIRM NAME]') {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: '', size: 24, font: 'Times New Roman' })],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+    }))
+    children.push(new Paragraph({
+      children: [
+        new TextRun({
+          text: lawFirmName.toUpperCase(),
+          size: 24,
+          font: 'Times New Roman',
+          bold: true,
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+    }))
+  }
+
+  // Signature line
+  children.push(new Paragraph({
+    children: [new TextRun({ text: '', size: 24, font: 'Times New Roman' })],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+  children.push(new Paragraph({
+    children: [new TextRun({ text: '', size: 24, font: 'Times New Roman' })],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+  children.push(new Paragraph({
+    children: [
+      new TextRun({
+        text: '________________________________',
+        size: 24,
+        font: 'Times New Roman',
+      }),
+    ],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+
+  // Attorney name
+  children.push(new Paragraph({
+    children: [
+      new TextRun({
+        text: attorneyName,
+        size: 24,
+        font: 'Times New Roman',
+      }),
+    ],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+
+  // State Bar number
+  children.push(new Paragraph({
+    children: [
+      new TextRun({
+        text: `State Bar No. ${stateBarNumber}`,
+        size: 24,
+        font: 'Times New Roman',
+      }),
+    ],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+
+  // Attorney for Defendant
+  children.push(new Paragraph({
+    children: [
+      new TextRun({
+        text: `Attorney for Defendant ${defendantName}`,
+        size: 24,
+        font: 'Times New Roman',
+      }),
+    ],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
 
   // Helper to add filler lines ("/ / /") to fill remaining space on page
   const addFillerLines = (count: number) => {

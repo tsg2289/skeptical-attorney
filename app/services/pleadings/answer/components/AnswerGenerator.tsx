@@ -1,17 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { FileText, Scale, Users, Copy, Download, FileDown, Plus, X, Edit2, Save, RotateCcw, GripVertical, Sparkles, Eye, Check } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { downloadWordDocument as generateWordDoc } from '@/lib/docx-generator'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { supabaseCaseStorage, AnswerSections, AnswerDefense } from '@/lib/supabase/caseStorage'
+import { supabaseCaseStorage, AnswerSections, AnswerDefense, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
 import { userProfileStorage } from '@/lib/supabase/userProfileStorage'
 import AnswerPreviewModal from './AnswerPreviewModal'
 import AIEditChatModal from './AIEditChatModal'
+import CaseCaptionCard, { CaseCaptionData } from '../../complaint/components/CaseCaptionCard'
 
 // Type alias for backward compatibility in this file
 type Defense = AnswerDefense
@@ -276,16 +277,11 @@ function getOrdinalNumber(index: number): string {
   return ordinals[index] || `${index + 1}TH`
 }
 
-// Sortable Defense Card Component - BLUE/WHITE THEME
-function SortableDefenseCard({ defense, editingDefenseId, editingDefense, onEdit, onSave, onCancel, onDelete, onEditChange, onAIEdit }: {
+// Sortable Defense Card Component - Matching Complaint/Demand UI Pattern
+function SortableDefenseCard({ defense, onDelete, onUpdate, onAIEdit }: {
   defense: Defense
-  editingDefenseId: string | null
-  editingDefense: { number: string; causesOfAction: string; title: string; content: string }
-  onEdit: (defense: Defense) => void
-  onSave: (defenseId: string) => void
-  onCancel: () => void
   onDelete: (defenseId: string) => void
-  onEditChange: (field: string, value: string) => void
+  onUpdate: (defenseId: string, field: string, value: string) => void
   onAIEdit: (defense: Defense) => void
 }) {
   const {
@@ -303,135 +299,97 @@ function SortableDefenseCard({ defense, editingDefenseId, editingDefense, onEdit
     opacity: isDragging ? 0.5 : 1,
   }
 
+  // Auto-resize textarea
+  const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
+    textarea.style.height = 'auto'
+    textarea.style.height = textarea.scrollHeight + 'px'
+  }
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className="glass rounded-2xl p-6 hover:shadow-lg transition-all relative group bg-white/95 border border-primary-200"
+      className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300 relative cursor-move"
     >
-      <div className="flex items-center justify-between mb-3">
-        {editingDefenseId === defense.id ? (
-          <>
-            <div className="flex-1">
-              <h4 className="text-xl font-bold text-primary-700 mb-1">
-                Editing Defense
-              </h4>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onSave(defense.id)}
-                className="p-2 rounded-lg bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-110"
-                title="Save changes"
-              >
-                <Save className="w-4 h-4" />
-              </button>
-              <button
-                onClick={onCancel}
-                className="p-2 rounded-lg bg-gray-200 text-gray-700 transition-all hover:bg-gray-300 hover:scale-110"
-                title="Cancel editing"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex-1">
-              <h4 className="text-xl font-bold text-primary-700 mb-1">
-                {defense.number} AFFIRMATIVE DEFENSE
-              </h4>
-              {defense.title && (
-                <p className="text-sm text-gray-500 italic">({defense.title})</p>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onAIEdit(defense)}
-                className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white transition-all hover:from-purple-600 hover:to-purple-700 hover:scale-110"
-                title="Edit with AI"
-              >
-                <Sparkles className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onEdit(defense)}
-                className="p-2 rounded-lg bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-110"
-                title="Edit defense"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => onDelete(defense.id)}
-                className="p-2 rounded-lg bg-red-500 text-white transition-all hover:bg-red-600 hover:scale-110"
-                title="Delete defense"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <button
-                {...attributes}
-                {...listeners}
-                className="p-2 rounded-lg bg-gray-200 text-gray-600 hover:bg-gray-300 transition-all cursor-grab active:cursor-grabbing"
-                title="Drag to reorder"
-              >
-                <GripVertical className="w-4 h-4" />
-              </button>
-            </div>
-          </>
-        )}
+      {/* Header */}
+      <div className="flex justify-between items-start mb-4 gap-3">
+        {/* Drag Handle - Left side with two lines */}
+        <div 
+          {...attributes}
+          {...listeners}
+          className="text-gray-400 hover:text-gray-600 transition-colors flex items-center pt-1 cursor-grab active:cursor-grabbing"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+          </svg>
+        </div>
+        
+        {/* Title and Defense Number - Display Only */}
+        <div className="flex-1 space-y-2">
+          <h4 className="text-xl font-bold text-primary-700">
+            {defense.number} AFFIRMATIVE DEFENSE
+          </h4>
+          <input
+            type="text"
+            value={defense.title || ''}
+            onChange={(e) => onUpdate(defense.id, 'title', e.target.value)}
+            className="w-full text-sm text-gray-600 bg-transparent border-none outline-none placeholder-gray-400 italic"
+            placeholder="Defense Title (e.g., Statute of Limitations)"
+          />
+          <input
+            type="text"
+            value={defense.causesOfAction || ''}
+            onChange={(e) => onUpdate(defense.id, 'causesOfAction', e.target.value)}
+            className="w-full text-sm text-gray-500 bg-transparent border-none outline-none placeholder-gray-400"
+            placeholder="Causes of Action Applied (e.g., As to All Causes of Action)"
+          />
+        </div>
+        
+        {/* Delete Button - Gray X in top right */}
+        <button
+          onClick={() => onDelete(defense.id)}
+          className="text-gray-400 hover:text-red-600 transition-colors p-1"
+          aria-label="Remove defense"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
-      {editingDefenseId === defense.id ? (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Defense Number
-            </label>
-            <input
-              type="text"
-              value={editingDefense.number}
-              onChange={(e) => onEditChange('number', e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Causes of Action Applied
-            </label>
-            <input
-              type="text"
-              value={editingDefense.causesOfAction}
-              onChange={(e) => onEditChange('causesOfAction', e.target.value)}
-              placeholder="Causes of Action Applied"
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Defense Title
-            </label>
-            <input
-              type="text"
-              value={editingDefense.title}
-              onChange={(e) => onEditChange('title', e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Defense Content *
-            </label>
-            <textarea
-              value={editingDefense.content}
-              onChange={(e) => onEditChange('content', e.target.value)}
-              rows={6}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-vertical"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
-          {defense.content}
-        </div>
-      )}
+      {/* Content - Always editable textarea */}
+      <div className="relative">
+        <textarea
+          value={defense.content}
+          onChange={(e) => {
+            onUpdate(defense.id, 'content', e.target.value)
+            autoResizeTextarea(e.target)
+          }}
+          onInput={(e) => autoResizeTextarea(e.target as HTMLTextAreaElement)}
+          ref={(textarea) => {
+            if (textarea) {
+              autoResizeTextarea(textarea)
+            }
+          }}
+          className="w-full min-h-24 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
+          placeholder="Enter defense content here..."
+        />
+        {/* AI Edit Button - Bottom right of content */}
+        <button
+          onClick={() => onAIEdit(defense)}
+          className="absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+          aria-label="AI Edit Assistant"
+          title="Open AI Edit Assistant"
+        >
+          <svg 
+            className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
+            fill="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+            <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+            <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
+          </svg>
+        </button>
+      </div>
     </div>
   )
 }
@@ -502,6 +460,54 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
     defendants?: { name: string }[]
   }>({})
 
+  // State for case data reference
+  const [caseData, setCaseData] = useState<CaseFrontend | null>(null)
+
+  // State for caption data (attorney header, like complaint)
+  const [captionData, setCaptionData] = useState<Partial<CaseCaptionData>>({
+    attorneys: [],
+    plaintiffs: [],
+    defendants: [],
+    includeDoes: true,
+    county: 'Los Angeles',
+    caseNumber: '',
+    judgeName: '',
+    departmentNumber: '',
+    documentType: 'ANSWER TO COMPLAINT',
+    demandJuryTrial: false,
+    complaintFiledDate: '',
+    trialDate: '',
+  })
+
+  // Ref for debouncing caption saves
+  const saveCaptionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // State for proof of service
+  const [showProofOfService, setShowProofOfService] = useState(false)
+
+  // Handler for CaseCaptionCard changes
+  const handleCaptionChange = useCallback((newCaptionData: CaseCaptionData) => {
+    setCaptionData(newCaptionData)
+    
+    // Debounced auto-save to case if we have a caseId
+    if (caseId && caseData) {
+      if (saveCaptionTimeoutRef.current) {
+        clearTimeout(saveCaptionTimeoutRef.current)
+      }
+      saveCaptionTimeoutRef.current = setTimeout(async () => {
+        try {
+          await supabaseCaseStorage.updateCase(caseId, {
+            judgeName: newCaptionData.judgeName,
+            departmentNumber: newCaptionData.departmentNumber,
+            courtCounty: newCaptionData.county,
+          })
+        } catch (error) {
+          console.error('Error auto-saving caption:', error)
+        }
+      }, 1000)
+    }
+  }, [caseId, caseData])
+
   // Populate form data from case if caseId is provided
   useEffect(() => {
     const loadCase = async () => {
@@ -513,6 +519,9 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
           const foundCase = await supabaseCaseStorage.getCase(caseId)
           if (foundCase) {
             console.log(`[AUDIT] Answer generator initialized for case: ${caseId}`)
+            
+            // Store case data reference
+            setCaseData(foundCase)
             
             // Get plaintiff names
             const plaintiffs = foundCase.plaintiffs || []
@@ -540,6 +549,36 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
               defendants: defendants.map(d => ({ name: d.name })),
             })
             
+            // Extract all attorneys from all defendants (for caption card)
+            const allDefendantAttorneys = defendants.flatMap(d => 
+              d.attorneys?.map(att => ({
+                id: att.id || String(Date.now()),
+                name: att.name || '',
+                barNumber: att.barNumber || '',
+                firm: att.firm || '',
+                address: att.address || '',
+                phone: att.phone || '',
+                fax: '',
+                email: att.email || '',
+              })) || []
+            )
+            
+            // Populate caption data from case
+            setCaptionData(prev => ({
+              ...prev,
+              attorneys: allDefendantAttorneys.length > 0 ? allDefendantAttorneys : prev.attorneys,
+              plaintiffs: plaintiffs.map(p => p.name).filter(Boolean),
+              defendants: defendants.map(d => d.name).filter(Boolean),
+              includeDoes: foundCase.includeDoes ?? true,
+              county: foundCase.courtCounty || foundCase.court || 'Los Angeles',
+              caseNumber: foundCase.caseNumber || '',
+              judgeName: foundCase.judgeName || '',
+              departmentNumber: foundCase.departmentNumber || '',
+              documentType: 'ANSWER TO COMPLAINT',
+              complaintFiledDate: foundCase.complaintFiledDate || '',
+              trialDate: foundCase.trialDate || '',
+            }))
+            
             // Populate form with case data including auto-detected multiple defendants
             setFormData(prev => ({
               ...prev,
@@ -548,6 +587,8 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
               isMultipleDefendants: hasMultipleDefendants, // Auto-detect!
               caseNumber: foundCase.caseNumber || '',
               county: foundCase.courtCounty || '',
+              judgeName: foundCase.judgeName || '',
+              department: foundCase.departmentNumber || '',
               // Attorney info from defendant's counsel
               attorneyName: defendantAttorney?.name || '',
               stateBarNumber: defendantAttorney?.barNumber || '',
@@ -559,8 +600,23 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
             
             // Load saved answer sections if they exist
             if (foundCase.answerSections && foundCase.answerSections.defenses && foundCase.answerSections.defenses.length > 0) {
-              setAnswerSections(foundCase.answerSections)
-              const fullAnswer = reconstructAnswer(foundCase.answerSections)
+              // Clean up any prayer content from defenses (it's already in the prayer field)
+              const cleanedSections = {
+                ...foundCase.answerSections,
+                defenses: foundCase.answerSections.defenses.map(defense => {
+                  let content = defense.content
+                  // Remove prayer if it's in the defense content
+                  if (content.includes('WHEREFORE')) {
+                    content = content.substring(0, content.indexOf('WHEREFORE')).trim()
+                  }
+                  return {
+                    ...defense,
+                    content
+                  }
+                })
+              }
+              setAnswerSections(cleanedSections)
+              const fullAnswer = reconstructAnswer(cleanedSections)
               setGeneratedAnswer(fullAnswer)
               toast.success('Loaded saved answer draft')
             }
@@ -802,6 +858,20 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
       defenses: answerSections.defenses.filter(def => def.id !== defenseId),
     })
     toast.success('Defense removed!')
+  }
+
+  // Handler for inline field updates (new pattern matching complaint/demand UI)
+  const handleUpdateDefenseField = (defenseId: string, field: string, value: string) => {
+    if (!answerSections) return
+
+    setAnswerSections({
+      ...answerSections,
+      defenses: answerSections.defenses.map(def => 
+        def.id === defenseId 
+          ? { ...def, [field]: value }
+          : def
+      ),
+    })
   }
 
   const saveDefenseChanges = (defenseId: string, showToast: boolean = true) => {
@@ -1145,7 +1215,8 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
     <div className="w-full">
       <div className="max-w-7xl mx-auto">
         <div className="space-y-8">
-          {/* Input Form - BLUE/WHITE THEME */}
+          {/* Input Form - BLUE/WHITE THEME - Only show when no answer generated */}
+          {!answerSections && (
           <div className="glass rounded-3xl p-8 space-y-6 bg-white/95 border border-primary-200 shadow-lg">
             <div className="flex items-center mb-6">
               <div className="glass rounded-xl p-3 mr-4 bg-primary-50 border border-primary-200">
@@ -1404,6 +1475,7 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
               </button>
             </div>
           </div>
+          )}
 
           {/* Generated Answer Header */}
           {answerSections && (
@@ -1416,45 +1488,79 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
                     </div>
                     <h2 className="text-2xl font-semibold text-gray-800">Generated Answer</h2>
                   </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowPreview(true)}
-                      className="p-3 rounded-xl bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-110"
-                      title="Preview answer"
-                    >
-                      <FileText className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={copyToClipboard}
-                      className="p-3 rounded-xl bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-110"
-                      title="Copy to clipboard"
-                    >
-                      <Copy className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={downloadAnswer}
-                      className="p-3 rounded-xl bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-110"
-                      title="Download as text file"
-                    >
-                      <Download className="w-5 h-5" />
-                    </button>
-                    <button
-                      onClick={downloadWordDoc}
-                      className="p-3 rounded-xl bg-primary-700 text-white transition-all hover:bg-primary-800 hover:scale-110"
-                      title="Download as Word document"
-                    >
-                      <FileDown className="w-5 h-5" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      setAnswerSections(null)
+                      setGeneratedAnswer('')
+                      setSaveSuccess(false)
+                      setShowProofOfService(false)
+                    }}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    New Answer
+                  </button>
                 </div>
+              </div>
+
+              {/* Case Caption & Attorney Header Card */}
+              <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
+                <div className="flex justify-between items-center mb-4 gap-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Case Caption & Attorney Header</h3>
+                  </div>
+                  <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full whitespace-nowrap">
+                    Header
+                  </span>
+                </div>
+                <CaseCaptionCard
+                  initialData={{
+                    ...captionData,
+                    documentType: 'ANSWER TO COMPLAINT',
+                  }}
+                  onChange={handleCaptionChange}
+                  disabled={false}
+                />
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
+                <span className="text-gray-600 text-sm font-medium">Answer Sections</span>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
               </div>
 
               {/* Preamble Card */}
               {answerSections.preamble && (
-                <div className="glass rounded-2xl p-6 bg-white/95 border border-primary-200">
+                <div className="glass rounded-2xl p-6 hover:shadow-lg transition-all relative group bg-white/95 border border-primary-200">
                   <h3 className="text-lg font-semibold text-primary-700 mb-3">Preamble</h3>
-                  <div className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
-                    {answerSections.preamble}
+                  <div className="relative">
+                    <textarea
+                      value={answerSections.preamble}
+                      onChange={(e) => {
+                        setAnswerSections({
+                          ...answerSections,
+                          preamble: e.target.value
+                        })
+                        // Auto-resize
+                        e.target.style.height = 'auto'
+                        e.target.style.height = e.target.scrollHeight + 'px'
+                      }}
+                      onInput={(e) => {
+                        const textarea = e.target as HTMLTextAreaElement
+                        textarea.style.height = 'auto'
+                        textarea.style.height = textarea.scrollHeight + 'px'
+                      }}
+                      ref={(textarea) => {
+                        if (textarea) {
+                          textarea.style.height = 'auto'
+                          textarea.style.height = textarea.scrollHeight + 'px'
+                        }
+                      }}
+                      className="w-full min-h-24 p-4 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
+                      placeholder="Enter preamble content here..."
+                    />
                   </div>
                 </div>
               )}
@@ -1487,13 +1593,8 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
                         <SortableDefenseCard
                           key={defense.id}
                           defense={defense}
-                          editingDefenseId={editingDefenseId}
-                          editingDefense={editingDefense}
-                          onEdit={handleEditDefense}
-                          onSave={handleSaveDefense}
-                          onCancel={handleCancelEdit}
                           onDelete={handleDeleteDefense}
-                          onEditChange={handleEditChange}
+                          onUpdate={handleUpdateDefenseField}
                           onAIEdit={handleOpenAIEdit}
                         />
                       ))}
@@ -1502,17 +1603,16 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
                 </DndContext>
               )}
 
-              {/* Add Defense Button and Card */}
+              {/* Add Defense Button */}
               {answerSections && (
                 <>
                   {!showAddDefense && (
                     <div className="flex justify-center">
                       <button
                         onClick={() => setShowAddDefense(true)}
-                        className="flex items-center px-6 py-3 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white transition-all hover:scale-105 hover:shadow-lg"
+                        className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
                       >
-                        <Plus className="w-5 h-5 mr-2" />
-                        Add Defense
+                        + Add Defense
                       </button>
                     </div>
                   )}
@@ -1604,11 +1704,29 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
               )}
 
               {/* Signature Card */}
-              {answerSections.signature && (
+              {answerSections && (
                 <div className="glass rounded-2xl p-6 bg-white/95 border border-primary-200">
                   <h3 className="text-lg font-semibold text-primary-700 mb-3">Signature</h3>
                   <div className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
-                    {answerSections.signature}
+                    {(() => {
+                      const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                      const primaryAttorney = captionData.attorneys?.[0]
+                      const attorneyName = primaryAttorney?.name || '[ATTORNEY NAME]'
+                      const barNumber = primaryAttorney?.barNumber || '[BAR NUMBER]'
+                      const firmName = primaryAttorney?.firm || ''
+                      const defendantName = captionData.defendants?.[0] || formData.defendantName || '[DEFENDANT NAME]'
+                      
+                      return `Dated: ${currentDate}
+
+Respectfully submitted,
+
+${firmName ? firmName + '\n\n' : ''}
+
+________________________________
+${attorneyName}
+State Bar No. ${barNumber}
+Attorney for Defendant ${defendantName}`
+                    })()}
                   </div>
                 </div>
               )}
@@ -1623,85 +1741,139 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
                 </div>
               )}
 
-              {/* AI Analysis Card */}
-              {answerSections.aiAnalysis && (
-                <div className="glass rounded-2xl p-6 bg-white/95 border-2 border-primary-400">
-                  <h3 className="text-lg font-semibold text-primary-700 mb-3">AI ANALYSIS AND SUGGESTIONS</h3>
-                  <div className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
-                    {answerSections.aiAnalysis}
-                  </div>
+              {/* Add Proof of Service Button */}
+              {answerSections && (
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowProofOfService(!showProofOfService)}
+                    className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl ${
+                      showProofOfService 
+                        ? 'bg-green-600 hover:bg-green-700 text-white' 
+                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
+                    }`}
+                  >
+                    {showProofOfService ? '✓ Proof of Service Added' : '+ Add Proof of Service'}
+                  </button>
                 </div>
               )}
 
-              {/* Download Options */}
-              <div className="glass rounded-2xl p-6 bg-white/95 border border-primary-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center">
-                  <FileDown className="w-5 h-5 mr-2 text-primary-600" />
-                  Save & Download Options
-                </h3>
-                <div className="flex flex-wrap gap-3 items-center">
-                  {/* Save Success Indicator - Only for authenticated users */}
-                  {!isTrialMode && saveSuccess && (
-                    <span className="text-green-600 text-sm font-medium flex items-center gap-1">
-                      <Check className="w-4 h-4" />
-                      Draft saved!
-                    </span>
-                  )}
-                  {/* Save Draft Button - Only for authenticated users */}
+              {/* Proof of Service Card */}
+              {showProofOfService && (() => {
+                // Auto-populate Proof of Service with case data
+                const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+                const primaryAttorney = captionData.attorneys?.[0]
+                const countyName = captionData.county?.toUpperCase() || '[COUNTY NAME]'
+                const attorneyAddress = primaryAttorney?.address || '[ADDRESS]'
+                const attorneyEmail = primaryAttorney?.email || '[EMAIL]'
+                const attorneyName = primaryAttorney?.name || '[NAME]'
+                // Extract city from address (typically last part before state/zip)
+                const cityMatch = attorneyAddress.match(/,\s*([^,]+),?\s*(?:CA|California)/i)
+                const cityName = cityMatch ? cityMatch[1].trim() : captionData.county || '[CITY]'
+
+                const proofOfServiceText = `PROOF OF SERVICE
+
+STATE OF CALIFORNIA, COUNTY OF ${countyName}
+
+At the time of service, I was over 18 years of age and not a party to this action. I am employed in the County of ${countyName}, State of California. My business address is ${attorneyAddress}.
+
+On ${currentDate}, I served true copies of the following document(s) described as ANSWER TO COMPLAINT on the interested parties in this action as follows:
+
+BY E-MAIL OR ELECTRONIC TRANSMISSION: I caused a copy of the document(s) to be sent from e-mail address ${attorneyEmail} to the persons at the e-mail addresses listed in the Service List. I did not receive, within a reasonable time after the transmission, any electronic message or other indication that the transmission was unsuccessful.
+
+I declare under penalty of perjury under the laws of the State of California that the foregoing is true and correct.
+
+Executed on ${currentDate}, at ${cityName}, California.
+
+
+
+                                                    ________________________________
+                                                    ${attorneyName}`
+
+                return (
+                  <div className="glass-strong p-6 rounded-2xl border-2 border-dashed border-blue-300">
+                    <div className="flex justify-between items-start mb-4 gap-3">
+                      <div className="flex items-center space-x-3">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                        </svg>
+                        <h3 className="text-xl font-semibold text-gray-900">Proof of Service</h3>
+                      </div>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+                        Added
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <textarea
+                        value={proofOfServiceText}
+                        readOnly
+                        className="w-full min-h-48 p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 resize-none"
+                      />
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Bottom Action Bar - Save Draft and Preview */}
+              <div className="glass-strong p-6 rounded-2xl">
+                <div className="flex gap-4 justify-end items-center">
+                  {/* Save Draft Button */}
                   {!isTrialMode && (
-                    <button
+                    <button 
                       onClick={handleSaveDraft}
                       disabled={saving || !caseId || !answerSections}
-                      className={`flex items-center px-4 py-2 rounded-xl border border-primary-300 text-primary-700 font-semibold transition-all hover:bg-primary-50 hover:scale-105 ${
-                        saving || !caseId || !answerSections ? 'opacity-50 cursor-not-allowed' : ''
+                      className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                        saving ? 'opacity-50 cursor-not-allowed' : ''
+                      } ${(!caseId || !answerSections)
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
+                        : saveSuccess 
+                          ? 'bg-green-600 text-white'
+                          : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
                       }`}
-                      title={!caseId ? 'Access from case dashboard to enable saving' : !answerSections ? 'Generate an answer first' : 'Save your draft'}
+                      title={!caseId ? 'Access from case dashboard to enable saving' : !answerSections ? 'Generate an answer first' : 'Save draft to case'}
                     >
                       {saving ? (
                         <>
-                          <svg className="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          Saving...
+                          <span>Saving...</span>
+                        </>
+                      ) : saveSuccess ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Saved!</span>
                         </>
                       ) : (
                         <>
-                          <Save className="w-4 h-4 mr-2" />
-                          Save Draft
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                          </svg>
+                          <span>Save Draft</span>
                         </>
                       )}
                     </button>
                   )}
-                  <button
+                  
+                  {/* Preview Button */}
+                  <button 
                     onClick={() => setShowPreview(true)}
-                    className="flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold transition-all hover:scale-105 hover:shadow-lg"
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
                   >
-                    <Eye className="w-4 h-4 mr-2" />
-                    Preview Answer
-                  </button>
-                  <button
-                    onClick={downloadWordDoc}
-                    className="flex items-center px-4 py-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white font-semibold transition-all hover:scale-105 hover:shadow-lg"
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Download Word (.docx)
-                  </button>
-                  <button
-                    onClick={downloadAnswer}
-                    className="flex items-center px-4 py-2 rounded-xl bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-105"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download Text (.txt)
-                  </button>
-                  <button
-                    onClick={copyToClipboard}
-                    className="flex items-center px-4 py-2 rounded-xl bg-primary-600 text-white transition-all hover:bg-primary-700 hover:scale-105"
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    Copy to Clipboard
+                    <Eye className="w-4 h-4" />
+                    <span>Preview</span>
                   </button>
                 </div>
+              </div>
+
+              {/* Disclaimer */}
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <h4 className="font-medium text-amber-800 mb-2">⚠️ Legal Disclaimer</h4>
+                <p className="text-amber-800 text-sm">
+                  This document is AI-generated and should be reviewed by a qualified attorney before filing. 
+                  The content may require modifications to meet specific jurisdictional requirements and 
+                  case-specific details. Always consult with legal counsel for proper legal advice.
+                </p>
               </div>
             </>
           )}
@@ -1728,8 +1900,10 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
         answerSections={answerSections}
+        captionData={captionData}
         formData={formData}
         isMultipleDefendants={formData.isMultipleDefendants}
+        showProofOfService={showProofOfService}
       />
 
       {/* AI Edit Modal */}

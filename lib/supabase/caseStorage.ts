@@ -159,6 +159,7 @@ export interface CaseFrontend {
   departmentNumber?: string
   complaintFiledDate?: string
   includeDoes?: boolean
+  dateOfLoss?: string
   deadlines: Deadline[]
   plaintiffs: Party[]
   defendants: Party[]
@@ -190,6 +191,7 @@ function mapCaseFromDb(dbCase: any): CaseFrontend {
     departmentNumber: dbCase.department_number,
     complaintFiledDate: dbCase.complaint_filed_date,
     includeDoes: dbCase.include_does ?? true,
+    dateOfLoss: dbCase.date_of_loss,
     deadlines: dbCase.deadlines || [],
     plaintiffs: dbCase.plaintiffs || [],
     defendants: dbCase.defendants || [],
@@ -222,6 +224,7 @@ function mapCaseToDb(updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'crea
   if (updates.departmentNumber !== undefined) dbUpdates.department_number = updates.departmentNumber
   if (updates.complaintFiledDate !== undefined) dbUpdates.complaint_filed_date = updates.complaintFiledDate
   if (updates.includeDoes !== undefined) dbUpdates.include_does = updates.includeDoes
+  if (updates.dateOfLoss !== undefined) dbUpdates.date_of_loss = updates.dateOfLoss
   if (updates.deadlines !== undefined) dbUpdates.deadlines = updates.deadlines
   if (updates.plaintiffs !== undefined) dbUpdates.plaintiffs = updates.plaintiffs
   if (updates.defendants !== undefined) dbUpdates.defendants = updates.defendants

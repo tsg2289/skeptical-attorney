@@ -36,11 +36,26 @@ export default function CaseDetailPage() {
     caseNumber: '',
     caseType: '',
     client: '',
-    description: '',
     facts: '',
     trialDate: '',
-    court: ''
+    court: '',
+    judgeName: '',
+    departmentNumber: '',
+    dateOfLoss: ''
   })
+  
+  // California counties list
+  const californiaCounties = [
+    'Alameda', 'Alpine', 'Amador', 'Butte', 'Calaveras', 'Colusa', 'Contra Costa', 
+    'Del Norte', 'El Dorado', 'Fresno', 'Glenn', 'Humboldt', 'Imperial', 'Inyo', 
+    'Kern', 'Kings', 'Lake', 'Lassen', 'Los Angeles', 'Madera', 'Marin', 'Mariposa', 
+    'Mendocino', 'Merced', 'Modoc', 'Mono', 'Monterey', 'Napa', 'Nevada', 'Orange', 
+    'Placer', 'Plumas', 'Riverside', 'Sacramento', 'San Benito', 'San Bernardino', 
+    'San Diego', 'San Francisco', 'San Joaquin', 'San Luis Obispo', 'San Mateo', 
+    'Santa Barbara', 'Santa Clara', 'Santa Cruz', 'Shasta', 'Sierra', 'Siskiyou', 
+    'Solano', 'Sonoma', 'Stanislaus', 'Sutter', 'Tehama', 'Trinity', 'Tulare', 
+    'Tuolumne', 'Ventura', 'Yolo', 'Yuba'
+  ]
   
   // Separate state for parties (attorneys are now nested within each party)
   const [plaintiffs, setPlaintiffs] = useState<Party[]>([])
@@ -127,10 +142,12 @@ export default function CaseDetailPage() {
             caseNumber: foundCase.caseNumber || '',
             caseType: foundCase.caseType || '',
             client: foundCase.client || '',
-            description: foundCase.description || '',
             facts: foundCase.facts || '',
             trialDate: foundCase.trialDate || '',
-            court: foundCase.court || ''
+            court: foundCase.court || '',
+            judgeName: foundCase.judgeName || '',
+            departmentNumber: foundCase.departmentNumber || '',
+            dateOfLoss: foundCase.dateOfLoss || ''
           })
           // Load parties (attorneys are nested within each party)
           setPlaintiffs(foundCase.plaintiffs || [])
@@ -161,10 +178,12 @@ export default function CaseDetailPage() {
         caseNumber: formData.caseNumber.trim(),
         caseType: formData.caseType.trim() || undefined,
         client: formData.client.trim() || undefined,
-        description: formData.description.trim() || undefined,
         facts: formData.facts,
         trialDate: formData.trialDate,
         court: formData.court.trim() || undefined,
+        judgeName: formData.judgeName.trim() || undefined,
+        departmentNumber: formData.departmentNumber.trim() || undefined,
+        dateOfLoss: formData.dateOfLoss || undefined,
         plaintiffs: plaintiffs,  // Attorneys are nested within each party
         defendants: defendants
       })
@@ -568,22 +587,50 @@ export default function CaseDetailPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black min-h-[80px]"
-                      placeholder="Brief description of the case..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Court</label>
-                    <input
-                      type="text"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Court (County)</label>
+                    <select
                       value={formData.court}
                       onChange={(e) => setFormData({ ...formData, court: e.target.value })}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
-                      placeholder="e.g., Superior Court of California, County of Los Angeles"
+                    >
+                      <option value="">Select County...</option>
+                      {californiaCounties.map((county) => (
+                        <option key={county} value={county}>
+                          {county} County
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Judge</label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-700 font-medium whitespace-nowrap">Honorable</span>
+                      <input
+                        type="text"
+                        value={formData.judgeName}
+                        onChange={(e) => setFormData({ ...formData, judgeName: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
+                        placeholder="Judge Name"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <input
+                      type="text"
+                      value={formData.departmentNumber}
+                      onChange={(e) => setFormData({ ...formData, departmentNumber: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
+                      placeholder="Dept. Number"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Loss</label>
+                    <input
+                      type="date"
+                      value={formData.dateOfLoss}
+                      onChange={(e) => setFormData({ ...formData, dateOfLoss: e.target.value })}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
                     />
                   </div>
                 </div>
@@ -597,14 +644,22 @@ export default function CaseDetailPage() {
                   {caseItem.court && (
                     <p className="text-lg text-gray-700 mt-1">
                       <Building2 className="h-4 w-4 inline mr-1" />
-                      Court: {caseItem.court}
+                      Court: Superior Court of California, County of {caseItem.court}
+                    </p>
+                  )}
+                  {caseItem.judgeName && (
+                    <p className="text-lg text-gray-700 mt-1">
+                      Judge: Honorable {caseItem.judgeName}
+                      {caseItem.departmentNumber && ` (Dept. ${caseItem.departmentNumber})`}
+                    </p>
+                  )}
+                  {caseItem.dateOfLoss && (
+                    <p className="text-lg text-gray-700 mt-1">
+                      Date of Loss: {new Date(caseItem.dateOfLoss).toLocaleDateString()}
                     </p>
                   )}
                   {caseItem.client && (
                     <p className="text-lg text-gray-700 mt-1">Client: {caseItem.client}</p>
-                  )}
-                  {caseItem.description && (
-                    <p className="text-gray-600 mt-2">{caseItem.description}</p>
                   )}
                 </>
               )}
