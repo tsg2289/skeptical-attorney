@@ -1024,6 +1024,16 @@ function DemandLetterPageContent() {
             </button>
             </div>
           </div>
+
+          {/* Legal Disclaimer */}
+          <div className="glass p-6 rounded-2xl bg-amber-50 border border-amber-200 mt-6">
+            <h4 className="font-medium text-amber-800 mb-2">⚠️ Legal Disclaimer</h4>
+            <p className="text-amber-800 text-sm">
+              This document is AI-generated and should be reviewed by a qualified attorney before sending. 
+              The content may require modifications to meet specific jurisdictional requirements and 
+              case-specific details. Always consult with legal counsel for proper legal advice.
+            </p>
+          </div>
         </div>
       </div>
       
