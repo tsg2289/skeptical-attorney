@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, ListOrdered, Eye } from 'lucide-react'
+import { FileText, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, ListOrdered, Eye } from 'lucide-react'
 import { CaseFrontend, supabaseCaseStorage, ComplaintSection } from '@/lib/supabase/caseStorage'
 import { downloadComplaintDocument, ComplaintData } from '@/lib/docx-generator'
 import { userProfileStorage } from '@/lib/supabase/userProfileStorage'
@@ -30,7 +30,6 @@ export default function ComplaintOutput({
   trialSections = [],
   onTrialSectionsChange
 }: ComplaintOutputProps) {
-  const [copied, setCopied] = useState(false)
   const [showProofOfService, setShowProofOfService] = useState(false)
   const [sections, setSections] = useState<ComplaintSection[]>([])
   
@@ -84,38 +83,30 @@ export default function ComplaintOutput({
     return sectionsList
       .filter(s => s.type === 'cause')
       .map(s => {
-        // Try to extract the cause name from title like "FIRST CAUSE OF ACTION (Negligence - CACI 400)"
-        // or "FIRST CAUSE OF ACTION: Negligence"
+        // Try to extract the cause name from title like "FIRST CAUSE OF ACTION: Negligence (CACI 400)"
+        // or "FIRST CAUSE OF ACTION (Negligence - CACI 400)"
         const titleClean = s.title.replace(/\*+/g, '').trim()
         
-        // Pattern 1: "FIRST CAUSE OF ACTION (Negligence - CACI 400)" - extract from parentheses in title
-        const parenMatch = titleClean.match(/CAUSE\s+OF\s+ACTION[^(]*\(([^)]+)\)/i)
-        if (parenMatch) {
-          return parenMatch[1].trim().toUpperCase()
-        }
-        
-        // Pattern 2: "FIRST CAUSE OF ACTION: Negligence" or "FIRST CAUSE OF ACTION - Negligence"
+        // Pattern 1: "FIRST CAUSE OF ACTION: Cause Name (CACI XXX)" - extract everything after colon including CACI
         const colonMatch = titleClean.match(/CAUSE\s+OF\s+ACTION\s*[:\-–—]\s*(.+)/i)
         if (colonMatch) {
           return colonMatch[1].trim().toUpperCase()
         }
         
+        // Pattern 2: "FIRST CAUSE OF ACTION (Cause Name - CACI 400)" - extract from parentheses
+        const parenMatch = titleClean.match(/CAUSE\s+OF\s+ACTION[^(]*\(([^)]+)\)/i)
+        if (parenMatch) {
+          return parenMatch[1].trim().toUpperCase()
+        }
+        
         // Pattern 3: Check if cause name is in the content (first line starting with parentheses)
-        // e.g., content starts with "(Negligence)" or "(Negligence - CACI 400)"
         if (s.content) {
           const contentLines = s.content.split('\n')
           for (const line of contentLines) {
             const trimmedLine = line.trim()
-            // Match "(CauseName)" or "(CauseName - CACI XXX)" pattern
             const contentParenMatch = trimmedLine.match(/^\(([^)]+)\)/)
             if (contentParenMatch) {
-              // Extract just the cause name, removing CACI reference if present
-              const causeText = contentParenMatch[1].trim()
-              // Remove CACI reference like "- CACI 400" or just "CACI 400"
-              const causeName = causeText.replace(/\s*[-–—]?\s*CACI\s*\d+\s*/gi, '').trim()
-              if (causeName) {
-                return causeName.toUpperCase()
-              }
+              return contentParenMatch[1].trim().toUpperCase()
             }
           }
         }
@@ -921,34 +912,35 @@ export default function ComplaintOutput({
       .trim()
   }
 
+  // Auto-populate Proof of Service with case data
+  const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+  const primaryAttorney = captionData.attorneys[0]
+  const countyName = captionData.county?.toUpperCase() || '[COUNTY NAME]'
+  const attorneyAddress = primaryAttorney?.address || '[ADDRESS]'
+  const attorneyEmail = primaryAttorney?.email || '[EMAIL]'
+  const attorneyName = primaryAttorney?.name || '[NAME]'
+  // Extract city from address (typically last part before state/zip)
+  const cityMatch = attorneyAddress.match(/,\s*([^,]+),?\s*(?:CA|California)/i)
+  const cityName = cityMatch ? cityMatch[1].trim() : captionData.county || '[CITY]'
+
   const proofOfServiceText = `PROOF OF SERVICE
 
-STATE OF CALIFORNIA, COUNTY OF [COUNTY NAME]
+STATE OF CALIFORNIA, COUNTY OF ${countyName}
 
-At the time of service, I was over 18 years of age and not a party to this action. I am employed in the County of [COUNTY NAME], State of California. My business address is [ADDRESS], California.
+At the time of service, I was over 18 years of age and not a party to this action. I am employed in the County of ${countyName}, State of California. My business address is ${attorneyAddress}.
 
-On [DATE], I served true copies of the following document(s) described as COMPLAINT on the interested parties in this action as follows:
+On ${currentDate}, I served true copies of the following document(s) described as COMPLAINT on the interested parties in this action as follows:
 
-BY E-MAIL OR ELECTRONIC TRANSMISSION: I caused a copy of the document(s) to be sent from e-mail address [EMAIL] to the persons at the e-mail addresses listed in the Service List. I did not receive, within a reasonable time after the transmission, any electronic message or other indication that the transmission was unsuccessful.
+BY E-MAIL OR ELECTRONIC TRANSMISSION: I caused a copy of the document(s) to be sent from e-mail address ${attorneyEmail} to the persons at the e-mail addresses listed in the Service List. I did not receive, within a reasonable time after the transmission, any electronic message or other indication that the transmission was unsuccessful.
 
 I declare under penalty of perjury under the laws of the State of California that the foregoing is true and correct.
 
-Executed on [DATE], at [CITY], California.
+Executed on ${currentDate}, at ${cityName}, California.
 
 
 
                                                     ________________________________
-                                                    [NAME]`
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(getFullComplaint())
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('Failed to copy:', err)
-    }
-  }
+                                                    ${attorneyName}`
 
   const handleDownloadWord = async () => {
     try {
@@ -1056,82 +1048,12 @@ Executed on [DATE], at [CITY], California.
           </div>
           <div className="flex items-center space-x-3 flex-wrap gap-2">
             <button
-              onClick={handleCopy}
-              className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
-            >
-              {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-              <span className="text-sm">{copied ? 'Copied!' : 'Copy All'}</span>
-            </button>
-            {/* Save Draft Button - Only for authenticated users */}
-            {!isTrialMode && (
-              <button
-                onClick={handleSaveDraft}
-                disabled={saving || !canSave}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
-                  saving ? 'opacity-50 cursor-not-allowed' : ''
-                } ${!canSave 
-                  ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
-                  : saveSuccess 
-                    ? 'bg-green-600 text-white'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
-                title={!caseData?.id ? 'Access from case dashboard to enable saving' : 'Save your draft'}
-              >
-                {saving ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span className="text-sm">Saving...</span>
-                  </>
-                ) : saveSuccess ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span className="text-sm">Saved!</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                    </svg>
-                    <span className="text-sm">Save Draft</span>
-                  </>
-                )}
-              </button>
-            )}
-            <button
-              onClick={handleAddProofOfService}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
-                showProofOfService 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <Plus className="w-4 h-4" />
-              <span className="text-sm">{showProofOfService ? 'Remove' : 'Add'} Proof of Service</span>
-            </button>
-            <button
               onClick={handleRenumberAll}
               className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
               title="Renumber all paragraphs sequentially"
             >
               <ListOrdered className="w-4 h-4" />
               <span className="text-sm">Renumber All</span>
-            </button>
-            <button
-              onClick={() => setShowPreview(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              <Eye className="w-4 h-4" />
-              <span className="text-sm">Preview</span>
-            </button>
-            <button
-              onClick={handleDownloadWord}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
-            >
-              <FileIcon className="w-4 h-4" />
-              <span className="text-sm">Download Word</span>
             </button>
             <button
               onClick={onNewComplaint}
@@ -1142,18 +1064,6 @@ Executed on [DATE], at [CITY], California.
             </button>
           </div>
         </div>
-
-        {/* Save Error Message */}
-        {saveError && (
-          <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3">
-            <div className="flex items-center space-x-2">
-              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className="text-red-800 text-sm font-medium">{saveError}</span>
-            </div>
-          </div>
-        )}
 
         {/* Success Message */}
         <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-4">
@@ -1319,13 +1229,23 @@ Executed on [DATE], at [CITY], California.
         })}
       </div>
 
-      {/* Add Section Button */}
-      <div className="flex justify-center">
+      {/* Add Section and Proof of Service Buttons */}
+      <div className="flex justify-center gap-4">
         <button
           onClick={addSection}
           className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
         >
           + Add Section
+        </button>
+        <button
+          onClick={handleAddProofOfService}
+          className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl ${
+            showProofOfService 
+              ? 'bg-green-600 hover:bg-green-700 text-white' 
+              : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
+          }`}
+        >
+          {showProofOfService ? '✓ Proof of Service Added' : '+ Add Proof of Service'}
         </button>
       </div>
 
@@ -1352,6 +1272,69 @@ Executed on [DATE], at [CITY], California.
           </div>
         </div>
       )}
+
+      {/* Bottom Action Bar - Save Draft and Preview */}
+      <div className="glass-strong p-6 rounded-2xl">
+        {/* Save Error Message */}
+        {saveError && (
+          <div className="mb-4 flex items-center gap-2 text-red-600 bg-red-50 px-4 py-2 rounded-lg">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            {saveError}
+          </div>
+        )}
+        
+        <div className="flex gap-4 justify-end items-center">
+          {/* Save Draft Button */}
+          {!isTrialMode && (
+            <button 
+              onClick={handleSaveDraft}
+              disabled={saving || !canSave}
+              className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                saving ? 'opacity-50 cursor-not-allowed' : ''
+              } ${!canSave 
+                ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
+                : saveSuccess 
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+              }`}
+              title={!caseData?.id ? 'Access from case dashboard to enable saving' : 'Save draft to case'}
+            >
+              {saving ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Saving...</span>
+                </>
+              ) : saveSuccess ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Saved!</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                  </svg>
+                  <span>Save Draft</span>
+                </>
+              )}
+            </button>
+          )}
+          
+          {/* Preview Button */}
+          <button 
+            onClick={() => setShowPreview(true)}
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            <span>Preview</span>
+          </button>
+        </div>
+      </div>
 
       {/* Disclaimer */}
       <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">

@@ -143,25 +143,29 @@ export default function PreviewModal({
 
             {/* Preview Content */}
             <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-              <div className="max-w-3xl mx-auto bg-white p-8 shadow-lg font-serif text-black">
-                {/* Attorney Header */}
-                <div className="text-center mb-8 space-y-1">
+              <div className="max-w-3xl mx-auto bg-white shadow-lg font-serif text-black p-8">
+                {/* Attorney Header - Left Aligned (Pleading Paper Style) */}
+                <div className="mb-6 space-y-0 text-sm leading-6">
                   {captionData.attorneys.map((attorney, index) => (
-                    <div key={index} className="text-sm text-black">
-                      <p className="font-bold">{attorney.name || '[ATTORNEY NAME]'} (SBN: {attorney.barNumber || '[BAR NUMBER]'})</p>
+                    <div key={index} className="text-black">
+                      <p>{attorney.name || '[ATTORNEY NAME]'}, State Bar No. {attorney.barNumber || '[BAR NUMBER]'}</p>
                       <p>{attorney.firm || '[LAW FIRM]'}</p>
                       <p>{attorney.address || '[ADDRESS]'}</p>
-                      <p>Tel: {attorney.phone || '[PHONE]'} | Email: {attorney.email || '[EMAIL]'}</p>
+                      <p>Telephone: {attorney.phone || '[PHONE]'}</p>
+                      <p>Facsimile: {attorney.fax || '[Fax Number]'}</p>
+                      <p>{attorney.email || '[EMAIL]'}</p>
                       {index < captionData.attorneys.length - 1 && <div className="my-2" />}
                     </div>
                   ))}
-                  <p className="text-sm mt-2 text-black">Attorney(s) for Plaintiff(s)</p>
+                  <p className="mt-2 text-black">
+                    Attorney for Plaintiff {formatPlaintiffs()[0]}
+                  </p>
                 </div>
 
                 {/* Court Header */}
                 <div className="text-center mb-8 uppercase font-bold text-black">
                   <p>SUPERIOR COURT OF THE STATE OF CALIFORNIA</p>
-                  <p>FOR THE COUNTY OF {captionData.county.toUpperCase() || '[COUNTY]'}</p>
+                  <p>COUNTY OF {captionData.county.toUpperCase() || '[COUNTY]'}</p>
                 </div>
 
                 {/* Case Caption Table */}
@@ -235,18 +239,33 @@ export default function PreviewModal({
 
                 {/* Complaint Body */}
                 <div className="space-y-6">
-                  {previewSections.map((section) => (
-                    <div key={section.id} className="mb-6">
-                      {section.title && (
-                        <h3 className="text-base font-bold text-center mb-4 uppercase text-black">
-                          {section.title}
-                        </h3>
-                      )}
-                      <div className="text-sm whitespace-pre-wrap leading-relaxed text-justify text-black">
-                        {section.content}
+                  {previewSections.map((section) => {
+                    // Remove title from content if it appears at the beginning to avoid duplication
+                    let displayContent = section.content;
+                    if (section.title && section.content) {
+                      const titleUpper = section.title.toUpperCase().trim();
+                      const contentUpper = section.content.toUpperCase().trim();
+                      if (contentUpper.startsWith(titleUpper)) {
+                        // Strip the title from the beginning of content
+                        displayContent = section.content.trim().substring(section.title.trim().length).trim();
+                        // Also remove any leading newlines or colons
+                        displayContent = displayContent.replace(/^[\n\r:]+/, '').trim();
+                      }
+                    }
+                    
+                    return (
+                      <div key={section.id} className="mb-6">
+                        {section.title && (
+                          <h3 className="text-base font-bold text-center mb-4 uppercase text-black">
+                            {section.title}
+                          </h3>
+                        )}
+                        <div className="text-sm whitespace-pre-wrap leading-relaxed text-justify text-black">
+                          {displayContent}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Proof of Service indicator */}
