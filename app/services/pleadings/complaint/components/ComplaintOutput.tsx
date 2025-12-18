@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, ListOrdered } from 'lucide-react'
+import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, ListOrdered, Eye } from 'lucide-react'
 import { CaseFrontend, supabaseCaseStorage, ComplaintSection } from '@/lib/supabase/caseStorage'
 import { downloadComplaintDocument, ComplaintData } from '@/lib/docx-generator'
 import { userProfileStorage } from '@/lib/supabase/userProfileStorage'
 import AIEditChatModal from './AIEditChatModal'
 import CaseCaptionCard, { CaseCaptionData } from './CaseCaptionCard'
+import PreviewModal from './PreviewModal'
 
 interface ComplaintOutputProps {
   complaint: string
@@ -48,6 +49,9 @@ export default function ComplaintOutput({
 
   // Track if we've initialized from trial sections
   const initializedFromTrial = useRef(false)
+
+  // Preview modal state
+  const [showPreview, setShowPreview] = useState(false)
 
   // Case Caption Card state
   const [captionData, setCaptionData] = useState<CaseCaptionData>({
@@ -1048,6 +1052,13 @@ Executed on [DATE], at [CITY], California.
               <span className="text-sm">Renumber All</span>
             </button>
             <button
+              onClick={() => setShowPreview(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="text-sm">Preview</span>
+            </button>
+            <button
               onClick={handleDownloadWord}
               className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
             >
@@ -1302,6 +1313,15 @@ Executed on [DATE], at [CITY], California.
           defendants: caseData?.defendants
         }}
         onApplyEdit={handleApplyAIEdit}
+      />
+
+      {/* Preview Modal */}
+      <PreviewModal
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        sections={sections}
+        captionData={captionData}
+        showProofOfService={showProofOfService}
       />
     </div>
   )
