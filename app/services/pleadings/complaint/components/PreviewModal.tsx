@@ -141,11 +141,11 @@ export default function PreviewModal({
 
             {/* Preview Content */}
             <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-              <div className="max-w-3xl mx-auto bg-white p-8 shadow-lg font-serif">
+              <div className="max-w-3xl mx-auto bg-white p-8 shadow-lg font-serif text-black">
                 {/* Attorney Header */}
                 <div className="text-center mb-8 space-y-1">
                   {captionData.attorneys.map((attorney, index) => (
-                    <div key={index} className="text-sm">
+                    <div key={index} className="text-sm text-black">
                       <p className="font-bold">{attorney.name || '[ATTORNEY NAME]'} (SBN: {attorney.barNumber || '[BAR NUMBER]'})</p>
                       <p>{attorney.firm || '[LAW FIRM]'}</p>
                       <p>{attorney.address || '[ADDRESS]'}</p>
@@ -153,11 +153,11 @@ export default function PreviewModal({
                       {index < captionData.attorneys.length - 1 && <div className="my-2" />}
                     </div>
                   ))}
-                  <p className="text-sm mt-2">Attorney(s) for Plaintiff(s)</p>
+                  <p className="text-sm mt-2 text-black">Attorney(s) for Plaintiff(s)</p>
                 </div>
 
                 {/* Court Header */}
-                <div className="text-center mb-8 uppercase font-bold">
+                <div className="text-center mb-8 uppercase font-bold text-black">
                   <p>SUPERIOR COURT OF THE STATE OF CALIFORNIA</p>
                   <p>FOR THE COUNTY OF {captionData.county.toUpperCase() || '[COUNTY]'}</p>
                 </div>
@@ -169,34 +169,34 @@ export default function PreviewModal({
                     <div className="w-1/2 p-4 border-r-2 border-black">
                       <div className="mb-4">
                         {formatPlaintiffs().map((plaintiff, index) => (
-                          <p key={index} className="text-sm">{plaintiff},</p>
+                          <p key={index} className="text-sm text-black">{plaintiff},</p>
                         ))}
-                        <p className="text-sm indent-8">Plaintiff(s),</p>
+                        <p className="text-sm indent-8 text-black">Plaintiff(s),</p>
                       </div>
-                      <p className="text-sm my-4">vs.</p>
+                      <p className="text-sm my-4 text-black">vs.</p>
                       <div>
                         {formatDefendants().map((defendant, index) => (
-                          <p key={index} className="text-sm">{defendant},</p>
+                          <p key={index} className="text-sm text-black">{defendant},</p>
                         ))}
-                        <p className="text-sm indent-8">Defendant(s).</p>
+                        <p className="text-sm indent-8 text-black">Defendant(s).</p>
                       </div>
                     </div>
                     
                     {/* Right side - Case Info */}
                     <div className="w-1/2 p-4 space-y-2">
-                      <p className="text-sm">Case No.: {captionData.caseNumber || '[CASE NUMBER]'}</p>
+                      <p className="text-sm text-black">Case No.: {captionData.caseNumber || '[CASE NUMBER]'}</p>
                       {captionData.judgeName && (
-                        <p className="text-sm">Honorable {captionData.judgeName}</p>
+                        <p className="text-sm text-black">Honorable {captionData.judgeName}</p>
                       )}
                       {captionData.departmentNumber && (
-                        <p className="text-sm">Dept. {captionData.departmentNumber}</p>
+                        <p className="text-sm text-black">Dept. {captionData.departmentNumber}</p>
                       )}
-                      <p className="text-sm font-bold mt-4">{captionData.documentType}</p>
+                      <p className="text-sm font-bold mt-4 text-black">{captionData.documentType}</p>
                       {captionData.demandJuryTrial && (
-                        <p className="text-sm font-bold">[DEMAND FOR JURY TRIAL]</p>
+                        <p className="text-sm font-bold text-black">[DEMAND FOR JURY TRIAL]</p>
                       )}
                       {captionData.complaintFiledDate && (
-                        <p className="text-sm mt-4">
+                        <p className="text-sm mt-4 text-black">
                           Complaint Filed: {new Date(captionData.complaintFiledDate).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long',
@@ -205,7 +205,7 @@ export default function PreviewModal({
                         </p>
                       )}
                       {captionData.trialDate && (
-                        <p className="text-sm">
+                        <p className="text-sm text-black">
                           Trial Date: {new Date(captionData.trialDate).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long',
@@ -222,11 +222,11 @@ export default function PreviewModal({
                   {previewSections.map((section) => (
                     <div key={section.id} className="mb-6">
                       {section.title && (
-                        <h3 className="text-base font-bold text-center mb-4 uppercase">
+                        <h3 className="text-base font-bold text-center mb-4 uppercase text-black">
                           {section.title}
                         </h3>
                       )}
-                      <div className="text-sm whitespace-pre-wrap leading-relaxed text-justify">
+                      <div className="text-sm whitespace-pre-wrap leading-relaxed text-justify text-black">
                         {section.content}
                       </div>
                     </div>
@@ -236,8 +236,8 @@ export default function PreviewModal({
                 {/* Proof of Service indicator */}
                 {showProofOfService && (
                   <div className="mt-12 pt-6 border-t-2 border-black">
-                    <p className="text-center font-bold uppercase">PROOF OF SERVICE</p>
-                    <p className="text-sm text-gray-500 text-center mt-2">[Proof of Service will be included in Word document]</p>
+                    <p className="text-center font-bold uppercase text-black">PROOF OF SERVICE</p>
+                    <p className="text-sm text-gray-600 text-center mt-2">[Proof of Service will be included in Word document]</p>
                   </div>
                 )}
               </div>
