@@ -4849,27 +4849,29 @@ Dated: ${new Date().toLocaleDateString()}
       <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Case Summary */}
-          <div className="rounded-2xl bg-white/30 border border-white/30 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)] backdrop-blur-xl backdrop-saturate-150 p-4">
-            <label htmlFor="summary" className="block text-sm font-medium text-gray-900 mb-2">
-              Case Summary *
-            </label>
-            <p className="text-gray-700 text-sm mb-3">
-              Provide a detailed factual summary of the incident, including dates, locations, parties involved, 
-              and the nature of damages or injuries.
-            </p>
-            <textarea
-              id="summary"
-              value={summary}
-              onChange={(e) => {
-                setSummary(e.target.value)
-                setError('')
-              }}
-              placeholder="Enter your case summary here..."
-              className="w-full rounded-lg bg-white/50 border border-white/60 text-gray-900 shadow-inner shadow-white/30 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/60 textarea-field"
-              disabled={isGenerating}
-              rows={8}
-            />
-            <div className="flex justify-between items-center mt-2">
+          <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
+            <div className="flex justify-between items-start mb-4 gap-3">
+              <div className="text-gray-400 flex items-center pt-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <span className="text-xl font-semibold text-gray-900 flex-1">Case Summary</span>
+            </div>
+            <div className="relative">
+              <textarea
+                id="summary"
+                value={summary}
+                onChange={(e) => {
+                  setSummary(e.target.value)
+                  setError('')
+                }}
+                placeholder="Provide a detailed factual summary of the incident, including dates, locations, parties involved, and the nature of damages or injuries."
+                className="w-full min-h-48 p-4 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isGenerating}
+              />
+            </div>
+            <div className="flex justify-between items-center mt-3">
               <span className="text-sm text-gray-600">
                 {summary.length} characters (minimum 50)
               </span>
@@ -5112,22 +5114,29 @@ I. Jurisdiction
             <button
               type="submit"
               disabled={isGenerating || !summary.trim() || summary.length < 50 || !selectedCounty || plaintiffs.filter(p => p.name.trim()).length === 0 || defendants.filter(d => d.name.trim()).length === 0 || rateLimitCooldown > 0}
-              className="btn-primary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                  <span className="text-gray-900 font-semibold">Generating Complaint...</span>
+                  <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Generating Complaint...</span>
                 </>
               ) : rateLimitCooldown > 0 ? (
                 <>
-                  <AlertCircle className="w-5 h-5 text-blue-600" />
-                  <span className="text-gray-900 font-semibold">Please wait {rateLimitCooldown}s (Rate Limited)</span>
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span>Please wait {rateLimitCooldown}s (Rate Limited)</span>
                 </>
               ) : (
                 <>
-                  <Send className="w-5 h-5 text-blue-600" />
-                  <span className="text-gray-900 font-semibold">Generate AI-Powered Complaint</span>
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  <span>Generate AI-Powered Complaint</span>
                 </>
               )}
             </button>

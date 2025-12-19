@@ -173,13 +173,21 @@ function ComplaintPageContent() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
-        <div className="glass p-6 rounded-2xl mb-8">
-          <div className="flex items-center space-x-3">
-            <FileText className="w-8 h-8 text-blue-600" />
-            <h2 className="text-3xl font-bold text-gray-900">Legal Complaint Generator</h2>
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-50 via-white to-blue-50 pt-16 pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-4xl mx-auto">
+            <h1 className="text-5xl md:text-6xl font-bold mb-8 leading-tight">
+              <span className="gradient-text">Legal Complaint</span> <span className="text-gray-900">Generator</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-slate-600 mb-12 leading-relaxed">
+              Create professional legal complaints with AI-powered content generation and proper legal formatting.
+            </p>
           </div>
         </div>
+      </section>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
 
         {/* Show form if: showForm is true, OR (NO generated complaint AND NO saved sections) */}
         {(showForm || (!generatedComplaint && !hasSavedSections)) && (

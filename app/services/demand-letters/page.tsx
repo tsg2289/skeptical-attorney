@@ -12,7 +12,7 @@ import { supabaseCaseStorage, CaseFrontend, Attorney } from '@/lib/supabase/case
 import { createClient } from '@/lib/supabase/client';
 import { useTrialMode } from '@/lib/contexts/TrialModeContext';
 import { userProfileStorage, UserProfile } from '@/lib/supabase/userProfileStorage';
-import { FileText, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 
 interface CardSection {
   id: string;
@@ -71,8 +71,8 @@ function DemandLetterPageContent() {
   const [sections, setSections] = useState<CardSection[]>([
     { 
       id: '0', 
-      title: 'Case Description', 
-      content: 'Enter your case facts here. Include the client name, date of incident, location, opposing party/insured, injuries sustained, and any other relevant details.\n\nOnce you have entered your case details, click the AI sparkle button (✨) in the bottom right corner to automatically generate all demand letter sections based on your case facts.' 
+      title: 'Case Summary', 
+      content: 'Provide a detailed factual summary of the incident, including dates, locations, parties involved, and the nature of damages or injuries.' 
     },
     { 
       id: '1', 
@@ -145,6 +145,7 @@ function DemandLetterPageContent() {
     phone: '',
     email: '',
   });
+  const [hasGenerated, setHasGenerated] = useState(false);
 
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto';
@@ -230,8 +231,8 @@ function DemandLetterPageContent() {
     setSections([
       { 
         id: '0', 
-        title: 'Case Description', 
-        content: 'Enter your case facts here. Include the client name, date of incident, location, opposing party/insured, injuries sustained, and any other relevant details.\n\nOnce you have entered your case details, click the AI sparkle button (✨) in the bottom right corner to automatically generate all demand letter sections based on your case facts.' 
+        title: 'Case Summary', 
+        content: 'Provide a detailed factual summary of the incident, including dates, locations, parties involved, and the nature of damages or injuries.' 
       },
       { 
         id: '1', 
@@ -280,6 +281,7 @@ function DemandLetterPageContent() {
     setSelectedAttorneyIds({ '1': 'manual' });
     setReInfo({ caseName: '', dateOfLoss: '', caseNumber: '' });
     setSendVia('Certified Mail');
+    setHasGenerated(false);
   };
 
   const addDocument = (sectionId: string) => {
@@ -294,9 +296,9 @@ function DemandLetterPageContent() {
   };
 
   const handleAIAssist = async (sectionId: string) => {
-    // Only allow for Case Description and Introduction sections
+    // Only allow for Case Summary and Introduction sections
     if (sectionId !== '0' && sectionId !== '1') {
-      setAiError('AI assist is only available for Case Description and Introduction sections');
+      setAiError('AI assist is only available for Case Summary and Introduction sections');
       setTimeout(() => setAiError(null), 5000);
       return;
     }
@@ -310,7 +312,7 @@ function DemandLetterPageContent() {
 
       let apiEndpoint = '/api/ai';
       
-      // Case Description uses populate-sections endpoint to fill all sections
+      // Case Summary uses populate-sections endpoint to fill all sections
       if (sectionId === '0') {
         apiEndpoint = '/api/ai/populate-sections';
       }
@@ -358,7 +360,7 @@ function DemandLetterPageContent() {
 
       const data = await response.json();
       
-      // If Case Description, update all sections
+      // If Case Summary, update all sections
       if (sectionId === '0' && data.sections) {
         // Update each section with generated content
         setSections(prevSections => 
@@ -369,6 +371,8 @@ function DemandLetterPageContent() {
             return sec;
           })
         );
+        // Mark as generated for trial mode UI
+        setHasGenerated(true);
       } else {
         // Single section update (Introduction)
         updateSection(sectionId, 'content', data.content);
@@ -404,7 +408,7 @@ function DemandLetterPageContent() {
       return;
     }
 
-    // Prevent dropping Case Description (id: '0') or dropping before Case Description
+    // Prevent dropping Case Summary (id: '0') or dropping before Case Summary
     const draggedSection = sections[draggedIndex];
     if (draggedSection.id === '0' || dropIndex === 0) {
       setDraggedIndex(null);
@@ -584,7 +588,7 @@ function DemandLetterPageContent() {
     }
   };
 
-  // Split sections into Case Description and other sections
+  // Split sections into Case Summary and other sections
   const caseDescription = sections.find(s => s.id === '0');
   const otherSections = sections.filter(s => s.id !== '0');
 
@@ -625,18 +629,24 @@ function DemandLetterPageContent() {
         </div>
       )}
 
-      <div className="min-h-screen p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <header className="glass p-6 rounded-2xl mb-8">
-            <div className="flex items-center space-x-3">
-              <FileText className="w-8 h-8 text-blue-600" />
-              <h1 className="text-3xl font-bold text-gray-900">Demand Letter Generator</h1>
-            </div>
-          </header>
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-50 via-white to-blue-50 pt-16 pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-4xl mx-auto">
+            <h1 className="text-5xl md:text-6xl font-bold mb-8 leading-tight">
+              <span className="gradient-text">Demand Letter</span> <span className="text-gray-900">Generator</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-slate-600 mb-12 leading-relaxed">
+              Create professional demand letters with AI-powered content generation and proper legal formatting.
+            </p>
+          </div>
+        </div>
+      </section>
 
-          {/* Sending Attorney Card - Only show in trial mode */}
-          {isTrialMode && (
+      <div className="min-h-screen p-6 bg-gradient-to-br from-blue-50 via-white to-blue-50">
+        <div className="max-w-7xl mx-auto">
+          {/* Sending Attorney Card - Only show in trial mode after generation */}
+          {isTrialMode && hasGenerated && (
             <div className="mb-8">
               <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
                 <div className="flex items-center gap-3 mb-4">
@@ -714,6 +724,7 @@ function DemandLetterPageContent() {
           )}
 
           {/* Recipient Card - Who the demand letter is sent to */}
+          {(!isTrialMode || hasGenerated) && (
           <div className="mb-8">
             <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
@@ -868,8 +879,10 @@ function DemandLetterPageContent() {
               </div>
             </div>
           </div>
+          )}
 
           {/* RE: Section Card */}
+          {(!isTrialMode || hasGenerated) && (
           <div className="mb-8">
             <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
               <div className="flex items-center gap-3 mb-4">
@@ -926,8 +939,9 @@ function DemandLetterPageContent() {
               </div>
             </div>
           </div>
+          )}
 
-          {/* Case Description Section - Separate at Top */}
+          {/* Case Summary Section - Separate at Top */}
           {caseDescription && (
             <div className="mb-8">
               <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300 relative">
@@ -958,36 +972,9 @@ function DemandLetterPageContent() {
                         autoResizeTextarea(textarea);
                       }
                     }}
-                    className="w-full min-h-48 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
+                    className="w-full min-h-48 p-4 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
                     placeholder="Enter section content here... (Template will be added later)"
                   />
-                  {/* AI Sparkle Button */}
-                  <button
-                    onClick={() => handleAIAssist(caseDescription.id)}
-                    disabled={aiLoading === caseDescription.id}
-                    className={`absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group ${
-                      aiLoading === caseDescription.id ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    aria-label="AI Assist"
-                    title="AI Assist - Improve case description"
-                  >
-                    {aiLoading === caseDescription.id ? (
-                      <svg className="w-4 h-4 text-white animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg 
-                        className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
-                        fill="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
-                        <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
-                        <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
-                      </svg>
-                    )}
-                  </button>
                 </div>
                 {aiError && (
                   <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded border border-red-200">
@@ -998,36 +985,35 @@ function DemandLetterPageContent() {
             </div>
           )}
 
-          {/* Trial Mode AI Generation Button - Show after Case Description */}
+          {/* Trial Mode AI Generation Button - Show after Case Summary */}
           {isTrialMode && caseDescription && (
-            <div className="mb-8">
-              <div className="glass-strong p-6 rounded-2xl">
-                <button
-                  onClick={() => handleAIAssist('0')}
-                  disabled={aiLoading === '0' || !caseDescription.content.trim() || caseDescription.content.length < 50}
-                  className="w-full py-4 px-6 bg-white border border-gray-200 rounded-xl font-semibold text-gray-900 hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-                >
-                  {aiLoading === '0' ? (
-                    <>
-                      <svg className="w-5 h-5 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <span>Generating Demand Letter...</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                      </svg>
-                      <span>Generate AI-Powered Demand Letter</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
+            <button
+              onClick={() => handleAIAssist('0')}
+              disabled={aiLoading === '0' || !caseDescription.content.trim() || caseDescription.content.length < 50}
+              className="w-full mb-8 py-4 px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+            >
+              {aiLoading === '0' ? (
+                <>
+                  <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Generating Demand Letter...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                  <span>Generate AI-Powered Demand Letter</span>
+                </>
+              )}
+            </button>
           )}
 
+          {/* Divider and Demand Letter Sections - Hidden until generated in trial mode */}
+          {(!isTrialMode || hasGenerated) && (
+          <>
           {/* Divider */}
           <div className="mb-8 flex items-center gap-4">
             <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
@@ -1219,6 +1205,8 @@ function DemandLetterPageContent() {
             </button>
             </div>
           </div>
+          </>
+          )}
 
           {/* Legal Disclaimer */}
           <div className="glass p-6 rounded-2xl bg-amber-50 border border-amber-200 mt-6">
@@ -1266,6 +1254,7 @@ function DemandLetterPageContent() {
             updateSection(editingSection.id, 'content', newContent);
             setEditingSection(null);
           }}
+          isTrialMode={isTrialMode}
         />
       )}
     </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 
 interface ChatMessage {
   id: string;
@@ -24,6 +25,7 @@ interface AIEditChatModalProps {
     defendants?: { name: string }[];
   };
   onApplyEdit: (newContent: string) => void;
+  isTrialMode?: boolean;
 }
 
 export default function AIEditChatModal({
@@ -36,6 +38,7 @@ export default function AIEditChatModal({
   caseId,
   parties,
   onApplyEdit,
+  isTrialMode = false,
 }: AIEditChatModalProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -220,6 +223,40 @@ export default function AIEditChatModal({
           </button>
         </div>
 
+        {/* Trial Mode Sign-Up Prompt */}
+        {isTrialMode ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+            <div className="p-4 bg-blue-100 rounded-full mb-6">
+              <svg className="w-12 h-12 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+                <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-3">Unlock AI Editing</h3>
+            <p className="text-gray-600 mb-6 max-w-sm">
+              Sign up for a free account to use the AI Edit Assistant and save your work permanently.
+            </p>
+            <div className="space-y-3 w-full max-w-xs">
+              <Link
+                href="/login"
+                className="block w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl text-center"
+              >
+                Sign Up Free →
+              </Link>
+              <button
+                onClick={onClose}
+                className="block w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-medium transition-colors"
+              >
+                Maybe Later
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-6">
+              Your trial work will be saved until you sign up
+            </p>
+          </div>
+        ) : (
+        <>
         {/* Current Content Preview */}
         <div className="px-4 py-3 bg-gray-50 border-b shrink-0">
           <div className="flex items-center justify-between mb-2">
@@ -378,6 +415,8 @@ export default function AIEditChatModal({
             Press Enter to send • Shift+Enter for new line
           </p>
         </div>
+        </>
+        )}
       </div>
 
       <style jsx>{`
