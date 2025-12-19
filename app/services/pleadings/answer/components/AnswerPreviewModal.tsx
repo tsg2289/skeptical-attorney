@@ -35,6 +35,7 @@ interface AnswerPreviewModalProps {
   };
   isMultipleDefendants?: boolean;
   showProofOfService?: boolean;
+  proofOfServiceText?: string;
 }
 
 export default function AnswerPreviewModal({ 
@@ -44,7 +45,8 @@ export default function AnswerPreviewModal({
   captionData,
   formData,
   isMultipleDefendants = false,
-  showProofOfService = false
+  showProofOfService = false,
+  proofOfServiceText = ''
 }: AnswerPreviewModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -140,6 +142,9 @@ export default function AnswerPreviewModal({
         trialDate: captionData.trialDate || formData.trialDate || undefined,
         // Document Options
         useGeneralDenial: formData.useGeneralDenial ?? true,
+        // Proof of Service
+        includeProofOfService: showProofOfService,
+        proofOfServiceText: showProofOfService ? proofOfServiceText : undefined,
       };
 
       await downloadWordDocument(answerData);
@@ -361,11 +366,12 @@ Attorney for Defendant ${defendantName}`;
                   </div>
                 </div>
 
-                {/* Proof of Service indicator */}
-                {showProofOfService && (
+                {/* Proof of Service */}
+                {showProofOfService && proofOfServiceText && (
                   <div className="mt-12 pt-6 border-t-2 border-black">
-                    <p className="text-center font-bold uppercase text-black">PROOF OF SERVICE</p>
-                    <p className="text-sm text-gray-600 text-center mt-2">[Proof of Service will be included in Word document]</p>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed text-black">
+                      {proofOfServiceText}
+                    </div>
                   </div>
                 )}
               </div>

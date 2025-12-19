@@ -96,12 +96,12 @@ export default function ComplaintForm({
     }
     return [{ 
       id: '1', 
-      name: 'John Smith', 
-      email: 'jsmith@lawfirm.com', 
-      barNumber: '123456', 
-      lawFirmName: 'Smith & Associates', 
-      lawFirmAddress: '123 Main Street\nLos Angeles, CA 90001', 
-      lawFirmPhone: '(310) 555-1234' 
+      name: 'Attorney Name', 
+      email: '', 
+      barNumber: '', 
+      lawFirmName: '', 
+      lawFirmAddress: '', 
+      lawFirmPhone: '' 
     }]
   })
   
@@ -4847,11 +4847,6 @@ Dated: ${new Date().toLocaleDateString()}
   return (
     <div className="glass-card rounded-2xl shadow-2xl border border-white/20">
       <div className="p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <FileText className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-bold text-gray-900">Generate Legal Complaint</h2>
-        </div>
-
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Case Summary */}
           <div className="rounded-2xl bg-white/30 border border-white/30 shadow-[0_20px_60px_-25px_rgba(15,23,42,0.4)] backdrop-blur-xl backdrop-saturate-150 p-4">
@@ -5135,20 +5130,6 @@ I. Jurisdiction
                   <span className="text-gray-900 font-semibold">Generate AI-Powered Complaint</span>
                 </>
               )}
-            </button>
-            
-            <div className="text-center">
-              <span className="text-gray-700 text-sm">or</span>
-            </div>
-            
-            <button
-              type="button"
-              onClick={generateManualTemplate}
-              disabled={isGenerating}
-              className="btn-secondary w-full flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileEdit className="w-5 h-5 text-blue-600" />
-              <span className="text-gray-900 font-semibold">Use Manual Template</span>
             </button>
           </div>
         </form>

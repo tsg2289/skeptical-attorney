@@ -11,6 +11,7 @@ interface PreviewModalProps {
   sections: ComplaintSection[];
   captionData: CaseCaptionData;
   showProofOfService?: boolean;
+  proofOfServiceText?: string;
 }
 
 export default function PreviewModal({ 
@@ -18,7 +19,8 @@ export default function PreviewModal({
   onClose, 
   sections, 
   captionData,
-  showProofOfService = false 
+  showProofOfService = false,
+  proofOfServiceText = ''
 }: PreviewModalProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -83,6 +85,7 @@ export default function PreviewModal({
         complaintFiledDate: captionData.complaintFiledDate || undefined,
         trialDate: captionData.trialDate || undefined,
         includeProofOfService: showProofOfService,
+        proofOfServiceText: showProofOfService ? proofOfServiceText : undefined,
         causesOfAction: captionData.causesOfAction || [],
         demandJuryTrial: captionData.demandJuryTrial,
       };
@@ -268,11 +271,12 @@ export default function PreviewModal({
                   })}
                 </div>
 
-                {/* Proof of Service indicator */}
-                {showProofOfService && (
+                {/* Proof of Service */}
+                {showProofOfService && proofOfServiceText && (
                   <div className="mt-12 pt-6 border-t-2 border-black">
-                    <p className="text-center font-bold uppercase text-black">PROOF OF SERVICE</p>
-                    <p className="text-sm text-gray-600 text-center mt-2">[Proof of Service will be included in Word document]</p>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed text-black">
+                      {proofOfServiceText}
+                    </div>
                   </div>
                 )}
               </div>

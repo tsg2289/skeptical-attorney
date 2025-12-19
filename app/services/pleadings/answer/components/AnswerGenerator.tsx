@@ -150,6 +150,14 @@ function parseAnswer(answer: string): AnswerSections {
     if (aiInPrayer !== -1) {
       prayerText = prayerText.substring(0, aiInPrayer).trim()
     }
+
+    // Also remove prayer from last defense content if it got included there
+    const lastDefense = sections.defenses[sections.defenses.length - 1]
+    if (lastDefense && lastDefense.content.includes('WHEREFORE')) {
+      const prayerStart = lastDefense.content.indexOf('WHEREFORE')
+      lastDefense.content = lastDefense.content.substring(0, prayerStart).trim()
+      lastDefense.fullText = `${lastDefense.number} AFFIRMATIVE DEFENSE${lastDefense.causesOfAction ? `\n(${lastDefense.causesOfAction})` : ''}${lastDefense.title ? `\n(${lastDefense.title})` : ''}\n${lastDefense.content}`
+    }
   } else {
     // Check if prayer content is in the last defense
     const lastDefense = sections.defenses[sections.defenses.length - 1]
@@ -1003,6 +1011,38 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
     setShowAIEdit(true)
   }
 
+  // Generate Proof of Service text
+  const generateProofOfServiceText = useCallback(() => {
+    const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    const primaryAttorney = captionData.attorneys?.[0]
+    const countyName = captionData.county?.toUpperCase() || '[COUNTY NAME]'
+    const attorneyAddress = primaryAttorney?.address || '[ADDRESS]'
+    const attorneyEmail = primaryAttorney?.email || '[EMAIL]'
+    const attorneyName = primaryAttorney?.name || '[NAME]'
+    // Extract city from address (typically last part before state/zip)
+    const cityMatch = attorneyAddress.match(/,\s*([^,]+),?\s*(?:CA|California)/i)
+    const cityName = cityMatch ? cityMatch[1].trim() : captionData.county || '[CITY]'
+
+    return `PROOF OF SERVICE
+
+STATE OF CALIFORNIA, COUNTY OF ${countyName}
+
+At the time of service, I was over 18 years of age and not a party to this action. I am employed in the County of ${countyName}, State of California. My business address is ${attorneyAddress}.
+
+On ${currentDate}, I served true copies of the following document(s) described as ANSWER TO COMPLAINT on the interested parties in this action as follows:
+
+BY E-MAIL OR ELECTRONIC TRANSMISSION: I caused a copy of the document(s) to be sent from e-mail address ${attorneyEmail} to the persons at the e-mail addresses listed in the Service List. I did not receive, within a reasonable time after the transmission, any electronic message or other indication that the transmission was unsuccessful.
+
+I declare under penalty of perjury under the laws of the State of California that the foregoing is true and correct.
+
+Executed on ${currentDate}, at ${cityName}, California.
+
+
+
+                                                    ________________________________
+                                                    ${attorneyName}`
+  }, [captionData])
+
   // Handler for applying AI edit
   const handleApplyAIEdit = (newContent: string) => {
     if (!aiEditSection) return
@@ -1300,178 +1340,27 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
                 </div>
               </div>
 
-              {/* Attorney & Court Information - Collapsible */}
-              <details className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-                <summary className="px-4 py-3 font-medium text-gray-700 cursor-pointer hover:bg-gray-100 transition-colors flex items-center">
-                  <Scale className="w-4 h-4 mr-2 text-primary-600" />
-                  Attorney & Court Information (Optional - for Word Document)
-                </summary>
-                <div className="p-4 space-y-4 border-t border-gray-200">
-                  {/* Attorney Information */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-800 text-sm">Attorney Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        name="attorneyName"
-                        value={formData.attorneyName}
-                        onChange={handleInputChange}
-                        placeholder="Attorney Name"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="stateBarNumber"
-                        value={formData.stateBarNumber}
-                        onChange={handleInputChange}
-                        placeholder="State Bar No."
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="email"
-                        name="attorneyEmail"
-                        value={formData.attorneyEmail}
-                        onChange={handleInputChange}
-                        placeholder="Email"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="lawFirmName"
-                        value={formData.lawFirmName}
-                        onChange={handleInputChange}
-                        placeholder="Law Firm Name"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="addressLine1"
-                        value={formData.addressLine1}
-                        onChange={handleInputChange}
-                        placeholder="Street Address"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="addressLine2"
-                        value={formData.addressLine2}
-                        onChange={handleInputChange}
-                        placeholder="City, State ZIP"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleInputChange}
-                        placeholder="Phone"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="fax"
-                        value={formData.fax}
-                        onChange={handleInputChange}
-                        placeholder="Fax (optional)"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Court Information */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-800 text-sm">Court Information</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        name="county"
-                        value={formData.county}
-                        onChange={handleInputChange}
-                        placeholder="County (e.g., LOS ANGELES)"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="courtDistrict"
-                        value={formData.courtDistrict}
-                        onChange={handleInputChange}
-                        placeholder="District (optional)"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="caseNumber"
-                        value={formData.caseNumber}
-                        onChange={handleInputChange}
-                        placeholder="Case Number"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="judgeName"
-                        value={formData.judgeName}
-                        onChange={handleInputChange}
-                        placeholder="Judge Name"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="department"
-                        value={formData.department}
-                        onChange={handleInputChange}
-                        placeholder="Department"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="actionFiled"
-                        value={formData.actionFiled}
-                        onChange={handleInputChange}
-                        placeholder="Action Filed Date"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                      <input
-                        type="text"
-                        name="trialDate"
-                        value={formData.trialDate}
-                        onChange={handleInputChange}
-                        placeholder="Trial Date (or 'None')"
-                        className="px-3 py-2 rounded-lg border border-gray-300 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Document Options */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-800 text-sm">Document Options</h4>
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData.useGeneralDenial}
-                        onChange={(e) => setFormData({ ...formData, useGeneralDenial: e.target.checked })}
-                        className="mr-2 text-primary-600 focus:ring-primary-500 rounded"
-                      />
-                      <span className="text-gray-700 text-sm">Include General Denial (CCP 431.30(d))</span>
-                    </label>
-                  </div>
-                </div>
-              </details>
-
               <button
                 onClick={generateAnswer}
                 disabled={isLoading}
-                className="w-full font-semibold py-4 px-6 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 text-white transition-all transform hover:scale-105 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="w-full py-4 px-6 bg-white border border-gray-200 rounded-xl font-semibold text-gray-900 hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
               >
-                <span className="flex items-center justify-center">
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                      Generating Answer...
-                    </>
-                  ) : (
-                    'Generate Answer'
-                  )}
-                </span>
+                {isLoading ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Generating Answer...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                    <span>Generate AI-Powered Answer</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1481,25 +1370,11 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
           {answerSections && (
             <>
               <div className="glass rounded-3xl p-8 bg-white/95 border border-primary-200 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <div className="glass rounded-xl p-3 mr-4 bg-primary-50 border border-primary-200">
-                      <Scale className="w-6 h-6 text-primary-600" />
-                    </div>
-                    <h2 className="text-2xl font-semibold text-gray-800">Generated Answer</h2>
+                <div className="flex items-center">
+                  <div className="glass rounded-xl p-3 mr-4 bg-primary-50 border border-primary-200">
+                    <Scale className="w-6 h-6 text-primary-600" />
                   </div>
-                  <button
-                    onClick={() => {
-                      setAnswerSections(null)
-                      setGeneratedAnswer('')
-                      setSaveSuccess(false)
-                      setShowProofOfService(false)
-                    }}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
-                  >
-                    <Plus className="w-4 h-4" />
-                    New Answer
-                  </button>
+                  <h2 className="text-2xl font-semibold text-gray-800">Generated Answer</h2>
                 </div>
               </div>
 
@@ -1758,64 +1633,46 @@ Attorney for Defendant ${defendantName}`
               )}
 
               {/* Proof of Service Card */}
-              {showProofOfService && (() => {
-                // Auto-populate Proof of Service with case data
-                const currentDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-                const primaryAttorney = captionData.attorneys?.[0]
-                const countyName = captionData.county?.toUpperCase() || '[COUNTY NAME]'
-                const attorneyAddress = primaryAttorney?.address || '[ADDRESS]'
-                const attorneyEmail = primaryAttorney?.email || '[EMAIL]'
-                const attorneyName = primaryAttorney?.name || '[NAME]'
-                // Extract city from address (typically last part before state/zip)
-                const cityMatch = attorneyAddress.match(/,\s*([^,]+),?\s*(?:CA|California)/i)
-                const cityName = cityMatch ? cityMatch[1].trim() : captionData.county || '[CITY]'
-
-                const proofOfServiceText = `PROOF OF SERVICE
-
-STATE OF CALIFORNIA, COUNTY OF ${countyName}
-
-At the time of service, I was over 18 years of age and not a party to this action. I am employed in the County of ${countyName}, State of California. My business address is ${attorneyAddress}.
-
-On ${currentDate}, I served true copies of the following document(s) described as ANSWER TO COMPLAINT on the interested parties in this action as follows:
-
-BY E-MAIL OR ELECTRONIC TRANSMISSION: I caused a copy of the document(s) to be sent from e-mail address ${attorneyEmail} to the persons at the e-mail addresses listed in the Service List. I did not receive, within a reasonable time after the transmission, any electronic message or other indication that the transmission was unsuccessful.
-
-I declare under penalty of perjury under the laws of the State of California that the foregoing is true and correct.
-
-Executed on ${currentDate}, at ${cityName}, California.
-
-
-
-                                                    ________________________________
-                                                    ${attorneyName}`
-
-                return (
-                  <div className="glass-strong p-6 rounded-2xl border-2 border-dashed border-blue-300">
-                    <div className="flex justify-between items-start mb-4 gap-3">
-                      <div className="flex items-center space-x-3">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                        </svg>
-                        <h3 className="text-xl font-semibold text-gray-900">Proof of Service</h3>
-                      </div>
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
-                        Added
-                      </span>
+              {showProofOfService && (
+                <div className="glass-strong p-6 rounded-2xl border-2 border-dashed border-blue-300">
+                  <div className="flex justify-between items-start mb-4 gap-3">
+                    <div className="flex items-center space-x-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                      </svg>
+                      <h3 className="text-xl font-semibold text-gray-900">Proof of Service</h3>
                     </div>
-                    <div className="relative">
-                      <textarea
-                        value={proofOfServiceText}
-                        readOnly
-                        className="w-full min-h-48 p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 resize-none"
-                      />
-                    </div>
+                    <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+                      Added
+                    </span>
                   </div>
-                )
-              })()}
+                  <div className="relative">
+                    <textarea
+                      value={generateProofOfServiceText()}
+                      readOnly
+                      className="w-full min-h-48 p-4 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 resize-none"
+                    />
+                  </div>
+                </div>
+              )}
 
-              {/* Bottom Action Bar - Save Draft and Preview */}
+              {/* Bottom Action Bar - Save Draft, New Answer, and Preview */}
               <div className="glass-strong p-6 rounded-2xl">
                 <div className="flex gap-4 justify-end items-center">
+                  {/* New Answer Button */}
+                  <button
+                    onClick={() => {
+                      setAnswerSections(null)
+                      setGeneratedAnswer('')
+                      setSaveSuccess(false)
+                      setShowProofOfService(false)
+                    }}
+                    className="px-6 py-3 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-full font-semibold transition-all duration-300 flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>New Answer</span>
+                  </button>
+
                   {/* Save Draft Button */}
                   {!isTrialMode && (
                     <button 
@@ -1878,20 +1735,6 @@ Executed on ${currentDate}, at ${cityName}, California.
             </>
           )}
 
-          {/* Empty State */}
-          {!answerSections && !isLoading && (
-            <div className="glass rounded-3xl p-8 bg-white/95 border border-primary-200 shadow-lg">
-              <div className="flex items-center justify-center h-[500px] text-gray-500">
-                <div className="text-center">
-                  <div className="glass rounded-2xl p-6 mb-4 inline-block bg-primary-50 border border-primary-200">
-                    <Scale className="w-16 h-16 mx-auto text-primary-600 opacity-50" />
-                  </div>
-                  <p className="text-lg">Generated answer will appear here...</p>
-                  <p className="text-xs mt-2 text-gray-400">Generated legal document content</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
       
@@ -1904,6 +1747,7 @@ Executed on ${currentDate}, at ${cityName}, California.
         formData={formData}
         isMultipleDefendants={formData.isMultipleDefendants}
         showProofOfService={showProofOfService}
+        proofOfServiceText={showProofOfService ? generateProofOfServiceText() : ''}
       />
 
       {/* AI Edit Modal */}

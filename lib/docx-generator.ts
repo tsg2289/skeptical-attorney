@@ -507,6 +507,8 @@ export interface AnswerData {
   department?: string
   actionFiled?: string
   trialDate?: string
+  includeProofOfService?: boolean
+  proofOfServiceText?: string
 }
 
 export function generateWordDocument(data: AnswerData): Document {
@@ -526,7 +528,9 @@ export function generateWordDocument(data: AnswerData): Document {
     judge = "[Judge Name]",
     department = "[Dept.]",
     actionFiled = "September 3, 2020",
-    trialDate = "None"
+    trialDate = "None",
+    includeProofOfService = false,
+    proofOfServiceText = ''
   } = data
   
   const children: (Paragraph | Table)[] = []
@@ -1309,6 +1313,77 @@ export function generateWordDocument(data: AnswerData): Document {
     spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
   }))
 
+  // Add Proof of Service if enabled
+  if (includeProofOfService && proofOfServiceText) {
+    // Add page break before Proof of Service
+    children.push(new Paragraph({
+      children: [],
+      pageBreakBefore: true,
+    }))
+    
+    // Parse and add Proof of Service text
+    const posLines = proofOfServiceText.split('\n')
+    for (const line of posLines) {
+      const trimmedLine = line.trim()
+
+      // Check if it's a title/header line
+      if (trimmedLine === 'PROOF OF SERVICE') {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: trimmedLine,
+              size: 24,
+              font: 'Times New Roman',
+              bold: true,
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any, after: 240 },
+        }))
+      } else if (trimmedLine.startsWith('STATE OF CALIFORNIA')) {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: trimmedLine,
+              size: 24,
+              font: 'Times New Roman',
+              bold: true,
+            }),
+          ],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        }))
+      } else if (trimmedLine.includes('________________________________')) {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: trimmedLine,
+              size: 24,
+              font: 'Times New Roman',
+            }),
+          ],
+          alignment: AlignmentType.RIGHT,
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        }))
+      } else if (trimmedLine === '') {
+        children.push(new Paragraph({
+          children: [new TextRun({ text: '', size: 24, font: 'Times New Roman' })],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        }))
+      } else {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: trimmedLine,
+              size: 24,
+              font: 'Times New Roman',
+            }),
+          ],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        }))
+      }
+    }
+  }
+
   // Helper to add filler lines ("/ / /") to fill remaining space on page
   const addFillerLines = (count: number) => {
     for (let i = 0; i < count; i++) {
@@ -1906,6 +1981,7 @@ export interface ComplaintData {
   complaintFiledDate?: string
   trialDate?: string
   includeProofOfService?: boolean
+  proofOfServiceText?: string
   causesOfAction?: string[]
   demandJuryTrial?: boolean
 }
@@ -1930,6 +2006,8 @@ export function generateComplaintDocument(data: ComplaintData): Document {
     trialDate,
     causesOfAction = [],
     demandJuryTrial = true,
+    includeProofOfService = false,
+    proofOfServiceText = '',
   } = data
 
   const children: (Paragraph | Table)[] = []
@@ -2291,6 +2369,71 @@ export function generateComplaintDocument(data: ComplaintData): Document {
       spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
       alignment: AlignmentType.CENTER,
     }))
+  }
+
+  // Add Proof of Service if enabled
+  if (includeProofOfService && proofOfServiceText) {
+    // Add page break before Proof of Service
+    children.push(new Paragraph({
+      children: [],
+      pageBreakBefore: true,
+    }))
+    
+    // Parse and add Proof of Service text
+    const posLines = proofOfServiceText.split('\n')
+    for (const line of posLines) {
+      const trimmedLine = line.trim()
+      
+      // Title line - centered and bold
+      if (trimmedLine === 'PROOF OF SERVICE') {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: trimmedLine,
+              size: 24,
+              font: 'Times New Roman',
+              bold: true,
+            }),
+          ],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+          alignment: AlignmentType.CENTER,
+        }))
+      }
+      // Signature line
+      else if (trimmedLine.includes('________________________________')) {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: trimmedLine,
+              size: 24,
+              font: 'Times New Roman',
+            }),
+          ],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+          alignment: AlignmentType.RIGHT,
+        }))
+      }
+      // Regular text
+      else if (trimmedLine.length > 0) {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: trimmedLine,
+              size: 24,
+              font: 'Times New Roman',
+            }),
+          ],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        }))
+      }
+      // Blank lines
+      else {
+        children.push(new Paragraph({
+          children: [],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        }))
+      }
+    }
   }
 
   // Create footer

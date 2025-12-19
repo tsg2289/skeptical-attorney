@@ -476,11 +476,40 @@ export default function ComplaintOutput({
         }
         
         // Start new cause of action - include the title
-        const causeTitle = line.trim()
+        let causeTitle = line.trim()
+        const causeLines = [lines[i]]
+        
+        // Look ahead to check if next line is a parenthetical cause name like "(Negligence)"
+        // or a cause name line like "Negligence" or "NEGLIGENCE"
+        if (i + 1 < lines.length) {
+          const nextLine = lines[i + 1].trim()
+          const nextCleanLine = nextLine.replace(/\*+/g, '').trim()
+          
+          // Check if next line is a parenthetical cause name
+          if (nextCleanLine.match(/^\([^)]+\)$/)) {
+            // Append the cause name to the title
+            causeTitle = `${causeTitle} ${nextCleanLine}`
+            causeLines.push(lines[i + 1])
+            i++ // Skip the next line since we've incorporated it
+          }
+          // Check if next line is just a cause name (not numbered paragraph)
+          else if (nextCleanLine && !nextCleanLine.match(/^\d+\./) && nextCleanLine.length < 100 && !nextCleanLine.match(/^(plaintiff|defendant|on or about|at all)/i)) {
+            // Check if it looks like a cause name (short, no period at end usually)
+            const looksLikeCauseName = nextCleanLine.match(/^[A-Z][A-Za-z\s\-–—]+$/) || 
+                                        nextCleanLine.match(/^[A-Z][A-Za-z\s\-–—]+\s*[-–—]\s*CACI/i) ||
+                                        nextCleanLine.match(/negligence|breach|fraud|conversion|assault|battery|trespass|nuisance|defamation|infliction/i)
+            if (looksLikeCauseName) {
+              causeTitle = `${causeTitle}: ${nextCleanLine}`
+              causeLines.push(lines[i + 1])
+              i++ // Skip the next line since we've incorporated it
+            }
+          }
+        }
+        
         currentSection = { 
           id: String(sectionId), 
           title: causeTitle, 
-          lines: [lines[i]],
+          lines: causeLines,
           type: 'cause'
         }
       }
@@ -982,6 +1011,7 @@ Executed on ${currentDate}, at ${cityName}, California.
         complaintFiledDate: captionData.complaintFiledDate || undefined,
         trialDate: captionData.trialDate || undefined,
         includeProofOfService: showProofOfService,
+        proofOfServiceText: showProofOfService ? proofOfServiceText : undefined,
       }
       
       await downloadComplaintDocument(complaintData)
@@ -1039,46 +1069,47 @@ Executed on ${currentDate}, at ${cityName}, California.
 
   return (
     <div className="space-y-6">
-      {/* Header Card */}
-      <div className="glass p-6 rounded-2xl">
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center space-x-3">
-            <FileText className="w-6 h-6 text-blue-600" />
-            <h2 className="text-2xl font-bold text-gray-900">Generated Complaint</h2>
+      {/* Header Card - Hidden in Trial Mode */}
+      {!isTrialMode && (
+        <div className="glass p-6 rounded-2xl">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center space-x-3">
+              <FileText className="w-6 h-6 text-blue-600" />
+              <h2 className="text-2xl font-bold text-gray-900">Generated Complaint</h2>
+            </div>
+            <div className="flex items-center space-x-3 flex-wrap gap-2">
+              <button
+                onClick={handleRenumberAll}
+                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
+                title="Renumber all paragraphs sequentially"
+              >
+                <ListOrdered className="w-4 h-4" />
+                <span className="text-sm">Renumber All</span>
+              </button>
+              <button
+                onClick={onNewComplaint}
+                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span className="text-sm">New Complaint</span>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center space-x-3 flex-wrap gap-2">
-            <button
-              onClick={handleRenumberAll}
-              className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
-              title="Renumber all paragraphs sequentially"
-            >
-              <ListOrdered className="w-4 h-4" />
-              <span className="text-sm">Renumber All</span>
-            </button>
-            <button
-              onClick={onNewComplaint}
-              className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span className="text-sm">New Complaint</span>
-            </button>
-          </div>
-        </div>
 
-        {/* Success Message */}
-        <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-4">
-          <div className="flex items-center space-x-2">
-            <Check className="w-5 h-5 text-green-600" />
-            <span className="text-green-800 font-medium">
-              Complaint generated successfully!
-            </span>
+          {/* Success Message */}
+          <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-4">
+            <div className="flex items-center space-x-2">
+              <Check className="w-5 h-5 text-green-600" />
+              <span className="text-green-800 font-medium">
+                Complaint generated successfully!
+              </span>
+            </div>
+            <p className="text-green-700 text-sm mt-1">
+              Edit each section below. Drag and drop to reorder. Each cause of action includes its allegations.
+            </p>
           </div>
-          <p className="text-green-700 text-sm mt-1">
-            Edit each section below. Drag and drop to reorder. Each cause of action includes its allegations.
-            {isTrialMode && ' Your work is saved in your browser while you test.'}
-          </p>
         </div>
-      </div>
+      )}
 
       {/* Divider */}
       <div className="flex items-center gap-4">
@@ -1325,6 +1356,17 @@ Executed on ${currentDate}, at ${cityName}, California.
             </button>
           )}
           
+          {/* New Complaint Button (Trial Mode Only) */}
+          {isTrialMode && (
+            <button
+              onClick={onNewComplaint}
+              className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>New Complaint</span>
+            </button>
+          )}
+          
           {/* Preview Button */}
           <button 
             onClick={() => setShowPreview(true)}
@@ -1373,6 +1415,7 @@ Executed on ${currentDate}, at ${cityName}, California.
         sections={sections}
         captionData={captionData}
         showProofOfService={showProofOfService}
+        proofOfServiceText={proofOfServiceText}
       />
     </div>
   )
