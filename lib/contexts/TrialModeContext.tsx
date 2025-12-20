@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 interface TrialModeContextType {
   isTrialMode: boolean;
@@ -95,7 +96,7 @@ export const TrialModeProvider: React.FC<{ children: ReactNode }> = ({ children 
     checkAuth();
     
     // Listen for auth state changes (fixes race condition on Vercel)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setIsAuthenticated(!!session?.user);
       setLoading(false);
     });
