@@ -78,9 +78,10 @@ export const TrialModeProvider: React.FC<{ children: ReactNode }> = ({ children 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const supabase = createClient();
+    
     const checkAuth = async () => {
       try {
-        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         setIsAuthenticated(!!user);
       } catch (err) {
@@ -90,7 +91,18 @@ export const TrialModeProvider: React.FC<{ children: ReactNode }> = ({ children 
         setLoading(false);
       }
     };
+    
     checkAuth();
+    
+    // Listen for auth state changes (fixes race condition on Vercel)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session?.user);
+      setLoading(false);
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // SECURITY: Check if a case ID is a trial case ID (not a real database ID)
