@@ -5,6 +5,7 @@ import { FileText, Sparkles, Plus, Trash2, Search, X, BookOpen } from 'lucide-re
 import toast from 'react-hot-toast'
 import { CaseFrontend, MotionCaseCitation } from '@/lib/supabase/caseStorage'
 import CaseLawSearch from './CaseLawSearch'
+import { CALIFORNIA_COUNTIES } from '@/lib/constants/californiaCounties'
 
 interface MotionFormProps {
   onMotionGenerated: (motion: string, motionType: string) => void
@@ -186,13 +187,18 @@ export default function MotionForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">County</label>
-              <input
-                type="text"
+              <select
                 value={county}
                 onChange={(e) => setCounty(e.target.value)}
-                placeholder="Los Angeles"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
-              />
+              >
+                <option value="">Select County...</option>
+                {CALIFORNIA_COUNTIES.map((countyName) => (
+                  <option key={countyName} value={countyName}>
+                    {countyName} County
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Case Number</label>

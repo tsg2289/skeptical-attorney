@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { FileText, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, ListOrdered, Eye } from 'lucide-react'
 import { CaseFrontend, supabaseCaseStorage, ComplaintSection } from '@/lib/supabase/caseStorage'
 import { downloadComplaintDocument, ComplaintData } from '@/lib/docx-generator'
-import { userProfileStorage } from '@/lib/supabase/userProfileStorage'
+import { userProfileStorage, UserProfile } from '@/lib/supabase/userProfileStorage'
 import AIEditChatModal from './AIEditChatModal'
 import CaseCaptionCard, { CaseCaptionData } from './CaseCaptionCard'
 import PreviewModal from './PreviewModal'
@@ -51,6 +51,9 @@ export default function ComplaintOutput({
 
   // Preview modal state
   const [showPreview, setShowPreview] = useState(false)
+
+  // User profile for fallback attorney info
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
 
   // Case Caption Card state
   const [captionData, setCaptionData] = useState<CaseCaptionData>({
@@ -123,7 +126,24 @@ export default function ComplaintOutput({
       .filter(Boolean)
   }, [])
 
-  // Initialize caption data from caseData
+  // Load user profile for fallback attorney info (logged-in users only)
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!isTrialMode) {
+        try {
+          const profile = await userProfileStorage.getProfile()
+          if (profile) {
+            setUserProfile(profile)
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error)
+        }
+      }
+    }
+    loadUserProfile()
+  }, [isTrialMode])
+
+  // Initialize caption data from caseData (with userProfile fallback)
   useEffect(() => {
     if (caseData) {
       // Extract all attorneys from all plaintiffs
@@ -140,9 +160,21 @@ export default function ComplaintOutput({
         })) || []
       ) || []
 
+      // Use user profile as fallback if no attorneys in case
+      const fallbackAttorneys = userProfile && allAttorneys.length === 0 ? [{
+        id: '1',
+        name: userProfile.fullName || '',
+        barNumber: userProfile.barNumber || '',
+        firm: userProfile.firmName || '',
+        address: userProfile.firmAddress || '',
+        phone: userProfile.firmPhone || '',
+        fax: '',
+        email: userProfile.firmEmail || '',
+      }] : null
+
       setCaptionData(prev => ({
         ...prev,
-        attorneys: allAttorneys.length > 0 ? allAttorneys : prev.attorneys,
+        attorneys: allAttorneys.length > 0 ? allAttorneys : (fallbackAttorneys || prev.attorneys),
         plaintiffs: caseData.plaintiffs?.map(p => p.name).filter(Boolean) || 
                     (caseData.client ? [caseData.client] : prev.plaintiffs),
         defendants: caseData.defendants?.map(d => d.name).filter(Boolean) || prev.defendants,
@@ -155,7 +187,26 @@ export default function ComplaintOutput({
         trialDate: caseData.trialDate || prev.trialDate,
       }))
     }
-  }, [caseData])
+  }, [caseData, userProfile])
+
+  // Populate caption with user profile if no case data (logged-in users)
+  useEffect(() => {
+    if (!isTrialMode && userProfile && !caseData) {
+      setCaptionData(prev => ({
+        ...prev,
+        attorneys: [{
+          id: '1',
+          name: userProfile.fullName || '',
+          barNumber: userProfile.barNumber || '',
+          firm: userProfile.firmName || '',
+          address: userProfile.firmAddress || '',
+          phone: userProfile.firmPhone || '',
+          fax: '',
+          email: userProfile.firmEmail || '',
+        }],
+      }))
+    }
+  }, [isTrialMode, userProfile, caseData])
 
   // Debounced save for caption fields
   const saveCaptionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -1069,47 +1120,6 @@ Executed on ${currentDate}, at ${cityName}, California.
 
   return (
     <div className="space-y-6">
-      {/* Header Card - Hidden in Trial Mode */}
-      {!isTrialMode && (
-        <div className="glass p-6 rounded-2xl">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center space-x-3">
-              <FileText className="w-6 h-6 text-blue-600" />
-              <h2 className="text-2xl font-bold text-gray-900">Generated Complaint</h2>
-            </div>
-            <div className="flex items-center space-x-3 flex-wrap gap-2">
-              <button
-                onClick={handleRenumberAll}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
-                title="Renumber all paragraphs sequentially"
-              >
-                <ListOrdered className="w-4 h-4" />
-                <span className="text-sm">Renumber All</span>
-              </button>
-              <button
-                onClick={onNewComplaint}
-                className="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300"
-              >
-                <RotateCcw className="w-4 h-4" />
-                <span className="text-sm">New Complaint</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Success Message */}
-          <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-4">
-            <div className="flex items-center space-x-2">
-              <Check className="w-5 h-5 text-green-600" />
-              <span className="text-green-800 font-medium">
-                Complaint generated successfully!
-              </span>
-            </div>
-            <p className="text-green-700 text-sm mt-1">
-              Edit each section below. Drag and drop to reorder. Each cause of action includes its allegations.
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Divider */}
       <div className="flex items-center gap-4">
@@ -1356,16 +1366,14 @@ Executed on ${currentDate}, at ${cityName}, California.
             </button>
           )}
           
-          {/* New Complaint Button (Trial Mode Only) */}
-          {isTrialMode && (
-            <button
-              onClick={onNewComplaint}
-              className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              <span>New Complaint</span>
-            </button>
-          )}
+          {/* New Complaint Button */}
+          <button
+            onClick={onNewComplaint}
+            className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span>New Complaint</span>
+          </button>
           
           {/* Preview Button */}
           <button 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { FileText, Scale, Plus, X } from 'lucide-react'
+import { CALIFORNIA_COUNTIES } from '@/lib/constants/californiaCounties'
 
 interface Attorney {
   id: string
@@ -324,14 +325,19 @@ export default function CaseCaptionCard({ initialData, onChange, disabled }: Cas
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelStyle}>California County</label>
-              <input
-                type="text"
+              <select
                 value={data.county}
                 onChange={(e) => updateField('county', e.target.value)}
-                placeholder="Los Angeles"
                 disabled={disabled}
                 className={inputStyle}
-              />
+              >
+                <option value="">Select County...</option>
+                {CALIFORNIA_COUNTIES.map((countyName) => (
+                  <option key={countyName} value={countyName}>
+                    {countyName} County
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelStyle}>Case Number</label>

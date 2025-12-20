@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { FileText, Loader2, Send, AlertCircle, FileEdit, Plus, X, User, ChevronDown, ChevronUp } from 'lucide-react'
 import { Party, Attorney as CaseAttorney } from '@/lib/supabase/caseStorage'
+import { CALIFORNIA_COUNTIES } from '@/lib/constants/californiaCounties'
+import { userProfileStorage, UserProfile } from '@/lib/supabase/userProfileStorage'
+import CaseCaptionCard, { CaseCaptionData } from './CaseCaptionCard'
 
 interface ComplaintFormProps {
   onComplaintGenerated: (complaint: string) => void
@@ -125,6 +128,57 @@ export default function ComplaintForm({
   
   const [caseNumber, setCaseNumber] = useState(initialCaseNumber || '24STCV00000')
 
+  // User profile for fallback attorney info (logged-in users)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+
+  // Caption data state for CaseCaptionCard (logged-in users)
+  const [captionData, setCaptionData] = useState<CaseCaptionData>(() => {
+    // Initialize from case data if from dashboard
+    const caseAttorneys = fromCaseDashboard && initialPlaintiffs 
+      ? initialPlaintiffs.flatMap(p => 
+          p.attorneys?.map(att => ({
+            id: att.id || String(Date.now()),
+            name: att.name || '',
+            barNumber: att.barNumber || '',
+            firm: att.firm || '',
+            address: att.address || '',
+            phone: att.phone || '',
+            fax: '',
+            email: att.email || '',
+          })) || []
+        )
+      : []
+
+    return {
+      attorneys: caseAttorneys.length > 0 ? caseAttorneys : [{
+        id: '1',
+        name: '',
+        barNumber: '',
+        firm: '',
+        address: '',
+        phone: '',
+        fax: '',
+        email: '',
+      }],
+      plaintiffs: fromCaseDashboard && initialPlaintiffs 
+        ? initialPlaintiffs.map(p => p.name).filter(Boolean)
+        : [''],
+      defendants: fromCaseDashboard && initialDefendants
+        ? initialDefendants.map(d => d.name).filter(Boolean)
+        : [''],
+      includeDoes: true,
+      county: initialCounty || 'Los Angeles',
+      caseNumber: initialCaseNumber || '',
+      judgeName: '',
+      departmentNumber: '',
+      documentType: 'COMPLAINT',
+      demandJuryTrial: true,
+      complaintFiledDate: '',
+      trialDate: '',
+      causesOfAction: [],
+    }
+  })
+
   // Update state when initial props change (async loading from case)
   useEffect(() => {
     if (initialSummary) {
@@ -162,18 +216,87 @@ export default function ComplaintForm({
     }
   }, [initialDefendants])
 
-  // California counties list
-  const californiaCounties = [
-    'Alameda', 'Alpine', 'Amador', 'Butte', 'Calaveras', 'Colusa', 'Contra Costa', 
-    'Del Norte', 'El Dorado', 'Fresno', 'Glenn', 'Humboldt', 'Imperial', 'Inyo', 
-    'Kern', 'Kings', 'Lake', 'Lassen', 'Los Angeles', 'Madera', 'Marin', 'Mariposa', 
-    'Mendocino', 'Merced', 'Modoc', 'Mono', 'Monterey', 'Napa', 'Nevada', 'Orange', 
-    'Placer', 'Plumas', 'Riverside', 'Sacramento', 'San Benito', 'San Bernardino', 
-    'San Diego', 'San Francisco', 'San Joaquin', 'San Luis Obispo', 'San Mateo', 
-    'Santa Barbara', 'Santa Clara', 'Santa Cruz', 'Shasta', 'Sierra', 'Siskiyou', 
-    'Solano', 'Sonoma', 'Stanislaus', 'Sutter', 'Tehama', 'Trinity', 'Tulare', 
-    'Tuolumne', 'Ventura', 'Yolo', 'Yuba'
-  ]
+  // Load user profile for logged-in users
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (fromCaseDashboard) {
+        try {
+          const profile = await userProfileStorage.getProfile()
+          if (profile) {
+            setUserProfile(profile)
+          }
+        } catch (error) {
+          console.error('Error loading user profile:', error)
+        }
+      }
+    }
+    loadUserProfile()
+  }, [fromCaseDashboard])
+
+  // Update caption data with user profile fallback
+  useEffect(() => {
+    if (fromCaseDashboard && userProfile) {
+      setCaptionData(prev => {
+        // Only update attorneys if they're empty
+        const hasAttorneys = prev.attorneys.some(a => a.name.trim() !== '')
+        if (!hasAttorneys) {
+          return {
+            ...prev,
+            attorneys: [{
+              id: '1',
+              name: userProfile.fullName || '',
+              barNumber: userProfile.barNumber || '',
+              firm: userProfile.firmName || '',
+              address: userProfile.firmAddress || '',
+              phone: userProfile.firmPhone || '',
+              fax: '',
+              email: userProfile.firmEmail || '',
+            }],
+          }
+        }
+        return prev
+      })
+    }
+  }, [fromCaseDashboard, userProfile])
+
+  // Update caption data when case props change
+  useEffect(() => {
+    if (fromCaseDashboard) {
+      const caseAttorneys = initialPlaintiffs 
+        ? initialPlaintiffs.flatMap(p => 
+            p.attorneys?.map(att => ({
+              id: att.id || String(Date.now()),
+              name: att.name || '',
+              barNumber: att.barNumber || '',
+              firm: att.firm || '',
+              address: att.address || '',
+              phone: att.phone || '',
+              fax: '',
+              email: att.email || '',
+            })) || []
+          )
+        : []
+
+      setCaptionData(prev => ({
+        ...prev,
+        attorneys: caseAttorneys.length > 0 ? caseAttorneys : prev.attorneys,
+        plaintiffs: initialPlaintiffs?.map(p => p.name).filter(Boolean) || prev.plaintiffs,
+        defendants: initialDefendants?.map(d => d.name).filter(Boolean) || prev.defendants,
+        county: initialCounty || prev.county,
+        caseNumber: initialCaseNumber || prev.caseNumber,
+      }))
+    }
+  }, [fromCaseDashboard, initialPlaintiffs, initialDefendants, initialCounty, initialCaseNumber])
+
+  // Handler for CaseCaptionCard changes
+  const handleCaptionChange = (newCaptionData: CaseCaptionData) => {
+    setCaptionData(newCaptionData)
+    // Also update local state to keep in sync
+    setSelectedCounty(newCaptionData.county)
+    setCaseNumber(newCaptionData.caseNumber)
+    setPlaintiffs(newCaptionData.plaintiffs.map((name, i) => ({ id: String(i + 1), name })))
+    setDefendants(newCaptionData.defendants.map((name, i) => ({ id: String(i + 1), name })))
+  }
 
   // Available causes of action organized by CACI series
   const caciSeries: CACISeries[] = [
@@ -4765,14 +4888,39 @@ Dated: ${new Date().toLocaleDateString()}
               elements: cause.elements
             }))
           ) : null,
-          attorneys: attorneys.filter(att => 
-            att.name.trim() || att.email.trim() || att.barNumber.trim() || 
-            att.lawFirmName.trim() || att.lawFirmAddress.trim() || att.lawFirmPhone.trim()
-          ),
-          county: selectedCounty,
-          plaintiffs: plaintiffs.filter(p => p.name.trim()),
-          defendants: defendants.filter(d => d.name.trim()),
-          caseNumber: caseNumber.trim()
+          // Use caption data for logged-in users, otherwise use local state
+          attorneys: fromCaseDashboard 
+            ? captionData.attorneys.filter(att => 
+                att.name.trim() || att.email.trim() || att.barNumber.trim() || 
+                att.firm.trim() || att.address.trim() || att.phone.trim()
+              ).map(att => ({
+                id: att.id,
+                name: att.name,
+                email: att.email,
+                barNumber: att.barNumber,
+                lawFirmName: att.firm,
+                lawFirmAddress: att.address,
+                lawFirmPhone: att.phone
+              }))
+            : attorneys.filter(att => 
+                att.name.trim() || att.email.trim() || att.barNumber.trim() || 
+                att.lawFirmName.trim() || att.lawFirmAddress.trim() || att.lawFirmPhone.trim()
+              ),
+          county: fromCaseDashboard ? captionData.county : selectedCounty,
+          plaintiffs: fromCaseDashboard 
+            ? captionData.plaintiffs.filter(p => p.trim()).map((name, i) => ({ id: String(i + 1), name }))
+            : plaintiffs.filter(p => p.name.trim()),
+          defendants: fromCaseDashboard
+            ? captionData.defendants.filter(d => d.trim()).map((name, i) => ({ id: String(i + 1), name }))
+            : defendants.filter(d => d.name.trim()),
+          caseNumber: fromCaseDashboard ? captionData.caseNumber.trim() : caseNumber.trim(),
+          // Pass additional caption data for logged-in users
+          ...(fromCaseDashboard && {
+            includeDoes: captionData.includeDoes,
+            judgeName: captionData.judgeName,
+            departmentNumber: captionData.departmentNumber,
+            demandJuryTrial: captionData.demandJuryTrial,
+          })
         }),
       })
 
@@ -4848,6 +4996,35 @@ Dated: ${new Date().toLocaleDateString()}
     <div className="glass-card rounded-2xl shadow-2xl border border-white/20">
       <div className="p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Case Caption & Attorney Header - Show for logged-in users */}
+          {fromCaseDashboard && (
+            <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
+              <div className="flex justify-between items-center mb-4 gap-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Case Caption & Attorney Header</h3>
+                </div>
+                <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full whitespace-nowrap">
+                  Header
+                </span>
+              </div>
+              <CaseCaptionCard
+                initialData={captionData}
+                onChange={handleCaptionChange}
+                disabled={isGenerating}
+              />
+            </div>
+          )}
+
+          {/* Divider for logged-in users */}
+          {fromCaseDashboard && (
+            <div className="flex items-center gap-4">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
+              <span className="text-gray-600 text-sm font-medium">Case Details</span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
+            </div>
+          )}
+
           {/* Case Summary */}
           <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
             <div className="flex justify-between items-start mb-4 gap-3">
@@ -4879,6 +5056,31 @@ Dated: ${new Date().toLocaleDateString()}
                 <span className="text-green-600 text-sm font-medium">✓ Ready to generate</span>
               )}
             </div>
+          </div>
+
+          {/* County Selection */}
+          <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
+            <div className="flex justify-between items-start mb-4 gap-3">
+              <div className="text-gray-400 flex items-center pt-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <span className="text-xl font-semibold text-gray-900 flex-1">California County</span>
+            </div>
+            <select
+              value={selectedCounty}
+              onChange={(e) => setSelectedCounty(e.target.value)}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              disabled={isGenerating}
+            >
+              <option value="">Select County...</option>
+              {CALIFORNIA_COUNTIES.map((county) => (
+                <option key={county} value={county}>
+                  {county} County
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Causes of Action Selection */}

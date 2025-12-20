@@ -5,6 +5,7 @@ import { FileText, Copy, Download, Plus, Trash2, Sparkles, RefreshCw } from 'luc
 import toast from 'react-hot-toast'
 import { supabaseCaseStorage } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
+import { CALIFORNIA_COUNTIES } from '@/lib/constants/californiaCounties'
 
 interface ComplaintGeneratorProps {
   caseId?: string | null
@@ -176,13 +177,19 @@ export default function ComplaintGenerator({ caseId }: ComplaintGeneratorProps) 
             </label>
 
             <label className="block text-sm font-medium text-slate-700">
-              Venue (County & Court) *
-              <input
-                className="mt-2 w-full px-4 py-3 rounded-xl border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+              County *
+              <select
+                className="mt-2 w-full px-4 py-3 rounded-xl border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-white"
                 value={formData.venue}
                 onChange={(e) => updateField('venue', e.target.value)}
-                placeholder="Superior Court of California, County of Los Angeles"
-              />
+              >
+                <option value="">Select County...</option>
+                {CALIFORNIA_COUNTIES.map((county) => (
+                  <option key={county} value={county}>
+                    {county} County
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="block text-sm font-medium text-slate-700">
@@ -339,6 +346,7 @@ export default function ComplaintGenerator({ caseId }: ComplaintGeneratorProps) 
     </div>
   )
 }
+
 
 
 

@@ -651,6 +651,27 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
             phone: prev.phone || profile.firmPhone || '',
             attorneyEmail: prev.attorneyEmail || profile.firmEmail || '',
           }))
+          
+          // Also populate captionData with user profile if no case attorneys
+          setCaptionData(prev => {
+            // Only set if no attorneys already loaded from case
+            if (!prev.attorneys || prev.attorneys.length === 0) {
+              return {
+                ...prev,
+                attorneys: [{
+                  id: '1',
+                  name: profile.fullName || '',
+                  barNumber: profile.barNumber || '',
+                  firm: profile.firmName || '',
+                  address: profile.firmAddress || '',
+                  phone: profile.firmPhone || '',
+                  fax: '',
+                  email: profile.firmEmail || '',
+                }],
+              }
+            }
+            return prev
+          })
         }
       } catch (error) {
         console.error('Error loading user profile:', error)
@@ -1257,6 +1278,39 @@ Executed on ${currentDate}, at ${cityName}, California.
         <div className="space-y-8">
           {/* Input Form - BLUE/WHITE THEME - Only show when no answer generated */}
           {!answerSections && (
+          <>
+            {/* Case Caption & Attorney Header - Show for logged-in users */}
+            {!isTrialMode && (
+              <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300 mb-8">
+                <div className="flex justify-between items-center mb-4 gap-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Case Caption & Attorney Header</h3>
+                  </div>
+                  <span className="px-3 py-1 bg-gray-100 text-gray-700 text-sm font-medium rounded-full whitespace-nowrap">
+                    Header
+                  </span>
+                </div>
+                <CaseCaptionCard
+                  initialData={{
+                    ...captionData,
+                    documentType: 'ANSWER TO COMPLAINT',
+                  }}
+                  onChange={handleCaptionChange}
+                  disabled={isLoading}
+                />
+              </div>
+            )}
+
+            {/* Divider for logged-in users */}
+            {!isTrialMode && (
+              <div className="flex items-center gap-4 mb-8">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
+                <span className="text-gray-600 text-sm font-medium">Complaint Details</span>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
+              </div>
+            )}
+
           <div className="glass rounded-3xl p-8 space-y-6 bg-white/95 border border-primary-200 shadow-lg">
             <div className="flex items-center mb-6">
               <div className="glass rounded-xl p-3 mr-4 bg-primary-50 border border-primary-200">
@@ -1343,11 +1397,11 @@ Executed on ${currentDate}, at ${cityName}, California.
               <button
                 onClick={generateAnswer}
                 disabled={isLoading}
-                className="w-full py-4 px-6 bg-white border border-gray-200 rounded-xl font-semibold text-gray-900 hover:bg-gray-50 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+                className="w-full py-4 px-6 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-xl font-semibold text-white transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
               >
                 {isLoading ? (
                   <>
-                    <svg className="w-5 h-5 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -1355,7 +1409,7 @@ Executed on ${currentDate}, at ${cityName}, California.
                   </>
                 ) : (
                   <>
-                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                     </svg>
                     <span>Generate AI-Powered Answer</span>
@@ -1364,6 +1418,7 @@ Executed on ${currentDate}, at ${cityName}, California.
               </button>
             </div>
           </div>
+          </>
           )}
 
           {/* Generated Answer Header */}
@@ -1669,7 +1724,7 @@ Attorney for Defendant ${defendantName}`
                     }}
                     className="px-6 py-3 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-full font-semibold transition-all duration-300 flex items-center gap-2"
                   >
-                    <Plus className="w-4 h-4" />
+                    <RotateCcw className="w-4 h-4" />
                     <span>New Answer</span>
                   </button>
 

@@ -457,6 +457,19 @@ function DemandLetterPageContent() {
     loadUserProfile();
   }, []);
 
+  // Auto-populate sender info from user profile for logged-in users
+  useEffect(() => {
+    if (!isTrialMode && userProfile) {
+      setSenderInfo({
+        name: userProfile.fullName || '',
+        firm: userProfile.firmName || '',
+        address: userProfile.firmAddress || '',
+        phone: userProfile.firmPhone || '',
+        email: userProfile.firmEmail || '',
+      });
+    }
+  }, [isTrialMode, userProfile]);
+
   // Load case data from caseId if provided
   useEffect(() => {
     const loadCase = async () => {
@@ -645,17 +658,28 @@ function DemandLetterPageContent() {
 
       <div className="min-h-screen p-6 bg-gradient-to-br from-blue-50 via-white to-blue-50">
         <div className="max-w-7xl mx-auto">
-          {/* Sending Attorney Card - Only show in trial mode after generation */}
-          {isTrialMode && hasGenerated && (
+          {/* Sending Attorney Card - Show for logged-in users (pre-populated) or trial mode after generation */}
+          {((!isTrialMode && userProfile) || (isTrialMode && hasGenerated)) && (
             <div className="mb-8">
               <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="text-blue-600">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="text-blue-600">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">
+                        {isTrialMode ? 'Sending Attorney Information' : 'Your Firm Information'}
+                      </h2>
+                      {!isTrialMode && (
+                        <p className="text-sm text-gray-500">
+                          Pre-populated from your profile. <Link href="/settings" className="text-blue-600 hover:underline">Update in settings</Link>
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <h2 className="text-xl font-semibold text-gray-900">Sending Attorney Information</h2>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -985,8 +1009,8 @@ function DemandLetterPageContent() {
             </div>
           )}
 
-          {/* Trial Mode AI Generation Button - Show after Case Summary */}
-          {isTrialMode && caseDescription && (
+          {/* AI Generation Button - Show after Case Summary for both trial mode and logged-in users */}
+          {caseDescription && (
             <button
               onClick={() => handleAIAssist('0')}
               disabled={aiLoading === '0' || !caseDescription.content.trim() || caseDescription.content.length < 50}
@@ -1187,16 +1211,14 @@ function DemandLetterPageContent() {
                   )}
                 </button>
               )}
-              {/* New Letter Button (Trial Mode Only) */}
-              {isTrialMode && (
-                <button
-                  onClick={handleNewLetter}
-                  className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  <span>New Letter</span>
-                </button>
-              )}
+              {/* New Letter Button */}
+              <button
+                onClick={handleNewLetter}
+                className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>New Letter</span>
+              </button>
               <button 
                 onClick={() => setShowPreview(true)}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"

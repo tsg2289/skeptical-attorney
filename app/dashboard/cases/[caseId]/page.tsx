@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { calculateDeadlinesFromTrialDate, generateDeadlineId } from '@/lib/utils/deadlineCalculator'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import { CALIFORNIA_COUNTIES } from '@/lib/constants/californiaCounties'
 
 interface UserInfo {
   id: string
@@ -43,19 +44,6 @@ export default function CaseDetailPage() {
     departmentNumber: '',
     dateOfLoss: ''
   })
-  
-  // California counties list
-  const californiaCounties = [
-    'Alameda', 'Alpine', 'Amador', 'Butte', 'Calaveras', 'Colusa', 'Contra Costa', 
-    'Del Norte', 'El Dorado', 'Fresno', 'Glenn', 'Humboldt', 'Imperial', 'Inyo', 
-    'Kern', 'Kings', 'Lake', 'Lassen', 'Los Angeles', 'Madera', 'Marin', 'Mariposa', 
-    'Mendocino', 'Merced', 'Modoc', 'Mono', 'Monterey', 'Napa', 'Nevada', 'Orange', 
-    'Placer', 'Plumas', 'Riverside', 'Sacramento', 'San Benito', 'San Bernardino', 
-    'San Diego', 'San Francisco', 'San Joaquin', 'San Luis Obispo', 'San Mateo', 
-    'Santa Barbara', 'Santa Clara', 'Santa Cruz', 'Shasta', 'Sierra', 'Siskiyou', 
-    'Solano', 'Sonoma', 'Stanislaus', 'Sutter', 'Tehama', 'Trinity', 'Tulare', 
-    'Tuolumne', 'Ventura', 'Yolo', 'Yuba'
-  ]
   
   // Separate state for parties (attorneys are now nested within each party)
   const [plaintiffs, setPlaintiffs] = useState<Party[]>([])
@@ -594,7 +582,7 @@ export default function CaseDetailPage() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-black"
                     >
                       <option value="">Select County...</option>
-                      {californiaCounties.map((county) => (
+                      {CALIFORNIA_COUNTIES.map((county) => (
                         <option key={county} value={county}>
                           {county} County
                         </option>
