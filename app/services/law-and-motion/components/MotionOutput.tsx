@@ -50,7 +50,7 @@ export default function MotionOutput({
   const [saveError, setSaveError] = useState<string | null>(null)
 
   // Proof of Service state
-  const [showProofOfService, setShowProofOfService] = useState(motionFormData?.showProofOfService || false)
+  const [showProofOfService, setShowProofOfService] = useState(false)
 
   // Local editable copies of form data sections
   const [noticeOfMotion, setNoticeOfMotion] = useState(motionFormData?.noticeOfMotion || {
