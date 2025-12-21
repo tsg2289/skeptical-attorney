@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
 
     // Parse PDF
     if (fileName.endsWith('.pdf')) {
-      const pdfModule = await import('pdf-parse')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pdfModule = await import('pdf-parse') as any
       const pdfParse = pdfModule.default || pdfModule
       const pdfData = await pdfParse(buffer)
       extractedText = pdfData.text
