@@ -12,3 +12,5 @@ export const CALIFORNIA_COUNTIES = [
 
 export type CaliforniaCounty = typeof CALIFORNIA_COUNTIES[number];
 
+
+

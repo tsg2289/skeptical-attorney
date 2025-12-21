@@ -29,6 +29,8 @@ export interface CaseCaptionData {
   complaintFiledDate: string
   trialDate: string
   causesOfAction: string[] // List of cause of action names for caption
+  hearingDate?: string    // For motions - hearing date
+  hearingTime?: string    // For motions - hearing time
 }
 
 interface CaseCaptionCardProps {
@@ -63,6 +65,8 @@ export default function CaseCaptionCard({ initialData, onChange, disabled }: Cas
     complaintFiledDate: initialData.complaintFiledDate || '',
     trialDate: initialData.trialDate || '',
     causesOfAction: initialData.causesOfAction || [],
+    hearingDate: initialData.hearingDate || '',
+    hearingTime: initialData.hearingTime || '',
   })
 
   // Track if this is first render to avoid calling onChange on mount
@@ -100,9 +104,11 @@ export default function CaseCaptionCard({ initialData, onChange, disabled }: Cas
         departmentNumber: initialData.departmentNumber ?? prev.departmentNumber,
         complaintFiledDate: initialData.complaintFiledDate ?? prev.complaintFiledDate,
         trialDate: initialData.trialDate ?? prev.trialDate,
+        hearingDate: initialData.hearingDate ?? prev.hearingDate,
+        hearingTime: initialData.hearingTime ?? prev.hearingTime,
       }))
     }
-  }, [initialData.attorneys, initialData.plaintiffs, initialData.defendants, initialData.county, initialData.caseNumber, initialData.judgeName, initialData.departmentNumber, initialData.complaintFiledDate, initialData.trialDate])
+  }, [initialData.attorneys, initialData.plaintiffs, initialData.defendants, initialData.county, initialData.caseNumber, initialData.judgeName, initialData.departmentNumber, initialData.complaintFiledDate, initialData.trialDate, initialData.hearingDate, initialData.hearingTime])
 
   const updateField = (field: keyof CaseCaptionData, value: string | boolean) => {
     setData(prev => ({ ...prev, [field]: value }))
@@ -431,6 +437,34 @@ export default function CaseCaptionCard({ initialData, onChange, disabled }: Cas
               />
             </div>
           </div>
+
+          {/* Hearing Date & Time (for Motions) */}
+          {(data.documentType?.toUpperCase().includes('MOTION') || 
+            data.documentType?.toUpperCase().includes('DEMURRER') ||
+            data.documentType?.toUpperCase().includes('APPLICATION')) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+              <div>
+                <label className={labelStyle}>Hearing Date</label>
+                <input
+                  type="date"
+                  value={data.hearingDate || ''}
+                  onChange={(e) => updateField('hearingDate', e.target.value)}
+                  disabled={disabled}
+                  className={inputStyle}
+                />
+              </div>
+              <div>
+                <label className={labelStyle}>Hearing Time</label>
+                <input
+                  type="time"
+                  value={data.hearingTime || ''}
+                  onChange={(e) => updateField('hearingTime', e.target.value)}
+                  disabled={disabled}
+                  className={inputStyle}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

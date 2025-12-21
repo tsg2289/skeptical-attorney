@@ -3,11 +3,10 @@
 import { useSearchParams } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { FileText, Scale, Shield } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import TrialModeBanner from '@/components/TrialModeBanner'
-import MotionForm from './components/MotionForm'
+import MotionForm, { MotionFormData } from './components/MotionForm'
 import MotionOutput from './components/MotionOutput'
 import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
@@ -36,6 +35,7 @@ function LawAndMotionPageContent() {
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
   const [generatedMotion, setGeneratedMotion] = useState<string>('')
   const [currentMotionType, setCurrentMotionType] = useState<string>('')
+  const [currentMotionFormData, setCurrentMotionFormData] = useState<MotionFormData | undefined>(undefined)
   const [isGenerating, setIsGenerating] = useState<boolean>(false)
   const [showForm, setShowForm] = useState<boolean>(true)
 
@@ -84,15 +84,17 @@ function LawAndMotionPageContent() {
     }
   }, [generatedMotion, currentMotionType, isTrialMode, saveToTrial])
 
-  const handleMotionGenerated = (motion: string, motionType: string) => {
+  const handleMotionGenerated = (motion: string, motionType: string, motionFormData?: MotionFormData) => {
     setGeneratedMotion(motion)
     setCurrentMotionType(motionType)
+    setCurrentMotionFormData(motionFormData)
     setShowForm(false)
   }
 
   const handleNewMotion = () => {
     setGeneratedMotion('')
     setCurrentMotionType('')
+    setCurrentMotionFormData(undefined)
     setShowForm(true)
     if (isTrialMode) {
       saveToTrial('motion-content', '')
@@ -137,69 +139,21 @@ function LawAndMotionPageContent() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        {/* Hero Card */}
-        <div className="glass-card p-8 rounded-2xl shadow-2xl border border-white/20">
-          <div className="flex items-center space-x-3 mb-4">
-            <Scale className="w-8 h-8 text-purple-600" />
-            <h2 className="text-3xl font-bold text-gray-900">Law & Motion Generator</h2>
-          </div>
-          <p className="text-gray-700 text-lg">
-            Generate professional California motion papers with AI assistance and integrated case law research from CourtListener.
-          </p>
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <div className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-xl inline-flex border border-purple-700 shadow-md">
-              <Shield className="w-5 h-5 text-white" />
-              <span className="text-white font-medium">Secure & Confidential</span>
-            </div>
-            <div className="flex items-center space-x-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-xl inline-flex border border-blue-200">
-              <FileText className="w-5 h-5" />
-              <span className="font-medium">California Case Law</span>
-            </div>
+      {/* Hero Section */}
+      <section className="bg-gradient-to-br from-blue-50 via-white to-purple-50 pt-16 pb-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-4xl mx-auto">
+            <h1 className="text-5xl md:text-6xl font-bold mb-8 leading-tight">
+              <span className="gradient-text">Law & Motion</span> <span className="text-gray-900">Generator</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-slate-600 mb-12 leading-relaxed">
+              Generate professional California motion papers with AI assistance and integrated case law research.
+            </p>
           </div>
         </div>
+      </section>
 
-        {/* Motion Types Quick Reference - Show only when form is visible */}
-        {showForm && (
-          <div className="glass-card p-6 rounded-2xl border border-purple-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">Available Motion Types</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 text-sm text-gray-700">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-gray-700">Motion to Compel</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                <span className="text-gray-700">Demurrer</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                <span className="text-gray-700">Summary Judgment</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-amber-500 rounded-full"></div>
-                <span className="text-gray-700">Motion in Limine</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                <span className="text-gray-700">Motion to Strike</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-indigo-500 rounded-full"></div>
-                <span className="text-gray-700">Protective Order</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
-                <span className="text-gray-700">Motion for Sanctions</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 bg-rose-500 rounded-full"></div>
-                <span className="text-gray-700">Ex Parte Application</span>
-              </div>
-            </div>
-          </div>
-        )}
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         {/* Form or Output */}
         {showForm ? (
           <MotionForm
@@ -217,6 +171,7 @@ function LawAndMotionPageContent() {
             onNewMotion={handleNewMotion}
             caseData={currentCase}
             isTrialMode={isTrialMode}
+            motionFormData={currentMotionFormData}
           />
         )}
       </div>

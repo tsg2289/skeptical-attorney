@@ -12,9 +12,24 @@ interface Party {
   type?: string
 }
 
+// Motion type to California Rules of Court mapping
+const MOTION_RULES: Record<string, string> = {
+  'motion-to-compel-discovery': '3.1345',
+  'motion-to-compel-deposition': '3.1345',
+  'demurrer': '3.1320',
+  'motion-to-strike': '3.1322',
+  'motion-for-summary-judgment': '3.1350',
+  'motion-for-summary-adjudication': '3.1350',
+  'motion-in-limine': '3.1112',
+  'motion-for-protective-order': '3.1345',
+  'motion-to-quash-subpoena': '3.1345',
+  'motion-for-sanctions': '3.1345',
+  'ex-parte-application': '3.1200',
+}
+
 export async function POST(request: NextRequest) {
   try {
-    // Authentication check - prevents data leakage
+    // SECURITY: Authentication check - prevents data leakage between users
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -24,10 +39,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     const { 
-      motionType, 
+      // New simplified inputs
+      motionDescription,
+      reliefSought,
+      autoDetectType,
+      // Uploaded document content
+      uploadedDocumentContent,
+      uploadedDocumentName,
+      // Legacy inputs (for backward compatibility)
+      motionType: providedMotionType, 
       facts, 
       legalIssues,
-      reliefSought,
+      // Common fields
       caseId, 
       county, 
       plaintiffs, 
@@ -37,24 +60,115 @@ export async function POST(request: NextRequest) {
       hearingDate,
       hearingTime,
       department,
-      caseCitations, // Pre-selected case law from CourtListener
+      caseCitations,
       attorneys,
-      movingParty, // 'plaintiff' or 'defendant'
+      movingParty,
       opposingParty,
     } = body
 
-    // Validation
-    if (!motionType) {
-      return NextResponse.json({ error: 'Motion type is required' }, { status: 400 })
+    // SECURITY: Validate caseId belongs to user (if provided)
+    if (caseId) {
+      const { data: caseCheck } = await supabase
+        .from('cases')
+        .select('id')
+        .eq('id', caseId)
+        .eq('user_id', user.id)
+        .single()
+      
+      if (!caseCheck) {
+        console.warn(`[SECURITY] User ${user.id} attempted to access case ${caseId} they don't own`)
+        return NextResponse.json({ error: 'Unauthorized access to case' }, { status: 403 })
+      }
     }
-    if (!facts || typeof facts !== 'string') {
-      return NextResponse.json({ error: 'Case facts are required' }, { status: 400 })
+
+    // Get the case facts - either from new simplified input or legacy
+    const caseFacts = motionDescription || facts
+    const caseRelief = reliefSought || body.reliefSought
+
+    // Validation
+    if (!caseFacts || typeof caseFacts !== 'string') {
+      return NextResponse.json({ error: 'Please describe what your motion is about' }, { status: 400 })
     }
 
     const apiKey = process.env.OPENAI_API_KEY
     if (!apiKey) {
       console.error('OPENAI_API_KEY not configured')
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
+    }
+
+    // Determine motion type - either auto-detect or use provided
+    let detectedMotionType = providedMotionType
+    let applicableRule = ''
+
+    if (autoDetectType && motionDescription) {
+      // Auto-detect motion type from description
+      const typeDetectionPrompt = `Based on this legal situation description, identify the most appropriate California motion type. Only respond with the motion type ID, nothing else.
+
+Description: "${motionDescription}"
+Relief sought: "${caseRelief || 'As appropriate'}"
+
+Motion type IDs (respond with ONLY one of these exact IDs):
+- motion-to-compel-discovery (for compelling discovery responses, interrogatories, document requests, requests for admission)
+- motion-to-compel-deposition (for compelling deposition attendance or production)
+- demurrer (for challenging legal sufficiency of pleadings, failure to state a cause of action)
+- motion-to-strike (for striking improper, irrelevant, or false matter from pleadings)
+- motion-for-summary-judgment (for judgment when no triable issues of material fact exist)
+- motion-for-summary-adjudication (for adjudicating specific issues or causes of action)
+- motion-in-limine (for excluding or limiting evidence at trial)
+- motion-for-protective-order (for protecting from burdensome, harassing, or improper discovery)
+- motion-to-quash-subpoena (for challenging validity of subpoenas)
+- motion-for-sanctions (for discovery abuse, bad faith conduct, or frivolous filings)
+- ex-parte-application (for emergency relief requiring immediate action)
+
+Respond with ONLY the motion type ID:`
+
+      try {
+        const detectionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { 
+                role: 'system', 
+                content: 'You are a legal classification assistant. Analyze the description and respond with ONLY the exact motion type ID that best matches. No explanation, just the ID.' 
+              },
+              { role: 'user', content: typeDetectionPrompt }
+            ],
+            temperature: 0.1,
+            max_tokens: 50,
+          })
+        })
+
+        if (detectionResponse.ok) {
+          const detectionData = await detectionResponse.json()
+          const detected = detectionData.choices[0].message.content.trim().toLowerCase()
+          
+          // Validate it's a known type
+          if (MOTION_RULES[detected]) {
+            detectedMotionType = detected
+            applicableRule = MOTION_RULES[detected]
+            console.log(`[AI] Detected motion type: ${detectedMotionType}`)
+          } else {
+            // Default fallback
+            detectedMotionType = 'motion-to-compel-discovery'
+            applicableRule = MOTION_RULES[detectedMotionType]
+            console.log(`[AI] Unknown type detected: ${detected}, defaulting to motion-to-compel-discovery`)
+          }
+        }
+      } catch (detectionError) {
+        console.error('Motion type detection failed:', detectionError)
+        detectedMotionType = 'motion-to-compel-discovery'
+        applicableRule = MOTION_RULES[detectedMotionType]
+      }
+    } else if (providedMotionType) {
+      detectedMotionType = providedMotionType
+      applicableRule = MOTION_RULES[providedMotionType] || ''
+    } else {
+      return NextResponse.json({ error: 'Motion type is required' }, { status: 400 })
     }
 
     // Build motion type-specific prompts
@@ -126,18 +240,18 @@ export async function POST(request: NextRequest) {
       },
     }
 
-    const config = motionTypeConfig[motionType] || {
+    const config = motionTypeConfig[detectedMotionType] || {
       title: 'MOTION',
       statutes: 'California Code of Civil Procedure',
       format: 'Include Notice of Motion, Memorandum of Points and Authorities, and Supporting Declaration'
     }
 
-    // Build citations context
+    // Build citations context - explicit about what citations are allowed
     const citationsContext = caseCitations?.length > 0 
-      ? `\n\nINCLUDE THESE CALIFORNIA CASE CITATIONS IN YOUR LEGAL ARGUMENT:\n${caseCitations.map((c: MotionCitation, i: number) => 
+      ? `\n\nUSER-PROVIDED CASE CITATIONS (You may ONLY cite these specific cases - do NOT add any others):\n${caseCitations.map((c: MotionCitation, i: number) => 
           `${i + 1}. ${c.caseName} (${c.citation})\n   Key holding: ${c.relevantText}`
         ).join('\n\n')}`
-      : ''
+      : '\n\nNO CASE CITATIONS PROVIDED: Do NOT cite ANY case law. Use ONLY statutory authority (CCP sections, Evidence Code sections, California Rules of Court). If case law would strengthen an argument, add a note: [ATTORNEY: Consider adding case authority here]'
 
     // Get party names
     const plaintiffNames = plaintiffs?.map((p: Party) => p.name).filter(Boolean).join(', ') || '[PLAINTIFF]'
@@ -171,35 +285,94 @@ ${attorneyName}
 State Bar No. ${barNumber}
 ${firmName}
 
-CASE FACTS:
-${facts}
-
-LEGAL ISSUES TO ADDRESS:
-${legalIssues || 'Address all relevant legal issues based on the facts.'}
+SITUATION AND FACTS (from client's description):
+${caseFacts}
 
 RELIEF SOUGHT:
-${reliefSought || 'As appropriate for this motion type.'}
+${caseRelief || 'As appropriate for this motion type.'}
 ${citationsContext}
+${uploadedDocumentContent ? `
+REFERENCE DOCUMENT (${uploadedDocumentName || 'Uploaded Document'}):
+The following document has been provided as reference. Use its content to inform and support your motion. Extract relevant facts, dates, names, and legal arguments from this document:
 
+---BEGIN DOCUMENT---
+${uploadedDocumentContent}
+---END DOCUMENT---
+
+Incorporate relevant information from the reference document into your motion where appropriate.
+` : ''}
 APPLICABLE STATUTES:
 ${config.statutes}
 
 REQUIRED FORMAT:
 ${config.format}
 
+⚠️ CRITICAL - NO HALLUCINATIONS ALLOWED ⚠️
+- Use ONLY the facts explicitly stated above. Do NOT invent, assume, or add ANY facts, dates, names, or amounts not provided.
+- Use ONLY the case citations listed above (if any). Do NOT cite ANY cases not provided by the user.
+- If no case citations were provided, use ONLY statutory authority (CCP §, Evidence Code §, California Rules of Court).
+- For any information that would strengthen the motion but was not provided, use: [ATTORNEY: ...]
+- NEVER fabricate case names, citations, holdings, quotes, or any legal authority.
+
 REQUIREMENTS:
 1. Follow California Rules of Court formatting requirements
-2. Use proper legal citation format (California Style Manual)
+2. Use proper legal citation format (California Style Manual) for statutes
 3. Include all required components for this motion type
 4. Use numbered paragraphs for factual allegations
-5. Include specific statutory citations with section numbers
-6. Apply California case law appropriately
-7. Make persuasive legal arguments
+5. Include specific statutory citations with section numbers (verifiable codes only)
+6. ONLY cite case law if it was provided by the user above
+7. Make persuasive legal arguments based ONLY on the facts provided
 8. Include a proposed order if appropriate
 9. Format for filing in California Superior Court
 10. Include a Proof of Service template at the end
+11. Mark areas needing attorney attention with [ATTORNEY: ...]
 
-Generate the complete motion document with all sections properly formatted.`
+DOCUMENT STRUCTURE (use these EXACT section headers):
+
+MOTION SUMMARY:
+[REQUIRED - Write ONE detailed paragraph (4-6 sentences) that summarizes this motion for the opposing party and the Court. This paragraph must:
+1. State what relief the moving party is seeking
+2. Identify the specific pleading or document being challenged (if applicable)
+3. Explain the primary grounds/reasons for the motion based on the facts provided
+4. Convey why the Court should grant the motion
+Write this as a lawyer would write it - professional, clear, and substantive. Do NOT just repeat the relief sought - provide a meaningful summary that helps the reader understand the motion's substance and basis. Example format: "Defendant respectfully moves this Court to [relief sought]. This motion is brought because [explain the factual and legal basis]. [Additional context about why relief is warranted]."]
+
+I. INTRODUCTION
+[Brief overview of the motion based on the situation described]
+
+II. STATEMENT OF FACTS
+[Detailed factual background from the client's description]
+
+III. APPLICABLE LAW
+[Relevant statutes and legal standards]
+
+IV. ARGUMENT
+[Legal analysis and persuasive arguments]
+
+V. CONCLUSION
+[Summary and request for relief]
+
+DECLARATION OF ${attorneyName.toUpperCase()}
+
+I, ${attorneyName}, declare as follows:
+
+1. I am an attorney at law duly admitted to practice before all courts of the State of California, and am counsel of record for the moving party in this action.
+
+2. [Include 3-5 numbered paragraphs with facts supporting the motion based on personal knowledge]
+
+3. [Additional facts...]
+
+I declare under penalty of perjury under the laws of the State of California that the foregoing is true and correct.
+
+Executed on [DATE].
+
+____________________________
+${attorneyName}
+
+PROOF OF SERVICE
+[Standard proof of service template]
+
+Generate the complete motion document with all sections properly formatted using the exact headers above. Make it persuasive and professional.`
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -212,30 +385,76 @@ Generate the complete motion document with all sections properly formatted.`
         messages: [
           {
             role: 'system',
-            content: `You are an experienced California litigation attorney drafting motion papers. You are thorough, precise, and persuasive. 
+            content: `You are an experienced California litigation attorney drafting motion papers. You are thorough, precise, and persuasive.
 
-Key requirements:
+⚠️ CRITICAL ANTI-HALLUCINATION RULES - STRICTLY ENFORCED ⚠️
+
+1. FACTS - ABSOLUTE PROHIBITION ON FABRICATION:
+   - Use ONLY facts explicitly provided by the user
+   - Do NOT invent, assume, or embellish ANY facts, dates, names, amounts, or events
+   - If critical information is missing, use [TO BE COMPLETED BY ATTORNEY] placeholders
+   - Never add "details" to make the motion sound better
+
+2. CASE CITATIONS - ZERO TOLERANCE FOR FABRICATION:
+   - ONLY cite cases that are explicitly listed in the "USER-PROVIDED CASE CITATIONS" section
+   - If NO case citations were provided, DO NOT CITE ANY CASES WHATSOEVER
+   - NEVER invent, fabricate, or hallucinate case names, citations, reporters, years, or holdings
+   - NEVER create fake quotes from cases
+   - Using a made-up case citation is a serious ethical violation
+
+3. WHAT YOU MAY CITE (if no cases provided):
+   - California Code of Civil Procedure (CCP) sections
+   - California Evidence Code sections
+   - California Rules of Court rules
+   - California Civil Code sections
+   - These statutes are verifiable and acceptable
+
+4. ATTORNEY REVIEW MARKERS:
+   - If case law would strengthen an argument but none was provided, write: [ATTORNEY: Consider adding case authority supporting this point]
+   - If a fact seems important but wasn't provided, write: [ATTORNEY: Verify/add specific details here]
+
+5. ABSOLUTELY FORBIDDEN - DO NOT GENERATE:
+   - Fake case names (e.g., "Smith v. Jones (2020) 45 Cal.App.5th 123")
+   - Made-up holdings or quotes
+   - Fabricated dates, amounts, or statistics
+   - Names of parties, witnesses, or documents not provided
+   - Any information from outside this specific prompt
+
+Formatting requirements:
 - Follow California Rules of Court and local rules
-- Use California Style Manual citation format
+- Use California Style Manual citation format for statutory citations
 - Structure documents professionally with clear headings
-- Make persuasive legal arguments supported by authority
-- Include all procedurally required components
-- Be specific about facts, dates, and parties
-- Reference specific code sections and rules
-- Apply case law accurately and persuasively
+- Make persuasive arguments based ONLY on provided facts
+- Reference specific code sections (verifiable statutes only)
 
-NEVER include placeholder text like "[INSERT]" - always generate complete, professional content based on the facts provided.`
+DATA ISOLATION: This is a single user session. Do not reference any external information.`
           },
           { role: 'user', content: prompt }
         ],
-        temperature: 0.3,
-        max_tokens: 8000, // Allow for longer motion documents
+        temperature: 0.1,  // Very low temperature to minimize creative/hallucinatory outputs
+        max_tokens: 8000,
       })
     })
 
     if (!response.ok) {
-      const error = await response.json()
-      console.error('OpenAI API error:', error)
+      // Try to parse as JSON, but handle HTML error pages gracefully
+      let errorMessage = 'Failed to generate motion'
+      try {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const error = await response.json()
+          console.error('OpenAI API error:', error)
+          errorMessage = error.error?.message || errorMessage
+        } else {
+          // HTML or other non-JSON response
+          const errorText = await response.text()
+          console.error('OpenAI API returned non-JSON response:', errorText.substring(0, 500))
+          errorMessage = 'AI service temporarily unavailable. Please try again in a moment.'
+        }
+      } catch (parseError) {
+        console.error('Error parsing OpenAI error response:', parseError)
+        errorMessage = 'AI service error. Please try again.'
+      }
       
       if (response.status === 429) {
         return NextResponse.json({ 
@@ -244,19 +463,29 @@ NEVER include placeholder text like "[INSERT]" - always generate complete, profe
         }, { status: 429 })
       }
       
-      return NextResponse.json({ 
-        error: error.error?.message || 'Failed to generate motion' 
-      }, { status: response.status })
+      return NextResponse.json({ error: errorMessage }, { status: response.status })
     }
 
-    const data = await response.json()
+    // Parse successful response
+    let data
+    try {
+      data = await response.json()
+    } catch (parseError) {
+      console.error('Error parsing OpenAI success response:', parseError)
+      return NextResponse.json({ 
+        error: 'Error processing AI response. Please try again.' 
+      }, { status: 500 })
+    }
     const motion = data.choices[0].message.content.trim()
 
-    console.log(`[AUDIT] User ${user.id} generated ${motionType} for case ${caseId || 'standalone'}`)
+    // AUDIT LOG - includes user ID for security tracking, no cross-user data
+    console.log(`[AUDIT] User ${user.id} generated ${detectedMotionType} for case ${caseId || 'standalone'} - isolated session`)
 
     return NextResponse.json({ 
       motion,
-      motionType,
+      motionType: detectedMotionType,
+      detectedMotionType,
+      applicableRule,
       title: config.title,
     })
 
@@ -265,11 +494,3 @@ NEVER include placeholder text like "[INSERT]" - always generate complete, profe
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-
-
-
-
-
-
-
