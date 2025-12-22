@@ -8,7 +8,8 @@ import Footer from '@/components/Footer'
 import TrialModeBanner from '@/components/TrialModeBanner'
 import MotionForm, { MotionFormData } from './components/MotionForm'
 import MotionOutput from './components/MotionOutput'
-import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
+import { supabaseCaseStorage, CaseFrontend, MotionDocument } from '@/lib/supabase/caseStorage'
+import { FileText, Clock, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useTrialMode } from '@/lib/contexts/TrialModeContext'
 
@@ -102,6 +103,28 @@ function LawAndMotionPageContent() {
     }
   }
 
+  // Load a saved motion from the database
+  const handleLoadSavedMotion = (motion: MotionDocument) => {
+    // Reconstruct the motion content from sections
+    const motionContent = motion.sections
+      .map(section => `${section.title}\n${section.content}`)
+      .join('\n\n')
+    
+    setGeneratedMotion(motionContent)
+    setCurrentMotionType(motion.motionType)
+    setCurrentMotionFormData(undefined) // Will be populated from sections in MotionOutput
+    setShowForm(false)
+    console.log(`[AUDIT] Loaded saved motion: ${motion.id} (${motion.motionType})`)
+  }
+
+  // Format motion type for display
+  const formatMotionType = (type: string): string => {
+    return type
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Header />
@@ -154,6 +177,72 @@ function LawAndMotionPageContent() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+        {/* Saved Motions List - Only show when case has saved motions and form is visible */}
+        {currentCase?.motionDocuments && currentCase.motionDocuments.length > 0 && showForm && !isTrialMode && (
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-700 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                  <FileText className="w-5 h-5" />
+                  Saved Motions
+                </h3>
+                <span className="bg-white/20 text-white text-sm px-3 py-1 rounded-full">
+                  {currentCase.motionDocuments.length} saved
+                </span>
+              </div>
+            </div>
+            <div className="p-4 space-y-3">
+              {currentCase.motionDocuments.map((motion) => (
+                <button
+                  key={motion.id}
+                  onClick={() => handleLoadSavedMotion(motion)}
+                  className="w-full text-left p-4 rounded-xl border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all group flex items-center justify-between"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <FileText className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-gray-900 group-hover:text-blue-700">
+                          {motion.title || formatMotionType(motion.motionType)}
+                        </h4>
+                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Updated {new Date(motion.updatedAt).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit'
+                          })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
+                      motion.status === 'draft' ? 'bg-amber-100 text-amber-700' :
+                      motion.status === 'filed' ? 'bg-green-100 text-green-700' :
+                      motion.status === 'pending' ? 'bg-blue-100 text-blue-700' :
+                      motion.status === 'heard' ? 'bg-purple-100 text-purple-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {motion.status}
+                    </span>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 transition-colors" />
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
+              <p className="text-sm text-gray-500 text-center">
+                Click a motion to continue editing, or create a new one below
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Form or Output */}
         {showForm ? (
           <MotionForm
