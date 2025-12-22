@@ -265,6 +265,14 @@ export default function MotionOutput({
   useEffect(() => {
     if (!motion) return
     
+    // Skip parsing if we loaded from a saved motion with structured data
+    // This prevents overwriting the saved fields
+    const existingMotion = caseData?.motionDocuments?.find(m => m.motionType === motionType)
+    if (existingMotion?.savedMemorandum || existingMotion?.savedNoticeOfMotion) {
+      console.log('[Parse] Skipping parse - using saved structured data')
+      return
+    }
+    
     // Clean the motion text
     const cleanedMotion = motion
       .replace(/^```[a-z]*\s*/i, '')
