@@ -76,6 +76,9 @@ export default function ComplaintForm({
   const [showCauseSelection, setShowCauseSelection] = useState(true)
   const [expandedSeries, setExpandedSeries] = useState<Set<string>>(new Set())
   
+  // Party representation - who does the user represent (for trial mode)
+  const [representationType, setRepresentationType] = useState<'plaintiff' | 'defendant'>('plaintiff')
+  
   // Initialize attorneys - extract from case plaintiffs if from case dashboard
   const [attorneys, setAttorneys] = useState<Attorney[]>(() => {
     if (fromCaseDashboard && initialPlaintiffs) {
@@ -4914,6 +4917,10 @@ Dated: ${new Date().toLocaleDateString()}
             ? captionData.defendants.filter(d => d.trim()).map((name, i) => ({ id: String(i + 1), name }))
             : defendants.filter(d => d.name.trim()),
           caseNumber: fromCaseDashboard ? captionData.caseNumber.trim() : caseNumber.trim(),
+          // Pass representation type for trial mode
+          ...(!fromCaseDashboard && {
+            representationType,
+          }),
           // Pass additional caption data for logged-in users
           ...(fromCaseDashboard && {
             includeDoes: captionData.includeDoes,
@@ -5057,6 +5064,54 @@ Dated: ${new Date().toLocaleDateString()}
               )}
             </div>
           </div>
+
+          {/* Party Information Section - Trial Mode Only (when not from case dashboard) */}
+          {!fromCaseDashboard && (
+            <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="text-blue-600">
+                  <User className="w-5 h-5" />
+                </div>
+                <span className="text-xl font-semibold text-gray-900">Who Do You Represent?</span>
+              </div>
+              
+              {/* Representation Type */}
+              <div className="mb-4">
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="representationType"
+                      value="plaintiff"
+                      checked={representationType === 'plaintiff'}
+                      onChange={() => setRepresentationType('plaintiff')}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      disabled={isGenerating}
+                    />
+                    <span className="text-gray-700">Plaintiff</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="representationType"
+                      value="defendant"
+                      checked={representationType === 'defendant'}
+                      onChange={() => setRepresentationType('defendant')}
+                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      disabled={isGenerating}
+                    />
+                    <span className="text-gray-700">Defendant</span>
+                  </label>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-500">
+                {representationType === 'plaintiff' 
+                  ? 'You are filing this complaint on behalf of the plaintiff(s).'
+                  : 'You are filing a cross-complaint on behalf of the defendant(s).'}
+              </p>
+            </div>
+          )}
 
           {/* County Selection */}
           <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300">

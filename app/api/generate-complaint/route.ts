@@ -53,7 +53,7 @@ async function handleComplaintGeneration(request: NextRequest): Promise<NextResp
   
   try {
     const body = await request.json()
-    const { summary, causesOfAction, availableCauses, attorneys, county, plaintiffs, defendants, caseNumber } = body
+    const { summary, causesOfAction, availableCauses, attorneys, county, plaintiffs, defendants, caseNumber, representationType } = body
 
     // Validation
     if (!summary || typeof summary !== 'string') {
@@ -532,16 +532,34 @@ AI INSTRUCTION: Based on the case facts provided above, carefully analyze and SE
       ? plaintiffs.map((p: any) => p.name?.trim()).filter(Boolean).join(', ')
       : 'Plaintiff'
 
+    // Create defendant names string
+    const defendantNames = defendants && defendants.length > 0
+      ? defendants.map((d: any) => d.name?.trim()).filter(Boolean).join(', ')
+      : 'Defendant'
+
+    // Determine document type based on representation
+    const isDefendantRepresentation = representationType === 'defendant'
+    const documentType = isDefendantRepresentation ? 'CROSS-COMPLAINT' : 'COMPLAINT'
+    const clientParty = isDefendantRepresentation ? defendantNames : plaintiffNames
+    const attorneyForText = isDefendantRepresentation ? `Attorney for Defendant/Cross-Complainant ${clientParty}` : `Attorney for Plaintiff ${clientParty}`
+
     const attorneyHeader = attorneyInfo
       .map((attorney: { name: string; email: string; barNumber: string; lawFirmName: string; lawFirmAddress: string; lawFirmPhone: string }, index: number) => 
-        `${attorney.name} (California State Bar No. ${attorney.barNumber})\n${attorney.email}\n${attorney.lawFirmName}\n${attorney.lawFirmAddress}\nTelephone: ${attorney.lawFirmPhone}${index === 0 ? `\n\nAttorney for Plaintiff ${plaintiffNames}` : ''}`
+        `${attorney.name} (California State Bar No. ${attorney.barNumber})\n${attorney.email}\n${attorney.lawFirmName}\n${attorney.lawFirmAddress}\nTelephone: ${attorney.lawFirmPhone}${index === 0 ? `\n\n${attorneyForText}` : ''}`
       ).join('\n\n')
 
-    const prompt = `Generate comprehensive California Superior Court complaint with MULTIPLE causes of action. ABSOLUTE REQUIREMENT: Include 3-6+ causes of action when facts support them. DO NOT LIMIT TO 1-2 CAUSES.
+    // Build representation context for AI
+    const representationContext = isDefendantRepresentation 
+      ? `IMPORTANT: This is a CROSS-COMPLAINT filed by the DEFENDANT(S) against the PLAINTIFF(S). The attorney represents ${defendantNames} (the defendant/cross-complainant). Generate a cross-complaint with appropriate causes of action that a defendant would assert against the plaintiff.`
+      : `This is a COMPLAINT filed by the PLAINTIFF(S) against the DEFENDANT(S). The attorney represents ${plaintiffNames} (the plaintiff).`
+
+    const prompt = `Generate comprehensive California Superior Court ${documentType} with MULTIPLE causes of action. ABSOLUTE REQUIREMENT: Include 3-6+ causes of action when facts support them. DO NOT LIMIT TO 1-2 CAUSES.
+
+${representationContext}
 
 FACTS: ${sanitizedSummary}${causesInstruction}
 
-MANDATORY MULTI-CAUSE ANALYSIS - Check ALL these CACI options:
+MANDATORY MULTI-CAUSE ANALYSIS - Check ALL these CACI options against the facts:
 • NEGLIGENCE (CACI 400) • NEGLIGENCE PER SE (CACI 418-421) • GROSS NEGLIGENCE (CACI 425)
 • RES IPSA LOQUITUR (CACI 417) • NEGLIGENT HIRING/SUPERVISION (CACI 426)
 • NEGLIGENT UNDERTAKING (CACI 450C) • DRAM SHOP LIABILITY (CACI 422, 427)
@@ -550,12 +568,23 @@ MANDATORY MULTI-CAUSE ANALYSIS - Check ALL these CACI options:
 • PRODUCTS LIABILITY (CACI 1200-1233) • MOTOR VEHICLE (CACI 700-732)
 • MEDICAL MALPRACTICE (CACI 500) • MEDICAL BATTERY (CACI 530A) • LACK OF INFORMED CONSENT (CACI 533)
 • HOSPITAL NEGLIGENCE (CACI 514-516) • WRONGFUL BIRTH (CACI 511-512) • ABANDONMENT (CACI 509)
-• BATTERY (CACI 1300) • IIED (CACI 1600)
+• PROFESSIONAL NEGLIGENCE/LEGAL MALPRACTICE (CACI 600-606)
+• COMMON CARRIERS (CACI 900-908) • RAILROAD CROSSINGS (CACI 800-806)
+• BATTERY (CACI 1300) • ASSAULT (CACI 1301) • IIED (CACI 1600) • NIED (CACI 1620)
 • BREACH CONTRACT (CACI 303) • BREACH IMPLIED COVENANT GOOD FAITH (CACI 325) 
 • THIRD PARTY BENEFICIARY (CACI 301) • BREACH IMPLIED DUTY REASONABLE CARE (CACI 328)
-• FRAUD (CACI 1900) • NEGLIGENT MISREP (CACI 1903)
-• UNFAIR BUSINESS PRACTICES (B&P 17200) • CONVERSION (CACI 2100)
-• TRESPASS (CACI 2000) • DEFAMATION (CACI 1700) • INVASION PRIVACY (CACI 1800)
+• FRAUD (CACI 1900) • CONCEALMENT (CACI 1901) • FALSE PROMISE (CACI 1902) • NEGLIGENT MISREP (CACI 1903)
+• UNFAIR BUSINESS PRACTICES (B&P 17200) • CONVERSION (CACI 2100) • TRESPASS TO CHATTELS (CACI 2101)
+• TRESPASS (CACI 2000) • NUISANCE (CACI 2020-2021) • DEFAMATION (CACI 1700-1731) • INVASION PRIVACY (CACI 1800-1821)
+• ECONOMIC INTERFERENCE (CACI 2200-2205) - tortious interference with contract/prospective relations
+• INSURANCE BAD FAITH (CACI 2300-2361) - breach of duty, failure to pay, bad faith claims handling
+• WRONGFUL TERMINATION (CACI 2400-2432) - breach of employment contract, violation of public policy
+• FEHA DISCRIMINATION (CACI 2500-2513) - race, sex, age, disability, religion, national origin discrimination
+• FEHA HARASSMENT (CACI 2520-2528) - quid pro quo, hostile work environment, failure to prevent
+• FEHA RETALIATION (CACI 2505) - retaliation for protected activity
+• DISABILITY DISCRIMINATION (CACI 2540-2549) - failure to accommodate, interactive process
+• CFRA VIOLATIONS (CACI 2600-2620) - family leave interference and retaliation
+• WHISTLEBLOWER RETALIATION (Labor Code 1102.5) • WAGE & HOUR VIOLATIONS (Labor Code)
 • PUNITIVE DAMAGES (CACI 3940-3949) - for malicious, oppressive, or fraudulent conduct
 
 NEGLIGENCE CAUSES - COMPREHENSIVE CACI 400-473 ANALYSIS:
@@ -674,6 +703,88 @@ When facts involve defective products causing injury, consider ALL applicable pr
 • For warning defects, consider both strict liability failure to warn (CACI 1205) AND negligent failure to warn (CACI 1222)
 • For food products, consider CACI 1233 (implied warranty for food) in addition to other theories
 
+EMPLOYMENT CAUSES - COMPREHENSIVE CACI 2400-2600 ANALYSIS:
+When facts involve employment, workplace issues, termination, discrimination, harassment, or retaliation, consider ALL applicable employment theories:
+• CACI 2400-2406: Wrongful Termination—At-Will Employment (breach of implied promise not to discharge without good cause)
+• CACI 2420-2422: Wrongful Termination—Specified Term Contract (breach of employment contract with specified term)
+• CACI 2423-2424: Breach of Implied Covenant of Good Faith and Fair Dealing—Employment
+• CACI 2430: Wrongful Discharge in Violation of Public Policy (Tameny claim)
+• CACI 2431-2432: Constructive Discharge in Violation of Public Policy (forced to violate policy or endure intolerable conditions)
+• CACI 2500-2513: FEHA Disparate Treatment Discrimination (race, sex, age, disability, religion, national origin, sexual orientation, gender identity)
+• CACI 2502-2504: FEHA Disparate Impact (facially neutral policy with discriminatory effect)
+• CACI 2505: Retaliation for Protected Activity (opposing discrimination, filing complaint, participating in investigation)
+• CACI 2520: Quid Pro Quo Sexual Harassment (job benefits conditioned on sexual favors)
+• CACI 2521A-2521C: Hostile Work Environment Harassment—Employer Liability (severe or pervasive conduct)
+• CACI 2522A-2522C: Hostile Work Environment Harassment—Individual Defendant Liability
+• CACI 2527: Failure to Prevent Harassment, Discrimination, or Retaliation (employer knew and failed to take corrective action)
+• CACI 2528: Failure to Prevent Harassment by Nonemployee
+• CACI 2540-2549: Disability Discrimination and Failure to Accommodate
+• CACI 2546: Failure to Engage in Interactive Process (disability accommodation)
+• CACI 2560-2561: Religious Creed Discrimination and Failure to Accommodate
+• CACI 2570: Age Discrimination (FEHA—40+ years old)
+• CACI 2580-2581: Pregnancy Discrimination and Failure to Accommodate
+• CACI 2600-2612: CFRA Violations (denial of family/medical leave, failure to reinstate)
+• CACI 2620: CFRA Retaliation (retaliation for requesting or taking leave)
+• Labor Code 1102.5: Whistleblower Retaliation (reporting violations of law)
+• Labor Code violations: Wage theft, unpaid overtime, meal/rest break violations, final pay penalties
+• For employment cases, consider OVERLAPPING theories: wrongful termination + FEHA discrimination + retaliation + failure to prevent
+• For harassment cases, consider BOTH employer vicarious liability (CACI 2521) AND individual harasser liability (CACI 2522)
+• ALWAYS include failure to prevent claim (CACI 2527) when harassment, discrimination, or retaliation is alleged
+• For disability cases, include failure to accommodate (CACI 2541) AND failure to engage in interactive process (CACI 2546)
+
+PROFESSIONAL NEGLIGENCE/LEGAL MALPRACTICE - COMPREHENSIVE CACI 600-606 ANALYSIS:
+When facts involve attorneys, accountants, architects, engineers, or other professionals, consider ALL applicable professional negligence theories:
+• CACI 600: Standard of Care for Professionals (knowledge and skill ordinarily possessed by members of profession)
+• CACI 601: Legal Malpractice—Causation (but for attorney's negligence, client would have obtained better result)
+• CACI 602: Success Not Required (attorney not liable for error in judgment if reasonably skillful)
+• CACI 603: Alternative Legal Decisions or Strategies (attorney exercised reasonable judgment)
+• CACI 604: Referral to Legal Specialist (duty to refer if matter beyond competence)
+• CACI 606: Legal Malpractice Causing Criminal Conviction—Actual Innocence
+• For legal malpractice, prove: attorney-client relationship, breach of standard of care, causation (case-within-a-case), damages
+• Consider breach of fiduciary duty in addition to professional negligence
+
+INSURANCE BAD FAITH - COMPREHENSIVE CACI 2300-2361 ANALYSIS:
+When facts involve insurance claims, denials, delays, or coverage disputes, consider ALL applicable insurance theories:
+• CACI 2300: Breach of Contractual Duty to Pay a Covered Claim (first-party coverage dispute)
+• CACI 2301-2302: Breach of Insurance Binder or Temporary Life Insurance
+• CACI 2303-2306: Policy Exclusions and Coverage Issues
+• CACI 2330: Implied Obligation of Good Faith and Fair Dealing (insurer must give equal consideration to insured's interests)
+• CACI 2331: Bad Faith—Failure or Delay in Payment (unreasonable denial or delay of covered claim)
+• CACI 2332: Bad Faith—Failure to Properly Investigate Claim
+• CACI 2333: Bad Faith—Breach of Duty to Inform Insured of Rights
+• CACI 2334: Bad Faith (Third Party)—Refusal to Accept Reasonable Settlement Within Policy Limits
+• CACI 2336: Bad Faith—Unreasonable Failure to Defend
+• CACI 2337: Factors to Consider in Evaluating Insurer's Conduct
+• CACI 2350: Damages for Bad Faith (includes emotional distress and punitive damages)
+• CACI 2360: Judgment Creditor's Action Against Insurer
+• CACI 2361: Negligent Failure to Obtain Insurance Coverage (against broker/agent)
+• For insurance bad faith, consider breach of contract + breach of implied covenant + bad faith tort
+• Include punitive damages when insurer's conduct is oppressive, fraudulent, or malicious
+
+ECONOMIC INTERFERENCE - COMPREHENSIVE CACI 2200-2210 ANALYSIS:
+When facts involve interference with business relationships or contracts, consider ALL applicable economic interference theories:
+• CACI 2200: Inducing Breach of Contract (defendant intentionally induced breach of plaintiff's contract with third party)
+• CACI 2201: Intentional Interference With Contractual Relations (knew of contract, intentional acts, breach/disruption, damages)
+• CACI 2202: Intentional Interference With Prospective Economic Relations (knew of relationship, intentional wrongful conduct, disrupted relationship, damages)
+• CACI 2203: Intent (specific intent to interfere or knowledge that interference was substantially certain)
+• CACI 2204: Negligent Interference With Prospective Economic Relations
+• CACI 2205: Intentional Interference With Expected Inheritance
+• CACI 2210: Affirmative Defense—Privilege to Protect Own Economic Interest
+• For tortious interference, the defendant's conduct must be independently wrongful (crime, tort, or violation of statute)
+
+DEFAMATION - COMPREHENSIVE CACI 1700-1731 ANALYSIS:
+When facts involve false statements harming reputation, consider ALL applicable defamation theories:
+• CACI 1700-1701: Defamation—Public Figure (actual malice required—knowledge of falsity or reckless disregard)
+• CACI 1702-1703: Defamation—Private Figure/Public Concern (negligence standard)
+• CACI 1704-1705: Defamation—Private Figure/Private Concern (strict liability for falsity)
+• CACI 1706-1707: Definition of Statement and Fact vs. Opinion
+• CACI 1708: Coerced Self-Publication (defamation by forcing plaintiff to repeat statement)
+• CACI 1720-1724: Affirmative Defenses (truth, consent, privileges)
+• CACI 1730: Slander of Title
+• CACI 1731: Trade Libel (false statements about business/product quality)
+• For defamation per se (imputing crime, loathsome disease, professional incompetence, sexual misconduct), damages are presumed
+• For defamation per quod, must prove special damages
+
 ATTORNEY HEADER TO USE:
 ${attorneyHeader}
 
@@ -716,9 +827,9 @@ STRUCTURE - COMPLETE FULL COMPLAINT (START WITH ATTORNEY HEADER ABOVE):
                         Defendant${defendants && defendants.length > 1 ? 's' : ''}.
 
 4. Case number: ${caseNumber?.trim() || '[CASE NUMBER]'}
-5. COMPLAINT title
+5. ${documentType} title
 6. Jurisdictional allegations (paragraphs 1-3)
-7. General factual allegations (paragraphs 4-10)
+7. **MANDATORY SECTION** - "GENERAL FACTUAL ALLEGATIONS" heading (EXACTLY this heading in ALL CAPS) followed by paragraphs 4-10+ containing all factual allegations common to all causes of action
 8. FIRST CAUSE OF ACTION (Name - CACI XXX)
 9. SECOND CAUSE OF ACTION (Name - CACI XXX)
 10. THIRD CAUSE OF ACTION (Name - CACI XXX)
@@ -741,6 +852,7 @@ For negligence: Describe specific acts/omissions constituting breach, not just "
 
 CRITICAL REQUIREMENTS:
 - START WITH ATTORNEY HEADER - NO "RANDY LENO" OR OTHER PLACEHOLDER ATTORNEY NAMES
+- **MANDATORY**: ALWAYS include a "GENERAL FACTUAL ALLEGATIONS" section (use this EXACT heading in ALL CAPS) BEFORE the first cause of action. This section must contain numbered paragraphs (typically paragraphs 4-10+) with all background facts, party identification, dates, locations, and circumstances common to all causes of action. DO NOT skip this section.
 - MUST include 3+ causes when facts reasonably support them
 - Use overlapping theories (e.g., negligence + negligence per se + res ipsa loquitur; breach of contract + breach of implied covenant; medical negligence + lack of informed consent + medical battery)
 - For NEGLIGENCE cases: Analyze CACI 400-473 comprehensively - consider general negligence (CACI 400), negligence per se (CACI 418), res ipsa loquitur (CACI 417), gross negligence (CACI 425), negligent hiring/supervision (CACI 426), dram shop (CACI 422/427), negligent undertaking (CACI 450C), and any special standards of care or causation issues
@@ -749,6 +861,11 @@ CRITICAL REQUIREMENTS:
 - For PREMISES LIABILITY cases: Analyze CACI 1000-1012 comprehensively - consider general premises liability (CACI 1000-1001), unsafe conditions (CACI 1003), criminal conduct of others (CACI 1005), landlord's duty (CACI 1006), sidewalk liability (CACI 1007-1008), independent contractor injuries (CACI 1009A-1009D), constructive notice (CACI 1011), and employee knowledge (CACI 1012)
 - For DANGEROUS CONDITION OF PUBLIC PROPERTY cases: Analyze CACI 1100-1126 comprehensively - consider dangerous condition elements (CACI 1100), notice requirements (CACI 1103), inspection system (CACI 1104), traffic control/warning failures (CACI 1120-1121), design immunity and loss thereof (CACI 1123-1124), and failure to warn of design dangers (CACI 1126)
 - For PRODUCTS LIABILITY cases: Analyze CACI 1200-1233 comprehensively - consider overlapping theories of strict liability (manufacturing defect CACI 1201, design defect CACI 1203-1204, failure to warn CACI 1205), negligence (CACI 1220-1224), and breach of warranty (express CACI 1230, implied merchantability CACI 1231, fitness for particular purpose CACI 1232, food products CACI 1233)
+- For EMPLOYMENT/WRONGFUL TERMINATION cases: Analyze CACI 2400-2600 comprehensively - consider wrongful termination (CACI 2400-2432), FEHA discrimination (CACI 2500-2513), harassment (CACI 2520-2528), retaliation (CACI 2505), failure to prevent (CACI 2527), disability accommodation (CACI 2540-2549), CFRA violations (CACI 2600-2620), and whistleblower retaliation (Labor Code 1102.5)
+- For INSURANCE BAD FAITH cases: Analyze CACI 2300-2361 comprehensively - consider breach of contract (CACI 2300), bad faith denial/delay (CACI 2331), failure to investigate (CACI 2332), failure to defend (CACI 2336), and third-party bad faith (CACI 2334)
+- For ECONOMIC INTERFERENCE cases: Analyze CACI 2200-2210 comprehensively - consider inducing breach (CACI 2200), intentional interference with contract (CACI 2201), interference with prospective relations (CACI 2202), and negligent interference (CACI 2204)
+- For PROFESSIONAL NEGLIGENCE/LEGAL MALPRACTICE cases: Analyze CACI 600-606 comprehensively - consider standard of care (CACI 600), causation/case-within-a-case (CACI 601), and breach of fiduciary duty
+- For DEFAMATION cases: Analyze CACI 1700-1731 comprehensively - consider defamation per se/per quod, public vs. private figure standards, slander of title (CACI 1730), and trade libel (CACI 1731)
 - Each cause should have 4-6 paragraphs with proper CACI elements
 - CRITICAL - CALIFORNIA HEIGHTENED PLEADING STANDARDS: Each cause of action must plead ULTIMATE FACTS with sufficient specificity to survive demurrer. Do NOT use conclusory statements.
 - Each cause of action MUST incorporate DETAILED, SPECIFIC FACTS from the case summary including: WHO (specific individuals/entities), WHAT (specific actions/omissions), WHEN (specific dates/times), WHERE (specific locations), WHY (context), and HOW (manner of conduct)
@@ -759,6 +876,20 @@ CRITICAL REQUIREMENTS:
 - Name specific individuals involved in each action
 - Describe specific physical acts, not just legal conclusions
 - Apply CACI elements TO THE SPECIFIC FACTS with detailed factual support for each element
+- **CRITICAL - INCORPORATE CASE FACTS INTO EVERY CAUSE OF ACTION**: Do NOT use generic or boilerplate legal language. Each cause of action must reference and incorporate the SPECIFIC FACTS from the case summary provided above. For example, if the case summary mentions "Plaintiff was terminated on March 15, 2024 after reporting safety violations", the cause of action must state: "On or about March 15, 2024, Defendants wrongfully terminated Plaintiff's employment after Plaintiff reported safety violations..." Every paragraph in every cause of action must contain facts specific to THIS case, not generic legal conclusions.
+- **FORBIDDEN**: Do NOT use placeholder language like "[describe specific conduct]" or "[insert date]" or generic statements like "Defendant engaged in wrongful conduct" without specifying WHAT the conduct was based on the case facts provided. Do NOT use template or boilerplate language - every allegation must be tailored to the specific facts of this case.
+- **REQUIREMENT**: Each element of each cause of action must be supported by SPECIFIC FACTS from the case summary. If the case involves a car accident on Highway 101, every relevant cause must reference "the collision on Highway 101" - not just "the incident" or "Defendant's negligence."
+
+**EXAMPLE - BAD (TOO GENERIC - DO NOT DO THIS)**:
+"12. Defendant published false statements regarding Plaintiff, specifically alleging that she engaged in fraudulent billing practices.
+13. The statements were made with actual malice, as Defendant acted with reckless disregard for the truth."
+
+**EXAMPLE - GOOD (FACT-SPECIFIC - DO THIS)**:
+"12. On or about January 15, 2024, Defendant JOHN DOE published a post on LinkedIn to his approximately 5,000 followers stating verbatim: 'Jane Smith at XYZ Law Firm has been stealing from client trust accounts for years. I have proof she embezzled over $50,000.' This defamatory statement was viewed by at least 2,500 people, including Plaintiff's current clients ABC Corporation and DEF Industries, as well as prospective clients in the Southern California legal community.
+13. Defendant made this statement with actual malice because: (a) Defendant had no evidence of any embezzlement; (b) Defendant never reviewed any financial records before making the accusation; (c) Defendant admitted in a text message to mutual colleague Sarah Johnson on January 14, 2024 that he was 'going to destroy her reputation' out of spite following their business dispute."
+
+**EVERY CAUSE OF ACTION MUST INCLUDE**: (1) SPECIFIC DATES of the conduct, (2) SPECIFIC LOCATION/PLATFORM/ADDRESS where it occurred, (3) SPECIFIC INDIVIDUALS by name, (4) EXACT WORDS, QUOTES, OR DETAILED DESCRIPTION of conduct, (5) SPECIFIC AUDIENCE/RECIPIENTS/WITNESSES, (6) SPECIFIC DAMAGES with dollar amounts, lost clients by name, medical providers, etc.
+
 - Include specific CACI instruction numbers in cause of action titles
 - Generate COMPLETE complaint - do not truncate or abbreviate
 - Use aggressive but legally sound pleading strategy
@@ -776,7 +907,7 @@ LENGTH: Generate full, complete complaint with all causes of action. Do not limi
       messages: [
         { 
           role: "system", 
-          content: "You are an experienced California plaintiffs' attorney who drafts comprehensive complaints following California Civil Jury Instructions (CACI) standards and California pleading requirements. You understand that California requires ULTIMATE FACTS with sufficient specificity to survive demurrer - not conclusions of law or evidentiary facts. CRITICAL INSTRUCTIONS: (1) ALWAYS start with the exact attorney header information provided - NEVER use placeholder names like 'RANDY LENO' or any hardcoded attorney information, (2) Use the EXACT plaintiff and defendant names provided in the prompt - DO NOT use generic names like 'Any Plaintiff' or 'Any Defendant', (3) Analyze facts against the entire CACI library - do not be conservative, (4) Include 3-6+ causes of action when facts support them, (5) Consider overlapping theories (negligence + negligence per se + res ipsa loquitur; breach of contract + breach of implied covenant; medical negligence + lack of informed consent + medical battery, etc.), (6) For NEGLIGENCE cases: Thoroughly analyze CACI 400-473 - consider general negligence (CACI 400), negligence per se (CACI 418), res ipsa loquitur (CACI 417), gross negligence (CACI 425), negligent hiring/supervision (CACI 426), dram shop liability (CACI 422/427), negligent undertaking (CACI 450C), strict liability (CACI 460-463), and special standards of care or causation theories, (7) For MEDICAL MALPRACTICE cases: Thoroughly analyze CACI 500-535 - consider medical negligence (CACI 500), lack of informed consent (CACI 533), medical battery (CACI 530A), hospital negligence (CACI 514-516), abandonment (CACI 509), wrongful birth (CACI 511-512), medical res ipsa loquitur (CACI 518), and standards of care for specialists, nurses, or psychotherapists (CACI 501-504), (8) For CONTRACT disputes: Thoroughly analyze CACI 300-338 - consider breach of contract (CACI 303), breach of implied covenant of good faith and fair dealing (CACI 325), third party beneficiary (CACI 301), breach of implied duty to perform with reasonable care (CACI 328), and any contract formation, interpretation, or condition precedent issues, (9) Use specific CACI instruction numbers in each cause of action title, (10) Structure each cause with proper CACI elements, (11) CRITICAL - CALIFORNIA DEMURRER-PROOF PLEADING: Plead ultimate facts with maximum specificity. For each allegation state: WHO (name specific person/entity), WHAT (describe specific action/omission in detail), WHEN (exact date and time if available), WHERE (specific location/address), WHY (circumstances/context), HOW (manner and means). Avoid conclusory statements like 'Defendant was negligent' - instead describe the specific acts constituting negligence: 'On June 15, 2023 at 2:30 PM, Defendant John Smith, driving a 2019 Toyota Camry northbound on Main Street in Los Angeles at approximately 55 mph in a 35 mph zone, failed to apply brakes, failed to maintain proper lookout, and collided with Plaintiff's vehicle'. Quote specific contract language, cite specific statutes violated, describe specific injuries with medical detail, state specific dollar amounts and calculations for damages. Make every paragraph fact-heavy, not conclusion-heavy, (12) Use aggressive but legally sound pleading strategies. Remember: It's better to include a potentially viable cause than to miss a recovery theory. MOST IMPORTANT: Use only the attorney information AND party names provided in the prompt - no hardcoded names or placeholder text." 
+          content: "You are an experienced California plaintiffs' attorney who drafts comprehensive complaints following California Civil Jury Instructions (CACI) standards and California pleading requirements. You understand that California requires ULTIMATE FACTS with sufficient specificity to survive demurrer - not conclusions of law or evidentiary facts. CRITICAL INSTRUCTIONS: (1) ALWAYS start with the exact attorney header information provided - NEVER use placeholder names like 'RANDY LENO' or any hardcoded attorney information, (2) Use the EXACT plaintiff and defendant names provided in the prompt - DO NOT use generic names like 'Any Plaintiff' or 'Any Defendant', (3) Analyze facts against the entire CACI library - do not be conservative, (4) Include 3-6+ causes of action when facts support them, (5) Consider overlapping theories (negligence + negligence per se + res ipsa loquitur; breach of contract + breach of implied covenant; medical negligence + lack of informed consent + medical battery, etc.), (6) For NEGLIGENCE cases: Thoroughly analyze CACI 400-473 - consider general negligence (CACI 400), negligence per se (CACI 418), res ipsa loquitur (CACI 417), gross negligence (CACI 425), negligent hiring/supervision (CACI 426), dram shop liability (CACI 422/427), negligent undertaking (CACI 450C), strict liability (CACI 460-463), and special standards of care or causation theories, (7) For MEDICAL MALPRACTICE cases: Thoroughly analyze CACI 500-535 - consider medical negligence (CACI 500), lack of informed consent (CACI 533), medical battery (CACI 530A), hospital negligence (CACI 514-516), abandonment (CACI 509), wrongful birth (CACI 511-512), medical res ipsa loquitur (CACI 518), and standards of care for specialists, nurses, or psychotherapists (CACI 501-504), (8) For CONTRACT disputes: Thoroughly analyze CACI 300-338 - consider breach of contract (CACI 303), breach of implied covenant of good faith and fair dealing (CACI 325), third party beneficiary (CACI 301), breach of implied duty to perform with reasonable care (CACI 328), and any contract formation, interpretation, or condition precedent issues, (8.5) For EMPLOYMENT/WRONGFUL TERMINATION cases: Thoroughly analyze CACI 2400-2600 - consider wrongful termination (CACI 2400-2432), FEHA discrimination (CACI 2500-2513), harassment (CACI 2520-2528), retaliation (CACI 2505), failure to prevent (CACI 2527), disability accommodation (CACI 2540-2549), CFRA violations (CACI 2600-2620), and whistleblower retaliation (Labor Code 1102.5), (8.6) For INSURANCE BAD FAITH cases: Thoroughly analyze CACI 2300-2361 - consider breach of insurance contract (CACI 2300), bad faith denial/delay (CACI 2331-2333), failure to defend (CACI 2336), and third-party bad faith (CACI 2334), (8.7) For ECONOMIC INTERFERENCE cases: Thoroughly analyze CACI 2200-2210 - consider inducing breach of contract (CACI 2200), intentional interference with contract (CACI 2201), interference with prospective relations (CACI 2202-2204), (9) Use specific CACI instruction numbers in each cause of action title, (10) Structure each cause with proper CACI elements, (10.5) MANDATORY: ALWAYS include a 'GENERAL FACTUAL ALLEGATIONS' section (use this EXACT heading in ALL CAPS) BEFORE the first cause of action - this section contains numbered paragraphs with all background facts common to all causes, (11) CRITICAL - CALIFORNIA DEMURRER-PROOF PLEADING: Plead ultimate facts with maximum specificity. For each allegation state: WHO (name specific person/entity), WHAT (describe specific action/omission in detail), WHEN (exact date and time if available), WHERE (specific location/address), WHY (circumstances/context), HOW (manner and means). Avoid conclusory statements like 'Defendant was negligent' - instead describe the specific acts constituting negligence: 'On June 15, 2023 at 2:30 PM, Defendant John Smith, driving a 2019 Toyota Camry northbound on Main Street in Los Angeles at approximately 55 mph in a 35 mph zone, failed to apply brakes, failed to maintain proper lookout, and collided with Plaintiff's vehicle'. Quote specific contract language, cite specific statutes violated, describe specific injuries with medical detail, state specific dollar amounts and calculations for damages. Make every paragraph fact-heavy, not conclusion-heavy, (11.5) MANDATORY - INCORPORATE CASE FACTS INTO EVERY CAUSE: Each cause of action must contain the SPECIFIC FACTS from the case summary - do NOT use generic boilerplate language. If facts mention termination on a specific date, include that date. If facts mention specific injuries, describe those injuries. Every paragraph must reference actual facts from the case, not template language, (12) Use aggressive but legally sound pleading strategies. Remember: It's better to include a potentially viable cause than to miss a recovery theory. MOST IMPORTANT: Use only the attorney information AND party names provided in the prompt - no hardcoded names or placeholder text." 
         },
         { role: "user", content: prompt }
       ],

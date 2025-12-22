@@ -806,9 +806,20 @@ function generateCaseSpecificAnswer(
   const dVerb3 = isMultipleDefendants ? 'deny' : 'denies'
   const dVerb4 = isMultipleDefendants ? 'allege' : 'alleges'
 
-  const preamble = `TO PLAINTIFF AND TO ${isMultipleDefendants ? 'THEIR' : 'HIS/HER'} ATTORNEY OF RECORD:
+  // Clean up party names - remove accidental "Plaintiff"/"Defendant" prefixes
+  const cleanDefendantName = defendantName
+    .replace(/^defendants?\s+/i, '')
+    .replace(/^plaintiffs?\s+/i, '')
+    .trim()
+  
+  const cleanPlaintiffName = plaintiffName
+    .replace(/^defendants?\s+/i, '')
+    .replace(/^plaintiffs?\s+/i, '')
+    .trim()
 
-${D} ${defendantName} ("${D}") ${dVerb} ${P} ${plaintiffName} ("${P}")'s Complaint as follows: ${D} hereby ${dVerb2} a jury trial in the above-entitled action.
+  const preamble = `TO ${P.toUpperCase()} ${cleanPlaintiffName.toUpperCase()} AND TO HIS/HER/THEIR ATTORNEY OF RECORD:
+
+${D} ${cleanDefendantName} (hereinafter "${D}") ${dVerb} the Complaint of ${P} ${cleanPlaintiffName} (hereinafter "${P}") as follows: ${D} hereby ${dVerb2} a jury trial in the above-entitled action.
 
 Pursuant to the provisions of § 431.30, subdivision (d) of the Code of Civil Procedure, ${D} generally and specifically ${dVerb3} each and every allegation of ${Poss} Complaint, and the whole thereof, including each purported cause of action contained therein, and ${D} ${dVerb3} that ${P} has been damaged in any sum, or sums, due to the conduct or omissions of ${D}.
 
@@ -849,7 +860,7 @@ Respectfully submitted,
 [Telephone Number]
 [Email Address]
 
-Attorney for ${D} ${defendantName}`
+Attorney for ${D} ${cleanDefendantName}`
 
   return `${preamble}\n\n${defensesText}\n\n${prayer}`
 }

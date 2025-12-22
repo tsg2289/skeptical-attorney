@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { FileText, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, ListOrdered, Eye } from 'lucide-react'
 import { CaseFrontend, supabaseCaseStorage, ComplaintSection } from '@/lib/supabase/caseStorage'
 import { downloadComplaintDocument, ComplaintData } from '@/lib/docx-generator'
@@ -799,15 +799,44 @@ export default function ComplaintOutput({
     })
   }
 
-  const addSection = () => {
+  const addCauseOfAction = () => {
     const newId = String(Date.now())
-    setSections(prev => [...prev, {
+    
+    // Count existing causes of action to determine the new ordinal
+    const existingCauses = sections.filter(s => s.type === 'cause')
+    const causeNumber = existingCauses.length + 1
+    const ordinals = ['FIRST', 'SECOND', 'THIRD', 'FOURTH', 'FIFTH', 'SIXTH', 'SEVENTH', 'EIGHTH', 'NINTH', 'TENTH', 'ELEVENTH', 'TWELFTH', 'THIRTEENTH', 'FOURTEENTH', 'FIFTEENTH']
+    const ordinal = ordinals[causeNumber - 1] || `${causeNumber}TH`
+    
+    const newCause: ComplaintSection = {
       id: newId,
-      title: 'New Section',
-      content: '',
+      title: `${ordinal} CAUSE OF ACTION`,
+      content: `(Cause of Action Name - CACI XXX)\n\n[Paragraph Number]. Plaintiff incorporates by reference all preceding paragraphs as though fully set forth herein.\n\n[Paragraph Number]. [Add specific factual allegations for this cause of action, incorporating the case facts.]\n\n[Paragraph Number]. As a direct and proximate result of Defendant's conduct, Plaintiff has suffered damages.`,
       isExpanded: true,
-      type: 'factual'
-    }])
+      type: 'cause'
+    }
+    
+    // Find the position to insert: after last cause, before prayer/jury/signature
+    setSections(prev => {
+      const lastCauseIndex = prev.map(s => s.type).lastIndexOf('cause')
+      const prayerIndex = prev.findIndex(s => s.type === 'prayer' || s.type === 'jury' || s.type === 'signature')
+      
+      let insertIndex: number
+      if (prayerIndex !== -1) {
+        // Insert before prayer/jury/signature
+        insertIndex = prayerIndex
+      } else if (lastCauseIndex !== -1) {
+        // Insert after last cause
+        insertIndex = lastCauseIndex + 1
+      } else {
+        // Fallback: append to end
+        insertIndex = prev.length
+      }
+      
+      const newSections = [...prev]
+      newSections.splice(insertIndex, 0, newCause)
+      return renumberSections(newSections)
+    })
   }
 
   // Renumber all paragraphs across all sections
@@ -1132,6 +1161,24 @@ Executed on ${currentDate}, at ${cityName}, California.
       <div className="flex flex-col gap-6">
         {sections.map((section, index) => {
           const badge = getSectionBadge(section.type)
+          const nextSection = sections[index + 1]
+          
+          // Determine if we should show the "Add Cause of Action" button after this section
+          // Show it after the last cause of action (before prayer/jury/signature)
+          const isLastCauseBeforePrayer = section.type === 'cause' && 
+            nextSection && 
+            (nextSection.type === 'prayer' || nextSection.type === 'jury' || nextSection.type === 'signature')
+          
+          // Also show if this is the last cause and there's no prayer/jury/signature after it
+          const isLastCauseAtEnd = section.type === 'cause' && 
+            !nextSection
+          
+          // Or if this is the last cause and everything after is not a cause
+          const isLastCauseInList = section.type === 'cause' &&
+            !sections.slice(index + 1).some(s => s.type === 'cause') &&
+            sections.slice(index + 1).some(s => s.type === 'prayer' || s.type === 'jury' || s.type === 'signature')
+          
+          const showAddCauseButton = isLastCauseBeforePrayer || isLastCauseAtEnd || isLastCauseInList
           
           // Render CaseCaptionCard for header section
           if (section.type === 'header') {
@@ -1164,120 +1211,128 @@ Executed on ${currentDate}, at ${cityName}, California.
           }
           
           return (
-            <div
-              key={section.id}
-              draggable
-              onDragStart={() => handleDragStart(index)}
-              onDragOver={(e) => handleDragOver(e, index)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, index)}
-              onDragEnd={handleDragEnd}
-              className={`glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300 relative cursor-move ${
-                draggedIndex === index ? 'opacity-50 scale-95' : ''
-              } ${
-                dragOverIndex === index && draggedIndex !== index ? 'border-2 border-blue-500 border-dashed scale-105' : ''
-              }`}
-            >
-              {/* Section Header */}
-              <div className="flex justify-between items-start mb-4 gap-3">
-                {/* Drag Handle */}
-                <div className="text-gray-400 hover:text-gray-600 transition-colors flex items-center pt-1">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                  </svg>
+            <React.Fragment key={section.id}>
+              <div
+                draggable
+                onDragStart={() => handleDragStart(index)}
+                onDragOver={(e) => handleDragOver(e, index)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, index)}
+                onDragEnd={handleDragEnd}
+                className={`glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300 relative cursor-move ${
+                  draggedIndex === index ? 'opacity-50 scale-95' : ''
+                } ${
+                  dragOverIndex === index && draggedIndex !== index ? 'border-2 border-blue-500 border-dashed scale-105' : ''
+                }`}
+              >
+                {/* Section Header */}
+                <div className="flex justify-between items-start mb-4 gap-3">
+                  {/* Drag Handle */}
+                  <div className="text-gray-400 hover:text-gray-600 transition-colors flex items-center pt-1">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                    </svg>
+                  </div>
+                  
+                  {/* Collapse Toggle */}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {section.isExpanded ? (
+                      <ChevronUp className="w-5 h-5" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5" />
+                    )}
+                  </button>
+                  
+                  {/* Title Input */}
+                  <input
+                    type="text"
+                    value={section.title}
+                    onChange={(e) => updateSection(section.id, 'title', e.target.value)}
+                    className="text-xl font-semibold text-gray-900 bg-transparent border-none outline-none flex-1 placeholder-gray-400"
+                    placeholder="Section Title"
+                  />
+                  
+                  {/* Badge */}
+                  <span className={`px-3 py-1 ${badge.bg} ${badge.text} text-sm font-medium rounded-full whitespace-nowrap`}>
+                    {badge.label}
+                  </span>
+                  
+                  {/* Remove Button */}
+                  {sections.length > 1 && (
+                    <button
+                      onClick={() => removeSection(section.id)}
+                      className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                      aria-label="Remove section"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
                 
-                {/* Collapse Toggle */}
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  {section.isExpanded ? (
-                    <ChevronUp className="w-5 h-5" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5" />
-                  )}
-                </button>
-                
-                {/* Title Input */}
-                <input
-                  type="text"
-                  value={section.title}
-                  onChange={(e) => updateSection(section.id, 'title', e.target.value)}
-                  className="text-xl font-semibold text-gray-900 bg-transparent border-none outline-none flex-1 placeholder-gray-400"
-                  placeholder="Section Title"
-                />
-                
-                {/* Badge */}
-                <span className={`px-3 py-1 ${badge.bg} ${badge.text} text-sm font-medium rounded-full whitespace-nowrap`}>
-                  {badge.label}
-                </span>
-                
-                {/* Remove Button */}
-                {sections.length > 1 && (
-                  <button
-                    onClick={() => removeSection(section.id)}
-                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                    aria-label="Remove section"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                {/* Section Content */}
+                {section.isExpanded && (
+                  <div className="relative">
+                    <textarea
+                      value={section.content}
+                      onChange={(e) => {
+                        updateSection(section.id, 'content', e.target.value)
+                        autoResizeTextarea(e.target)
+                      }}
+                      onInput={(e) => autoResizeTextarea(e.target as HTMLTextAreaElement)}
+                      ref={(textarea) => {
+                        if (textarea) {
+                          autoResizeTextarea(textarea)
+                        }
+                      }}
+                      className="w-full min-h-48 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
+                      placeholder="Enter section content here..."
+                    />
+                    {/* AI Edit Chat Button */}
+                    <button
+                      onClick={() => handleOpenAIChat(section)}
+                      disabled={!canUseAI}
+                      className={`absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group ${
+                        !canUseAI ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      aria-label="AI Edit Assistant"
+                      title={canUseAI ? 'Open AI Edit Assistant - Edit this section interactively' : 'Access from case dashboard to enable AI editing'}
+                    >
+                      <svg 
+                        className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
+                        fill="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                        <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+                        <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
+                      </svg>
+                    </button>
+                  </div>
                 )}
               </div>
               
-              {/* Section Content */}
-              {section.isExpanded && (
-                <div className="relative">
-                  <textarea
-                    value={section.content}
-                    onChange={(e) => {
-                      updateSection(section.id, 'content', e.target.value)
-                      autoResizeTextarea(e.target)
-                    }}
-                    onInput={(e) => autoResizeTextarea(e.target as HTMLTextAreaElement)}
-                    ref={(textarea) => {
-                      if (textarea) {
-                        autoResizeTextarea(textarea)
-                      }
-                    }}
-                    className="w-full min-h-48 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
-                    placeholder="Enter section content here..."
-                  />
-                  {/* AI Edit Chat Button */}
+              {/* Add Cause of Action Button - appears after last cause, before prayer */}
+              {showAddCauseButton && (
+                <div className="flex justify-center py-2">
                   <button
-                    onClick={() => handleOpenAIChat(section)}
-                    disabled={!canUseAI}
-                    className={`absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group ${
-                      !canUseAI ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    aria-label="AI Edit Assistant"
-                    title={canUseAI ? 'Open AI Edit Assistant - Edit this section interactively' : 'Access from case dashboard to enable AI editing'}
+                    onClick={addCauseOfAction}
+                    className="px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
                   >
-                    <svg 
-                      className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
-                      fill="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
-                      <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
-                      <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
-                    </svg>
+                    <Plus className="w-5 h-5" />
+                    Add Cause of Action
                   </button>
                 </div>
               )}
-            </div>
+            </React.Fragment>
           )
         })}
       </div>
 
-      {/* Add Section and Proof of Service Buttons */}
+      {/* Proof of Service Button */}
       <div className="flex justify-center gap-4">
-        <button
-          onClick={addSection}
-          className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
-        >
-          + Add Section
-        </button>
         <button
           onClick={handleAddProofOfService}
           className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl ${
@@ -1414,6 +1469,7 @@ Executed on ${currentDate}, at ${cityName}, California.
           defendants: caseData?.defendants
         }}
         onApplyEdit={handleApplyAIEdit}
+        isTrialMode={isTrialMode}
       />
 
       {/* Preview Modal */}

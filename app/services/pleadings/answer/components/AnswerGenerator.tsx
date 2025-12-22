@@ -497,6 +497,24 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
   const handleCaptionChange = useCallback((newCaptionData: CaseCaptionData) => {
     setCaptionData(newCaptionData)
     
+    // SYNC parties to formData for preamble generation
+    const plaintiffNames = newCaptionData.plaintiffs?.filter(Boolean).join(', ') || ''
+    const defendantNames = newCaptionData.defendants?.filter(Boolean).join(', ') || ''
+    const hasMultipleDefendants = (newCaptionData.defendants?.filter(Boolean).length || 0) > 1
+    
+    setFormData(prev => ({
+      ...prev,
+      plaintiffName: plaintiffNames,
+      defendantName: defendantNames,
+      isMultipleDefendants: hasMultipleDefendants,
+    }))
+    
+    // Update parties data for AI modal
+    setPartiesData({
+      plaintiffs: newCaptionData.plaintiffs?.filter(Boolean).map(name => ({ name })) || [],
+      defendants: newCaptionData.defendants?.filter(Boolean).map(name => ({ name })) || [],
+    })
+    
     // Debounced auto-save to case if we have a caseId
     if (caseId && caseData) {
       if (saveCaptionTimeoutRef.current) {
