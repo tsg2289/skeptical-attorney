@@ -50,15 +50,19 @@ export function anonymizeDataWithMapping(data: string): AnonymizationResult {
     }
   };
 
-  // Helper to extract context around a match
+  // Helper to extract context around a match - ENHANCED VERSION
   const getContext = (match: string, index: number, text: string): string => {
-    const contextWindow = 50; // Look 50 chars before and after
+    const contextWindow = 100; // Increased from 50 to capture more context
     const start = Math.max(0, index - contextWindow);
     const end = Math.min(text.length, index + match.length + contextWindow);
     const context = text.substring(start, end).toLowerCase();
+    const beforeMatch = text.substring(start, index).toLowerCase();
+    const afterMatch = text.substring(index + match.length, end).toLowerCase();
     
     // Extract key context words
     const contextWords: string[] = [];
+    
+    // Explicit role labels
     if (/\bplaintiff\b/i.test(context)) contextWords.push('plaintiff');
     if (/\bdefendant\b/i.test(context)) contextWords.push('defendant');
     if (/\bclient\b/i.test(context)) contextWords.push('client');
@@ -69,26 +73,173 @@ export function anonymizeDataWithMapping(data: string): AnonymizationResult {
     if (/\binsured\b/i.test(context)) contextWords.push('insured');
     if (/\bclaimant\b/i.test(context)) contextWords.push('claimant');
     
-    return contextWords.join('|');
+    // ENHANCED: Semantic pattern detection for employment cases
+    // Pattern: "[PLAINTIFF] was employed by [DEFENDANT]"
+    if (/\bwas employed by\b/i.test(afterMatch)) {
+      contextWords.push('plaintiff', 'client', 'claimant');
+    }
+    if (/\bwas employed by\b/i.test(beforeMatch)) {
+      contextWords.push('defendant', 'respondent');
+    }
+    
+    // Pattern: "[PLAINTIFF] worked for/at [DEFENDANT]"
+    if (/\bworked (?:for|at)\b/i.test(afterMatch)) {
+      contextWords.push('plaintiff', 'client');
+    }
+    if (/\bworked (?:for|at)\b/i.test(beforeMatch)) {
+      contextWords.push('defendant');
+    }
+    
+    // Pattern: "[DEFENDANT] employed/hired [PLAINTIFF]"
+    if (/\b(?:employed|hired)\b/i.test(afterMatch) && !/\bwas\b/i.test(afterMatch)) {
+      contextWords.push('defendant');
+    }
+    if (/\b(?:employed|hired) by\b/i.test(beforeMatch)) {
+      contextWords.push('plaintiff', 'client');
+    }
+    
+    // Pattern: "[PLAINTIFF] was injured/harmed by [DEFENDANT]"
+    if (/\bwas (?:injured|harmed|hurt|damaged|defrauded) by\b/i.test(afterMatch)) {
+      contextWords.push('plaintiff', 'client');
+    }
+    if (/\bwas (?:injured|harmed|hurt|damaged|defrauded) by\b/i.test(beforeMatch)) {
+      contextWords.push('defendant');
+    }
+    
+    // Pattern: "[PLAINTIFF] sustained injuries" (no defendant needed)
+    if (/\bsustained (?:injuries|damages)\b/i.test(afterMatch)) {
+      contextWords.push('plaintiff', 'client');
+    }
+    
+    // Pattern: "Our client [PLAINTIFF]" or "represents [PLAINTIFF]"
+    if (/\b(?:our client|represents|representing)\b/i.test(beforeMatch)) {
+      contextWords.push('plaintiff', 'client');
+    }
+    
+    // Pattern: Entity with LLC, Inc, Corp = likely defendant/employer
+    if (/,?\s*(?:llc|inc|corp|ltd|l\.l\.c\.|co\.|company)\b/i.test(afterMatch.substring(0, 20))) {
+      contextWords.push('defendant');
+    }
+    
+    return [...new Set(contextWords)].join('|'); // Remove duplicates
+  };
+
+  // Helper to get role-specific placeholder based on context
+  const getRolePlaceholder = (context: string, isCompany: boolean): string => {
+    const ctx = context.toLowerCase();
+    
+    // Check for plaintiff/client indicators
+    if (ctx.includes('plaintiff') || ctx.includes('client') || ctx.includes('claimant')) {
+      return isCompany ? '[PLAINTIFF_COMPANY]' : '[PLAINTIFF]';
+    }
+    
+    // Check for defendant/employer indicators
+    if (ctx.includes('defendant') || ctx.includes('respondent') || ctx.includes('insured')) {
+      return isCompany ? '[DEFENDANT_COMPANY]' : '[DEFENDANT]';
+    }
+    
+    // Fallback to generic placeholders
+    return isCompany ? '[COMPANY]' : '[NAME]';
   };
 
   // Names with titles (must come before standalone names)
   anonymized = anonymized.replace(
     /\b(?:Mr|Mrs|Ms|Dr|Prof|Judge|Attorney|Atty|Esq|Hon)\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g,
     (match, offset) => {
-      addToMapping('[TITLE] [NAME]', match);
       const context = getContext(match, offset, data);
+      const basePlaceholder = getRolePlaceholder(context, false);
+      // Use role-specific placeholder with title indicator
+      const placeholder = basePlaceholder === '[PLAINTIFF]' ? '[TITLE] [PLAINTIFF]' :
+                         basePlaceholder === '[DEFENDANT]' ? '[TITLE] [DEFENDANT]' :
+                         '[TITLE] [NAME]';
+      addToMapping(placeholder, match);
       contextualMappings.push({
-        placeholder: '[TITLE] [NAME]',
+        placeholder: placeholder,
         original: match,
         context: context
       });
-      return '[TITLE] [NAME]';
+      return placeholder;
     }
   );
 
   // Standalone names (First Last pattern) - process on original data to avoid double replacement
   const namePattern = /\b[A-Z][a-z]+ [A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g;
+  
+  // Common phrases that look like names but aren't - exclude these from name detection
+  const excludedPhrases = new Set([
+    // Legal terms
+    'Settlement Demand', 'Economic Damages', 'Non Economic', 'Medical Treatment',
+    'Case Summary', 'General Damages', 'Special Damages', 'Punitive Damages',
+    'Compensatory Damages', 'Property Damage', 'Lost Wages', 'Pain Suffering',
+    'Emotional Distress', 'Mental Anguish', 'Loss Consortium', 'Wrongful Termination',
+    'Breach Contract', 'Personal Injury', 'Premises Liability', 'Products Liability',
+    'Medical Malpractice', 'Legal Malpractice', 'Insurance Coverage', 'Policy Limits',
+    'Liability Coverage', 'Documentation Provided',
+    // California Codes and Legal References (CRITICAL - these look like names!)
+    'Labor Code', 'Civil Code', 'Penal Code', 'Government Code', 'Vehicle Code',
+    'Business Professions', 'Health Safety', 'Family Code', 'Probate Code',
+    'Insurance Code', 'Revenue Taxation', 'Corporations Code', 'Education Code',
+    'Elections Code', 'Evidence Code', 'Financial Code', 'Fish Game',
+    'Food Agricultural', 'Harbors Navigation', 'Military Veterans', 'Public Contract',
+    'Public Resources', 'Public Utilities', 'Streets Highways', 'Unemployment Insurance',
+    'Water Code', 'Welfare Institutions', 'Code Civil', 'Code Section', 
+    'California Code', 'Federal Code', 'United States',
+    // Legal terms that look like names
+    'Civil Penalties', 'Criminal Penalties', 'Statutory Penalties', 'Civil Procedure',
+    'Criminal Procedure', 'Due Process', 'Equal Protection', 'Good Faith',
+    'Bad Faith', 'Prima Facie', 'Res Judicata', 'Summary Judgment',
+    'Default Judgment', 'Bench Trial', 'Jury Trial', 'Settlement Agreement',
+    'Settlement Conference', 'Case Management', 'Discovery Requests',
+    'Interrogatory Responses', 'Document Production', 'Motion Practice',
+    'Oral Argument', 'Written Argument', 'Legal Analysis', 'Legal Research',
+    'Affirmative Defenses', 'Statute Limitations', 'Burden Proof', 'Standard Care',
+    'Proximate Cause', 'Actual Damages', 'Nominal Damages', 'Treble Damages',
+    'Liquidated Damages', 'Consequential Damages', 'Incidental Damages',
+    // Business/HR terms
+    'Human Resources', 'Legal Services', 'Professional Services', 'Administrative Services',
+    'Customer Service', 'Technical Support', 'Quality Control', 'Risk Management',
+    'Claims Department', 'Legal Department', 'Pacific Logistics',
+    // Section titles
+    'Case Description', 'Facts Section', 'Liability Section', 'Damages Section',
+  ]);
+  
+  // Pattern-based exclusions: words that indicate business/government entities, not person names
+  const businessSuffixes = /\b(Development|Agency|Department|Division|Bureau|Commission|Authority|Services|Solutions|Logistics|Management|Operations|Resources|Group|Industries|Systems|Technologies|Consulting|Enterprises|Associates|Partners|Corporation|Foundation|Institute|Organization|Administration|Board|Council|Office|Center|Clinic|Hospital|University|College|School|Bank|Insurance|Financial|Holdings|Ventures|Capital|Media|Communications|Marketing|Staffing|Recruiting|Delivery|Distribution|Transport|Freight|Shipping|Supply|Warehouse|Manufacturing|Production|Construction|Engineering|Design|Architecture|Analytics|Software|Network|Digital|Global|National|International|Regional|Metro|County|State|Federal)$/i;
+  
+  // US State names that often appear in business/agency names
+  const stateNames = /^(Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming)\b/i;
+  
+  // Helper function to check if a phrase looks like a business/entity name rather than a person
+  const isLikelyBusinessName = (phrase: string): boolean => {
+    // Check static exclusions first
+    if (excludedPhrases.has(phrase)) return true;
+    
+    // Check if starts with a legal role word (these are handled by the legal roles pattern)
+    if (/^(Plaintiff|Plaintiffs|Defendant|Defendants|Client|Clients|Witness|Witnesses|Deponent|Deponents|Petitioner|Petitioners|Respondent|Respondents)\b/i.test(phrase)) return true;
+    
+    // Check if ends with business/government suffix
+    if (businessSuffixes.test(phrase)) return true;
+    
+    // Check if starts with a US state name (likely an agency)
+    if (stateNames.test(phrase)) return true;
+    
+    // Check if ends with "Code" (legal reference, not a name)
+    if (/\bCode$/i.test(phrase)) return true;
+    
+    // Check if ends with common legal terms that look like names
+    if (/\b(Penalties|Procedure|Process|Judgment|Trial|Agreement|Practice|Damages|Coverage|Liability|Malpractice|Professions|Safety|Navigation|Insurance|Resources|Utilities|Highways|Veterans|Contract|Institutions)$/i.test(phrase)) return true;
+    
+    // Check for common business patterns
+    const words = phrase.split(' ');
+    const lastWord = words[words.length - 1];
+    
+    // If last word is a common business term, it's probably not a person
+    const businessTerms = ['Labor', 'Works', 'Tech', 'Corp', 'Co', 'Team', 'Staff', 'Crew', 'Fleet', 'Force'];
+    if (businessTerms.includes(lastWord)) return true;
+    
+    return false;
+  };
+  
   const nameMatches: Array<{ match: string; index: number }> = [];
   let nameMatch;
   while ((nameMatch = namePattern.exec(data)) !== null) {
@@ -96,20 +247,32 @@ export function anonymizeDataWithMapping(data: string): AnonymizationResult {
     const beforeIndex = Math.max(0, nameMatch.index - 20);
     const beforeText = data.substring(beforeIndex, nameMatch.index);
     if (!/\b(?:Mr|Mrs|Ms|Dr|Prof|Judge|Attorney|Atty|Esq|Hon)\.?\s+$/.test(beforeText)) {
-      nameMatches.push({ match: nameMatch[0], index: nameMatch.index });
+      // Get context FIRST to check if this is clearly a party in the case
+      const context = getContext(nameMatch[0], nameMatch.index, data);
+      
+      // If context strongly indicates a party role, include it even if it looks like a business name
+      const isPartyRole = context.includes('plaintiff') || context.includes('client') || 
+                          context.includes('claimant') || context.includes('defendant') || 
+                          context.includes('respondent');
+      
+      // Only apply business name exclusions if NOT clearly a party role
+      if (isPartyRole || !isLikelyBusinessName(nameMatch[0])) {
+        nameMatches.push({ match: nameMatch[0], index: nameMatch.index });
+      }
     }
   }
   // Replace names in reverse order to preserve indices
   nameMatches.reverse().forEach(({ match, index }) => {
     if (anonymized.includes(match)) {
-      addToMapping('[NAME]', match);
       const context = getContext(match, index, data);
+      const placeholder = getRolePlaceholder(context, false);
+      addToMapping(placeholder, match);
       contextualMappings.push({
-        placeholder: '[NAME]',
+        placeholder: placeholder,
         original: match,
         context: context
       });
-      anonymized = anonymized.replace(match, '[NAME]');
+      anonymized = anonymized.replace(match, placeholder);
     }
   });
 
@@ -227,14 +390,47 @@ export function anonymizeDataWithMapping(data: string): AnonymizationResult {
     }
   );
 
-  // Company names with legal suffixes
-  anonymized = anonymized.replace(
-    /\b[A-Z][A-Za-z0-9\s&.,'-]+(?:Inc|LLC|Corp|Corporation|Company|Co|Ltd|Limited|Partnership|LP|LLP)\b/g,
-    (match) => {
-      addToMapping('[COMPANY]', match);
-      return '[COMPANY]';
+  // Company names with legal suffixes - use role-specific placeholders
+  // Companies are typically defendants/employers unless explicitly identified as plaintiff
+  const companyPattern = /\b[A-Z][A-Za-z0-9\s&.,'-]+(?:Inc|LLC|Corp|Corporation|Company|Co|Ltd|Limited|Partnership|LP|LLP)\b/g;
+  const legalRolePrefix = /^(Plaintiff|Plaintiffs|Defendant|Defendants|Client|Clients|Witness|Witnesses|Petitioner|Petitioners|Respondent|Respondents)\s+/i;
+  
+  const companyMatches: Array<{ match: string; index: number }> = [];
+  let companyMatch;
+  while ((companyMatch = companyPattern.exec(data)) !== null) {
+    let match = companyMatch[0];
+    let index = companyMatch.index;
+    
+    // If company match starts with a legal role word, strip it off
+    // (e.g., "Defendants Redstone Structural, Inc." -> "Redstone Structural, Inc.")
+    const roleMatch = match.match(legalRolePrefix);
+    if (roleMatch) {
+      match = match.substring(roleMatch[0].length);
+      index += roleMatch[0].length;
     }
-  );
+    
+    if (match.trim()) {
+      companyMatches.push({ match: match.trim(), index });
+    }
+  }
+  companyMatches.reverse().forEach(({ match, index }) => {
+    if (anonymized.includes(match)) {
+      const context = getContext(match, index, data);
+      // Companies default to defendant unless explicitly plaintiff
+      let placeholder = getRolePlaceholder(context, true);
+      // If no role detected, default to defendant for companies
+      if (placeholder === '[COMPANY]') {
+        placeholder = '[DEFENDANT_COMPANY]';
+      }
+      addToMapping(placeholder, match);
+      contextualMappings.push({
+        placeholder: placeholder,
+        original: match,
+        context: context.includes('defendant') ? context : context + '|defendant'
+      });
+      anonymized = anonymized.replace(match, placeholder);
+    }
+  });
 
   // Medical record numbers
   anonymized = anonymized.replace(
@@ -263,20 +459,35 @@ export function anonymizeDataWithMapping(data: string): AnonymizationResult {
     }
   );
 
-  // Legal roles with names
+  // Legal roles with names - use role-specific placeholders (includes plural forms)
   anonymized = anonymized.replace(
-    /\b(?:Client|Plaintiff|Defendant|Witness|Deponent|Petitioner|Respondent)\s*:?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/gi,
+    /\b(?:Clients?|Plaintiffs?|Defendants?|Witnesses?|Deponents?|Petitioners?|Respondents?)\s*:?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/gi,
     (match, offset) => {
-      addToMapping('[LEGAL_ROLE]: [NAME]', match);
-      // Extract the role from the match itself
-      const roleMatch = match.match(/\b(Client|Plaintiff|Defendant|Witness|Deponent|Petitioner|Respondent)\b/i);
-      const role = roleMatch ? roleMatch[1].toLowerCase() : '';
+      // Extract the role from the match itself (handle both singular and plural)
+      const roleMatch = match.match(/\b(Clients?|Plaintiffs?|Defendants?|Witnesses?|Deponents?|Petitioners?|Respondents?)\b/i);
+      let role = roleMatch ? roleMatch[1].toLowerCase() : '';
+      // Normalize plural to singular for role determination
+      role = role.replace(/s$/, '');
+      
+      // Determine placeholder based on explicit role in text
+      let placeholder: string;
+      if (role === 'plaintiff' || role === 'client' || role === 'petitioner') {
+        placeholder = '[PLAINTIFF]';
+      } else if (role === 'defendant' || role === 'respondent') {
+        placeholder = '[DEFENDANT]';
+      } else if (role === 'witness' || role === 'deponent') {
+        placeholder = '[WITNESS]';
+      } else {
+        placeholder = '[NAME]';
+      }
+      
+      addToMapping(placeholder, match);
       contextualMappings.push({
-        placeholder: '[LEGAL_ROLE]: [NAME]',
+        placeholder: placeholder,
         original: match,
         context: role
       });
-      return '[LEGAL_ROLE]: [NAME]';
+      return placeholder;
     }
   );
 
@@ -307,10 +518,65 @@ export function anonymizeData(data: string): string {
     '[TITLE] [NAME]'
   );
 
-  // Standalone names (First Last pattern)
+  // Standalone names (First Last pattern) - with exclusions for common legal/business terms
+  const excludedPhrasesSimple = new Set([
+    'Settlement Demand', 'Economic Damages', 'Non Economic', 'Medical Treatment',
+    'Case Summary', 'General Damages', 'Special Damages', 'Punitive Damages',
+    'Compensatory Damages', 'Property Damage', 'Lost Wages', 'Pain Suffering',
+    'Emotional Distress', 'Mental Anguish', 'Loss Consortium', 'Wrongful Termination',
+    'Breach Contract', 'Personal Injury', 'Premises Liability', 'Products Liability',
+    'Medical Malpractice', 'Legal Malpractice', 'Insurance Coverage', 'Policy Limits',
+    'Liability Coverage', 'Documentation Provided',
+    // California Codes and Legal References
+    'Labor Code', 'Civil Code', 'Penal Code', 'Government Code', 'Vehicle Code',
+    'Business Professions', 'Health Safety', 'Family Code', 'Probate Code',
+    'Insurance Code', 'Revenue Taxation', 'Corporations Code', 'Education Code',
+    'Elections Code', 'Evidence Code', 'Financial Code', 'Fish Game',
+    'Food Agricultural', 'Harbors Navigation', 'Military Veterans', 'Public Contract',
+    'Public Resources', 'Public Utilities', 'Streets Highways', 'Unemployment Insurance',
+    'Water Code', 'Welfare Institutions', 'Code Civil', 'Code Section',
+    'California Code', 'Federal Code', 'United States',
+    // Legal terms that look like names
+    'Civil Penalties', 'Criminal Penalties', 'Statutory Penalties', 'Civil Procedure',
+    'Criminal Procedure', 'Due Process', 'Equal Protection', 'Good Faith',
+    'Bad Faith', 'Prima Facie', 'Res Judicata', 'Summary Judgment',
+    'Default Judgment', 'Bench Trial', 'Jury Trial', 'Settlement Agreement',
+    'Settlement Conference', 'Case Management', 'Discovery Requests',
+    'Interrogatory Responses', 'Document Production', 'Motion Practice',
+    'Oral Argument', 'Written Argument', 'Legal Analysis', 'Legal Research',
+    'Affirmative Defenses', 'Statute Limitations', 'Burden Proof', 'Standard Care',
+    'Proximate Cause', 'Actual Damages', 'Nominal Damages', 'Treble Damages',
+    'Liquidated Damages', 'Consequential Damages', 'Incidental Damages',
+    // Business/HR terms
+    'Human Resources', 'Legal Services', 'Professional Services', 'Administrative Services',
+    'Customer Service', 'Technical Support', 'Quality Control', 'Risk Management',
+    'Claims Department', 'Legal Department', 'Pacific Logistics',
+    'Case Description', 'Facts Section', 'Liability Section', 'Damages Section',
+  ]);
+  
+  // Pattern-based exclusions for simple anonymization
+  const businessSuffixesSimple = /\b(Development|Agency|Department|Division|Bureau|Commission|Authority|Services|Solutions|Logistics|Management|Operations|Resources|Group|Industries|Systems|Technologies|Consulting|Enterprises|Associates|Partners|Corporation|Foundation|Institute|Organization|Administration|Board|Council|Office|Center|Clinic|Hospital|University|College|School|Bank|Insurance|Financial|Holdings|Ventures|Capital|Media|Communications|Marketing|Staffing|Recruiting|Delivery|Distribution|Transport|Freight|Shipping|Supply|Warehouse|Manufacturing|Production|Construction|Engineering|Design|Architecture|Analytics|Software|Network|Digital|Global|National|International|Regional|Metro|County|State|Federal)$/i;
+  const stateNamesSimple = /^(Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming)\b/i;
+  const businessTermsSimple = ['Labor', 'Works', 'Tech', 'Corp', 'Co', 'Team', 'Staff', 'Crew', 'Fleet', 'Force'];
+  
+  const isLikelyBusinessNameSimple = (phrase: string): boolean => {
+    if (excludedPhrasesSimple.has(phrase)) return true;
+    // Check if starts with a legal role word
+    if (/^(Plaintiff|Plaintiffs|Defendant|Defendants|Client|Clients|Witness|Witnesses|Deponent|Deponents|Petitioner|Petitioners|Respondent|Respondents)\b/i.test(phrase)) return true;
+    if (businessSuffixesSimple.test(phrase)) return true;
+    if (stateNamesSimple.test(phrase)) return true;
+    // Check if ends with "Code" (legal reference)
+    if (/\bCode$/i.test(phrase)) return true;
+    // Check if ends with common legal terms
+    if (/\b(Penalties|Procedure|Process|Judgment|Trial|Agreement|Practice|Damages|Coverage|Liability|Malpractice|Professions|Safety|Navigation|Insurance|Resources|Utilities|Highways|Veterans|Contract|Institutions)$/i.test(phrase)) return true;
+    const lastWord = phrase.split(' ').pop() || '';
+    if (businessTermsSimple.includes(lastWord)) return true;
+    return false;
+  };
+  
   anonymized = anonymized.replace(
     /\b[A-Z][a-z]+ [A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g,
-    '[NAME]'
+    (match) => isLikelyBusinessNameSimple(match) ? match : '[NAME]'
   );
 
   // Email addresses
@@ -406,9 +672,9 @@ export function anonymizeData(data: string): string {
     '[IP_ADDRESS]'
   );
 
-  // Legal roles with names
+  // Legal roles with names (includes plural forms)
   anonymized = anonymized.replace(
-    /\b(?:Client|Plaintiff|Defendant|Witness|Deponent|Petitioner|Respondent)\s*:?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/gi,
+    /\b(?:Clients?|Plaintiffs?|Defendants?|Witnesses?|Deponents?|Petitioners?|Respondents?)\s*:?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/gi,
     '[LEGAL_ROLE]: [NAME]'
   );
 
@@ -460,7 +726,17 @@ export function reidentifyData(
   };
 
   // Restore in reverse order of priority (most specific first to avoid conflicts)
+  // Include new role-specific placeholders
   const placeholderOrder = [
+    // Role-specific placeholders (most specific)
+    '[TITLE] [PLAINTIFF]',
+    '[TITLE] [DEFENDANT]',
+    '[PLAINTIFF_COMPANY]',
+    '[DEFENDANT_COMPANY]',
+    '[PLAINTIFF]',
+    '[DEFENDANT]',
+    '[WITNESS]',
+    // Legacy/fallback placeholders
     '[LEGAL_ROLE]: [NAME]',
     '[TITLE] [NAME]',
     '[NAME]',

@@ -15,7 +15,7 @@ function extractJsonObject(text: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { caseDescription, allSections } = await request.json();
+    const { caseDescription, allSections, partyInfo } = await request.json();
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -28,8 +28,68 @@ export async function POST(request: NextRequest) {
     // Anonymize PII before sending to OpenAI, but keep mapping for re-identification
     const { anonymizedText: anonymizedDescription, mapping, contextualMappings } = 
       anonymizeDataWithMapping(caseDescription || '');
+    
+    // If explicit party info is provided (trial mode), add them to the mapping
+    // This ensures the re-identification will use the user-provided names
+    let explicitPlaintiff = '';
+    let explicitDefendant = '';
+    
+    if (partyInfo && partyInfo.clientName) {
+      if (partyInfo.representationType === 'plaintiff') {
+        explicitPlaintiff = partyInfo.clientName;
+        explicitDefendant = partyInfo.opposingPartyName || '';
+      } else {
+        explicitDefendant = partyInfo.clientName;
+        explicitPlaintiff = partyInfo.opposingPartyName || '';
+      }
+      
+      // Add to mapping for re-identification
+      if (explicitPlaintiff) {
+        if (!mapping['[PLAINTIFF]']) mapping['[PLAINTIFF]'] = [];
+        if (!mapping['[PLAINTIFF]'].includes(explicitPlaintiff)) {
+          mapping['[PLAINTIFF]'].unshift(explicitPlaintiff);
+        }
+      }
+      if (explicitDefendant) {
+        if (!mapping['[DEFENDANT]']) mapping['[DEFENDANT]'] = [];
+        if (!mapping['[DEFENDANT_COMPANY]']) mapping['[DEFENDANT_COMPANY]'] = [];
+        // Check if it looks like a company
+        const isCompany = /\b(Inc\.?|LLC|Corp\.?|Company|Co\.?|Ltd\.?|L\.?P\.?|LLP|Associates|Partners|Services|Group|Holdings)\b/i.test(explicitDefendant);
+        if (isCompany) {
+          if (!mapping['[DEFENDANT_COMPANY]'].includes(explicitDefendant)) {
+            mapping['[DEFENDANT_COMPANY]'].unshift(explicitDefendant);
+          }
+        } else {
+          if (!mapping['[DEFENDANT]'].includes(explicitDefendant)) {
+            mapping['[DEFENDANT]'].unshift(explicitDefendant);
+          }
+        }
+      }
+    }
+
+    // Build party info section if explicit names are provided
+    const partyInfoSection = (explicitPlaintiff || explicitDefendant) ? `
+=== EXPLICIT PARTY IDENTIFICATION (USE THESE NAMES) ===
+${explicitPlaintiff ? `PLAINTIFF/CLIENT: ${explicitPlaintiff}` : ''}
+${explicitDefendant ? `DEFENDANT/OPPOSING PARTY: ${explicitDefendant}` : ''}
+
+CRITICAL: Use these EXACT names in your generated content. Do NOT use placeholders like [PLAINTIFF] or [DEFENDANT] - use the actual names provided above.
+` : '';
 
     const prompt = `You are a legal assistant helping to draft a demand letter. Analyze the following case description and determine the case type, then generate appropriate content for each section.
+${partyInfoSection}
+=== PLACEHOLDER KEY (CRITICAL) ===
+${partyInfoSection ? `Since explicit party names are provided above, use those ACTUAL NAMES in your output, not placeholders.` : `The case description uses these placeholders to identify parties:
+- [PLAINTIFF] = The client/plaintiff bringing this claim
+- [DEFENDANT] = The opposing party/defendant being sued
+- [DEFENDANT_COMPANY] = The defendant company/employer
+- [PLAINTIFF_COMPANY] = The plaintiff company if applicable
+- [WITNESS] = A witness
+
+IMPORTANT: In your generated sections, use these EXACT placeholders to refer to the parties:
+- Use [PLAINTIFF] for the client/plaintiff (NOT [Client Name] or [Client])
+- Use [DEFENDANT] or [DEFENDANT_COMPANY] for the opposing party (NOT [Opposing Party] or [Employer])
+- Preserve the placeholder exactly as shown above so names can be properly restored`}
 
 CASE DESCRIPTION:
 ${anonymizedDescription}
@@ -77,17 +137,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### PERSONAL INJURY & TORT ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding injuries sustained on [Date] in [Location]. Based on the evidence, [Opposing Party] is liable for the injuries and damages caused."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding injuries sustained on [Date] in [Location]." Then add 2-3 sentences summarizing: (1) the key facts of what happened, (2) why [DEFENDANT] is liable under California law (brief legal basis), and (3) the types of damages being claimed (medical expenses, lost wages, pain and suffering, etc.). Keep the entire introduction to 4-5 sentences total.
 
-2. FACTS: Date, time, location, circumstances, what client was doing, conditions, witnesses, police/incident reports. ONLY facts from description.
+2. FACTS: Date, time, location, circumstances, what [PLAINTIFF] was doing, conditions, witnesses, police/incident reports. ONLY facts from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Opposing Party] is liable
+   - The legal question of whether [DEFENDANT] is liable
    - Applicable California law: Civil Code §1714 (general negligence); Vehicle Code sections if auto accident (§21453, §21703, §21801, §22350); premises liability under Rowland v. Christian; products liability; medical malpractice standard of care
    - How the facts establish duty, breach, causation, and damages
-   - Conclusion that [Opposing Party] is liable under California law
+   - Conclusion that [DEFENDANT] is liable under California law
    
-   Example tone: "Under California Civil Code §1714, [Opposing Party] owed a duty of care to [Client]. By [specific conduct], [Opposing Party] breached this duty. This breach directly caused [Client]'s injuries, as evidenced by [facts]. Accordingly, [Opposing Party] is liable for the resulting damages."
+   Example tone: "Under California Civil Code §1714, [DEFENDANT] owed a duty of care to [PLAINTIFF]. By [specific conduct], [DEFENDANT] breached this duty. This breach directly caused [PLAINTIFF]'s injuries, as evidenced by [facts]. Accordingly, [DEFENDANT] is liable for the resulting damages."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -127,17 +187,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### EMPLOYMENT & LABOR ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding [specific violation] during employment with [Employer]. [Employer] violated California employment laws."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding [specific violation] during employment with [DEFENDANT_COMPANY]." Then add 2-3 sentences summarizing: (1) the key facts of the employment relationship and violations, (2) the legal basis for liability (Labor Code violations, FEHA, PAGA, etc.), and (3) the damages and penalties being sought (unpaid wages, penalties, emotional distress, etc.). Keep the entire introduction to 4-5 sentences total.
 
 2. FACTS: Employment dates, position, specific incidents, dates of violations, persons involved, complaints made, timeline of events. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Employer] violated employment laws
+   - The legal question of whether [DEFENDANT_COMPANY] violated employment laws
    - Applicable California law: FEHA (Government Code §12900 et seq.) for discrimination/harassment/retaliation; Labor Code §510 (overtime), §1194 (minimum wage), §226 (wage statements), §226.7 (meal/rest breaks); Labor Code §1102.5 (whistleblower); Labor Code §2802 (expenses); PAGA (Labor Code §2698 et seq.); wrongful termination in violation of public policy
    - How the facts establish each element of the violation
-   - Conclusion that [Employer] violated California employment law
+   - Conclusion that [DEFENDANT_COMPANY] violated California employment law
    
-   Example tone: "California's Fair Employment and Housing Act prohibits employers from [specific prohibited conduct]. [Employer]'s actions—specifically, [conduct]—constitute a clear violation of Government Code section 12940. The evidence demonstrates that [Client] was subjected to [treatment] because of [protected characteristic/activity], establishing liability under California law."
+   Example tone: "California's Fair Employment and Housing Act prohibits employers from [specific prohibited conduct]. [DEFENDANT_COMPANY]'s actions—specifically, [conduct]—constitute a clear violation of Government Code section 12940. The evidence demonstrates that [PLAINTIFF] was subjected to [treatment] because of [protected characteristic/activity], establishing liability under California law."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -176,17 +236,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### CONTRACT & BUSINESS ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding breach of contract/business tort by [Opposing Party]."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding breach of contract/business tort by [DEFENDANT]." Then add 2-3 sentences summarizing: (1) the key facts of the contract and breach, (2) the legal basis for liability (breach of contract, fraud, breach of fiduciary duty, etc.), and (3) the damages being sought (contract damages, lost profits, consequential damages, etc.). Keep the entire introduction to 4-5 sentences total.
 
 2. FACTS: Contract date, parties, key terms, performance, breach events, communications. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Opposing Party] breached the contract or committed a business tort
+   - The legal question of whether [DEFENDANT] breached the contract or committed a business tort
    - Applicable California law: Civil Code §§1549-1550 (contract formation), §§1623-1624 (Statute of Frauds); breach elements (existence, performance, breach, damages); implied covenant of good faith (Civil Code §1654); fraud (Civil Code §1709-1710); negligent misrepresentation; trade secrets (Civil Code §3426 et seq. CUTSA)
    - How the facts establish each element of the claim
-   - Conclusion that [Opposing Party] is liable for breach/tort
+   - Conclusion that [DEFENDANT] is liable for breach/tort
    
-   Example tone: "A valid and enforceable contract existed between [Client] and [Opposing Party], executed on [date], which required [Opposing Party] to [obligation]. [Client] fully performed all obligations under the agreement. Despite this, [Opposing Party] breached the contract by [specific conduct], causing [Client] to suffer damages. Under California law, [Opposing Party] is therefore liable for breach of contract."
+   Example tone: "A valid and enforceable contract existed between [PLAINTIFF] and [DEFENDANT], executed on [date], which required [DEFENDANT] to [obligation]. [PLAINTIFF] fully performed all obligations under the agreement. Despite this, [DEFENDANT] breached the contract by [specific conduct], causing [PLAINTIFF] to suffer damages. Under California law, [DEFENDANT] is therefore liable for breach of contract."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -230,17 +290,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### REAL ESTATE & PROPERTY ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding [property dispute type] involving property at [Address]."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding [property dispute type] involving property at [Address]." Then add 2-3 sentences summarizing: (1) the key facts of the property dispute, (2) the legal basis for liability (habitability violations, wrongful eviction, breach of lease, etc.), and (3) the damages being sought (repair costs, relocation expenses, rent abatement, statutory penalties, etc.). Keep the entire introduction to 4-5 sentences total.
 
 2. FACTS: Property address, parties, lease/purchase terms, timeline of dispute, specific violations. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Opposing Party] violated property rights or lease terms
+   - The legal question of whether [DEFENDANT] violated property rights or lease terms
    - Applicable California law: Civil Code §§1940-1954.1 (habitability, repairs, security deposits); Code of Civil Procedure §1161 et seq. (unlawful detainer); Civil Code §895 et seq. (SB 800, Right to Repair); Civil Code §§841-845 (boundaries); Civil Code §§4000 et seq. (Davis-Stirling Act for HOA); Code of Civil Procedure §760.010 et seq. (quiet title)
    - How the facts establish each element of the violation
-   - Conclusion that [Opposing Party] violated property rights
+   - Conclusion that [DEFENDANT] violated property rights
    
-   Example tone: "Under California Civil Code section 1941, landlords have an obligation to maintain rental properties in habitable condition. [Opposing Party] failed to address [specific conditions] despite repeated notice from [Client], constituting a breach of the implied warranty of habitability. These failures directly caused [Client] to suffer damages, and [Opposing Party] is liable under California law."
+   Example tone: "Under California Civil Code section 1941, landlords have an obligation to maintain rental properties in habitable condition. [DEFENDANT] failed to address [specific conditions] despite repeated notice from [PLAINTIFF], constituting a breach of the implied warranty of habitability. These failures directly caused [PLAINTIFF] to suffer damages, and [DEFENDANT] is liable under California law."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -281,17 +341,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### INSURANCE BAD FAITH ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding [Insurer]'s bad faith handling of claim under policy [Policy Number]."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding [DEFENDANT_COMPANY]'s bad faith handling of claim under policy [Policy Number]." Then add 2-3 sentences summarizing: (1) the key facts of the claim and how it was mishandled, (2) the legal basis for bad faith liability (breach of implied covenant, unreasonable delay/denial, etc.), and (3) the damages being sought (policy benefits, consequential damages, emotional distress, punitive damages, etc.). Keep the entire introduction to 4-5 sentences total.
 
 2. FACTS: Policy type, claim date, loss description, claims handling timeline, denials/delays. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Insurer] acted in bad faith
+   - The legal question of whether [DEFENDANT_COMPANY] acted in bad faith
    - Applicable California law: breach of implied covenant of good faith and fair dealing; Insurance Code §790.03 (Unfair Claims Practices Act); genuine dispute doctrine; duty to investigate and pay valid claims promptly; Egan v. Mutual of Omaha (bad faith tort elements); Civil Code §3294 (punitive damages for oppression, fraud, or malice)
    - How the facts establish bad faith conduct
-   - Conclusion that [Insurer] acted in bad faith
+   - Conclusion that [DEFENDANT_COMPANY] acted in bad faith
    
-   Example tone: "California law imposes on every insurer an implied covenant of good faith and fair dealing with its insureds. [Insurer]'s conduct in handling [Client]'s claim—including [specific conduct such as unreasonable delays, failure to investigate, improper denial]—constitutes a breach of this duty. No genuine dispute existed regarding coverage, yet [Insurer] [failed to pay/delayed payment/denied the claim]. This conduct rises to the level of bad faith, exposing [Insurer] to liability for contract damages and, given the [oppressive/malicious] nature of its conduct, punitive damages under Civil Code section 3294."
+   Example tone: "California law imposes on every insurer an implied covenant of good faith and fair dealing with its insureds. [DEFENDANT_COMPANY]'s conduct in handling [PLAINTIFF]'s claim—including [specific conduct such as unreasonable delays, failure to investigate, improper denial]—constitutes a breach of this duty. No genuine dispute existed regarding coverage, yet [DEFENDANT_COMPANY] [failed to pay/delayed payment/denied the claim]. This conduct rises to the level of bad faith, exposing [DEFENDANT_COMPANY] to liability for contract damages and, given the [oppressive/malicious] nature of its conduct, punitive damages under Civil Code section 3294."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -327,17 +387,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### CONSUMER PROTECTION ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding [Defendant]'s unlawful business practices."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding [DEFENDANT]'s unlawful business practices." Then add 2-3 sentences summarizing: (1) the key facts of the unlawful conduct and how [PLAINTIFF] was harmed, (2) the legal basis for liability (UCL, CLRA, false advertising, etc.), and (3) the damages being sought (restitution, statutory damages, civil penalties, etc.). Keep the entire introduction to 4-5 sentences total.
 
-2. FACTS: Products/services involved, representations made, how client was harmed, timeline. ONLY from description.
+2. FACTS: Products/services involved, representations made, how [PLAINTIFF] was harmed, timeline. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Defendant] engaged in unlawful, unfair, or fraudulent business practices
+   - The legal question of whether [DEFENDANT] engaged in unlawful, unfair, or fraudulent business practices
    - Applicable California law: UCL (Business & Professions Code §17200 et seq.—unlawful, unfair, fraudulent prongs); CLRA (Civil Code §1750 et seq.); False Advertising Law (Business & Professions Code §17500); TCPA (47 U.S.C. §227); CCPA (Civil Code §1798.100 et seq.); Song-Beverly Act (Civil Code §1790 et seq.)
    - How the facts establish consumer protection violations
-   - Conclusion that [Defendant] violated consumer protection laws
+   - Conclusion that [DEFENDANT] violated consumer protection laws
    
-   Example tone: "California's Unfair Competition Law, Business and Professions Code section 17200, prohibits any unlawful, unfair, or fraudulent business practice. [Defendant]'s conduct—specifically, [representations/practices]—constitutes a [fraudulent/unlawful/unfair] business practice under the UCL. [Client] reasonably relied on [Defendant]'s [representations] and suffered [harm] as a direct result. [Defendant] is liable under California consumer protection law and subject to restitution and civil penalties."
+   Example tone: "California's Unfair Competition Law, Business and Professions Code section 17200, prohibits any unlawful, unfair, or fraudulent business practice. [DEFENDANT]'s conduct—specifically, [representations/practices]—constitutes a [fraudulent/unlawful/unfair] business practice under the UCL. [PLAINTIFF] reasonably relied on [DEFENDANT]'s [representations] and suffered [harm] as a direct result. [DEFENDANT] is liable under California consumer protection law and subject to restitution and civil penalties."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -383,17 +443,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### PROFESSIONAL LIABILITY ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding professional malpractice by [Professional/Firm]."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding professional malpractice by [DEFENDANT]." Then add 2-3 sentences summarizing: (1) the key facts of the professional relationship and negligent conduct, (2) the legal basis for malpractice liability (breach of standard of care, case-within-a-case for legal malpractice, etc.), and (3) the damages being sought (value of lost case, financial losses, fees paid, etc.). Keep the entire introduction to 4-5 sentences total.
 
 2. FACTS: Professional relationship, engagement terms, specific negligent acts, timeline, discovery of harm. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Professional] committed malpractice
+   - The legal question of whether [DEFENDANT] committed malpractice
    - Applicable California law: professional standard of care (that of a reasonably competent professional in the field); for legal malpractice—duty, breach, causation (case-within-a-case doctrine), damages; for accounting malpractice—GAAP/GAAS standards; for broker liability—Civil Code §2079 and Business & Professions Code; applicable statutes of limitations
    - How the facts establish each element of malpractice
-   - Conclusion that [Professional] breached the standard of care
+   - Conclusion that [DEFENDANT] breached the standard of care
    
-   Example tone: "[Professional] owed [Client] a duty to exercise the skill and care of a reasonably competent [attorney/accountant/broker] in the same field. By [specific negligent conduct], [Professional] fell below this standard. But for this negligence, [Client] would have [obtained favorable result/avoided harm]. As a direct and proximate result of [Professional]'s breach, [Client] suffered damages in the amount of [Amount]. [Professional] is liable for professional malpractice under California law."
+   Example tone: "[DEFENDANT] owed [PLAINTIFF] a duty to exercise the skill and care of a reasonably competent [attorney/accountant/broker] in the same field. By [specific negligent conduct], [DEFENDANT] fell below this standard. But for this negligence, [PLAINTIFF] would have [obtained favorable result/avoided harm]. As a direct and proximate result of [DEFENDANT]'s breach, [PLAINTIFF] suffered damages in the amount of [Amount]. [DEFENDANT] is liable for professional malpractice under California law."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -430,17 +490,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### CONSTRUCTION DEFECT ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding construction defects at [Property Address] by [Contractor/Developer]."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding construction defects at [Property Address] by [DEFENDANT]." Then add 2-3 sentences summarizing: (1) the key facts of the defects discovered and their impact, (2) the legal basis for liability (SB 800 Right to Repair Act, breach of warranty, negligence, etc.), and (3) the damages being sought (repair costs, diminution in value, relocation costs, etc.). Keep the entire introduction to 4-5 sentences total.
 
 2. FACTS: Property, construction dates, defects discovered, inspections, complaints made, repair attempts. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Contractor/Developer] is liable for construction defects
+   - The legal question of whether [DEFENDANT] is liable for construction defects
    - Applicable California law: SB 800 Right to Repair Act (Civil Code §895 et seq.); Civil Code §896 (functionality standards for each component); breach of contract/warranty; negligence in construction; strict liability for latent defects; design professional liability; Contractor's License Law (Business & Professions Code §7000 et seq.)
    - How the facts establish defects and liability
-   - Conclusion that [Builder] is liable for the defects
+   - Conclusion that [DEFENDANT] is liable for the defects
    
-   Example tone: "Under California's Right to Repair Act, Civil Code section 895 et seq., residential builders must construct homes that meet specific functionality standards. The construction defects at [Property Address]—including [specific defects]—fail to meet the standards set forth in Civil Code section 896. [Contractor/Developer] is strictly liable for these defects, which include [list defects]. Additionally, [Contractor/Developer]'s failure to [specific conduct] constitutes negligence. [Client] is entitled to the cost of repairs and related damages under California law."
+   Example tone: "Under California's Right to Repair Act, Civil Code section 895 et seq., residential builders must construct homes that meet specific functionality standards. The construction defects at [Property Address]—including [specific defects]—fail to meet the standards set forth in Civil Code section 896. [DEFENDANT] is strictly liable for these defects, which include [list defects]. Additionally, [DEFENDANT]'s failure to [specific conduct] constitutes negligence. [PLAINTIFF] is entitled to the cost of repairs and related damages under California law."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -478,17 +538,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### PROBATE & TRUST ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding [trust/estate dispute type] involving [Decedent/Trust Name]."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding [trust/estate dispute type] involving [Decedent/Trust Name]." Then add 2-3 sentences summarizing: (1) the key facts of the fiduciary misconduct or dispute, (2) the legal basis for liability (breach of fiduciary duty, undue influence, elder abuse, etc.), and (3) the damages being sought (surcharge of fiduciary, recovery of misappropriated assets, removal of trustee, etc.). Keep the entire introduction to 4-5 sentences total.
 
 2. FACTS: Relationship to decedent/trust, trust/will terms, disputed actions, timeline of events. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Fiduciary/Party] breached duties or engaged in misconduct
+   - The legal question of whether [DEFENDANT] breached duties or engaged in misconduct
    - Applicable California law: Probate Code §§15800-15802 (trustee duties); Probate Code §16000 et seq. (duties of loyalty, impartiality); will contests under Probate Code §§8200, 6104 (undue influence, lack of capacity); elder abuse under Welfare & Institutions Code §15610 et seq.; fiduciary duties of loyalty, prudence, impartiality; accounting requirements under Probate Code §16060
    - How the facts establish breach of duty or misconduct
-   - Conclusion that [Fiduciary/Party] breached duties
+   - Conclusion that [DEFENDANT] breached duties
    
-   Example tone: "As trustee of the [Trust Name], [Fiduciary] owed beneficiaries, including [Client], the highest fiduciary duties of loyalty and care under Probate Code section 16000 et seq. [Fiduciary] breached these duties by [specific conduct such as self-dealing, failure to account, mismanagement]. These actions violated [Fiduciary]'s obligation to administer the trust solely in the interest of the beneficiaries and to avoid conflicts of interest. [Client] is entitled to surcharge [Fiduciary] for resulting losses and seek [Fiduciary]'s removal."
+   Example tone: "As trustee of the [Trust Name], [DEFENDANT] owed beneficiaries, including [PLAINTIFF], the highest fiduciary duties of loyalty and care under Probate Code section 16000 et seq. [DEFENDANT] breached these duties by [specific conduct such as self-dealing, failure to account, mismanagement]. These actions violated [DEFENDANT]'s obligation to administer the trust solely in the interest of the beneficiaries and to avoid conflicts of interest. [PLAINTIFF] is entitled to surcharge [DEFENDANT] for resulting losses and seek [DEFENDANT]'s removal."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -534,17 +594,17 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 
 ### INTELLECTUAL PROPERTY ###
 
-1. INTRODUCTION: "This firm represents [Client Name] regarding infringement of intellectual property rights by [Defendant]."
+1. INTRODUCTION: Start with "This firm represents [PLAINTIFF] regarding infringement of intellectual property rights by [DEFENDANT]." Then add 2-3 sentences summarizing: (1) the key facts of the IP rights and infringing conduct, (2) the legal basis for liability (trademark, copyright, trade secret, patent infringement, etc.), and (3) the damages being sought (lost profits, statutory damages, injunctive relief, attorneys' fees, etc.). Keep the entire introduction to 4-5 sentences total.
 
 2. FACTS: IP at issue, registration/ownership, infringing conduct, discovery of infringement, damages. ONLY from description.
 
 3. LIABILITY: Write as professional flowing paragraphs (NO headers like "ISSUE:", "RULE:", etc.). The content should naturally address:
-   - The legal question of whether [Defendant] infringed [Client]'s intellectual property rights
+   - The legal question of whether [DEFENDANT] infringed [PLAINTIFF]'s intellectual property rights
    - Applicable law: trademark (Lanham Act, California Business & Professions Code §14200 et seq.); copyright (17 U.S.C. §101 et seq.); trade secrets (Civil Code §3426 et seq. CUTSA, Defend Trade Secrets Act); patent (35 U.S.C., willful infringement)
    - How the facts establish infringement
-   - Conclusion that [Defendant] infringed [Client]'s IP rights
+   - Conclusion that [DEFENDANT] infringed [PLAINTIFF]'s IP rights
    
-   Example tone: "[Client] owns valid [trademark/copyright/trade secret/patent] rights in [description of IP]. [Defendant]'s unauthorized [use/reproduction/disclosure] of [Client]'s [IP] constitutes infringement under [applicable statute]. The infringement was [willful/knowing], as evidenced by [facts]. [Client] has suffered damages including [lost profits/reasonable royalty/defendant's profits] as a direct result of [Defendant]'s unlawful conduct. [Defendant] is liable for infringement and subject to [statutory damages/enhanced damages/injunctive relief]."
+   Example tone: "[PLAINTIFF] owns valid [trademark/copyright/trade secret/patent] rights in [description of IP]. [DEFENDANT]'s unauthorized [use/reproduction/disclosure] of [PLAINTIFF]'s [IP] constitutes infringement under [applicable statute]. The infringement was [willful/knowing], as evidenced by [facts]. [PLAINTIFF] has suffered damages including [lost profits/reasonable royalty/defendant's profits] as a direct result of [DEFENDANT]'s unlawful conduct. [DEFENDANT] is liable for infringement and subject to [statutory damages/enhanced damages/injunctive relief]."
 
 4. DAMAGES: Write a comprehensive, well-reasoned damages section as flowing paragraphs. Address ALL applicable damage categories:
 
@@ -599,6 +659,11 @@ Return a JSON object with section IDs as keys. ALL values MUST be strings (not o
 6. Adapt section titles/content to fit the case type
 7. If case type is unclear, ask clarifying questions in the content or make reasonable assumptions based on context
 8. Do NOT mix legal concepts from different case types (e.g., no FEHA in personal injury, no Vehicle Code in employment)
+9. CRITICAL: Use ONLY these placeholders for party names:
+   - [PLAINTIFF] for the client/plaintiff
+   - [DEFENDANT] for the opposing party
+   - [DEFENDANT_COMPANY] for defendant companies/employers
+   - Do NOT use [Client Name], [Opposing Party], [Employer], [Client], etc.
 
 Generate the JSON response now. Only return valid JSON, no additional text.`;
 
@@ -726,37 +791,62 @@ Generate the JSON response now. Only return valid JSON, no additional text.`;
           // Then, replace AI-generated placeholders with actual values from the mapping
           // The AI often uses variations like [Client Name], [Defendant Name], etc.
           
-          // Get names from the mapping for smart replacement
+          // Get names from the NEW role-specific placeholders in the mapping
+          const plaintiffs = mapping['[PLAINTIFF]'] || [];
+          const titledPlaintiffs = mapping['[TITLE] [PLAINTIFF]'] || [];
+          const defendants = mapping['[DEFENDANT]'] || [];
+          const titledDefendants = mapping['[TITLE] [DEFENDANT]'] || [];
+          const plaintiffCompanies = mapping['[PLAINTIFF_COMPANY]'] || [];
+          const defendantCompanies = mapping['[DEFENDANT_COMPANY]'] || [];
+          const witnesses = mapping['[WITNESS]'] || [];
+          
+          // Fallback to old generic placeholders for backward compatibility
           const names = mapping['[NAME]'] || [];
           const titledNames = mapping['[TITLE] [NAME]'] || [];
-          const legalRoleNames = mapping['[LEGAL_ROLE]: [NAME]'] || [];
           const companies = mapping['[COMPANY]'] || [];
           const addresses = mapping['[ADDRESS]'] || [];
           const emails = mapping['[EMAIL]'] || [];
           const phones = mapping['[PHONE]'] || [];
           
-          // Extract contextual names (client vs defendant etc.)
-          const clientNames: string[] = [];
-          const defendantNames: string[] = [];
-          const plaintiffNames: string[] = [];
-          const witnessNames: string[] = [];
+          // Build client/plaintiff list from role-specific mappings
+          const clientNames: string[] = [
+            ...plaintiffs,
+            ...titledPlaintiffs,
+            ...plaintiffCompanies,
+          ];
           
+          // Build defendant list from role-specific mappings
+          const defendantNames: string[] = [
+            ...defendants,
+            ...titledDefendants,
+            ...defendantCompanies,
+          ];
+          
+          // Witness names
+          const witnessNames: string[] = [...witnesses];
+          
+          // Also check contextual mappings for additional context (backward compatibility)
           if (contextualMappings) {
             contextualMappings.forEach(cm => {
               if (cm.context.includes('client') || cm.context.includes('plaintiff') || cm.context.includes('claimant')) {
-                clientNames.push(cm.original);
-                plaintiffNames.push(cm.original);
+                if (!clientNames.includes(cm.original)) {
+                  clientNames.push(cm.original);
+                }
               }
               if (cm.context.includes('defendant') || cm.context.includes('insured') || cm.context.includes('respondent')) {
-                defendantNames.push(cm.original);
+                if (!defendantNames.includes(cm.original)) {
+                  defendantNames.push(cm.original);
+                }
               }
               if (cm.context.includes('witness')) {
-                witnessNames.push(cm.original);
+                if (!witnessNames.includes(cm.original)) {
+                  witnessNames.push(cm.original);
+                }
               }
             });
           }
           
-          // Fallback: if no contextual info, use first name as client, second as defendant
+          // Fallback: if no role-specific info, use generic names
           if (clientNames.length === 0 && names.length > 0) {
             clientNames.push(names[0]);
           }
