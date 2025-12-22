@@ -504,6 +504,12 @@ Output: "striking the Third Cause of Action for Negligent Hiring and Supervision
 Input: "I need this cause of action removed: FOURTH CAUSE OF ACTION: INTENTIONAL INFLICTION OF EMOTIONAL DISTRESS..."
 Output: "striking the Fourth Cause of Action for Intentional Infliction of Emotional Distress from Plaintiff's Complaint in its entirety"
 
+Input: "strike paragraph 4-9: 4. Plaintiff Emily Chen began her employment... [full paragraph text]"
+Output: "striking paragraphs 4 through 9 from Plaintiff's Complaint as irrelevant, false, or improper matter pursuant to Code of Civil Procedure section 436"
+
+Input: "strike paragraphs 10, 11, and 12 from the complaint - they contain false allegations"
+Output: "striking paragraphs 10, 11, and 12 from Plaintiff's Complaint as false or improper matter"
+
 Input: "Defendant hasn't provided discovery responses for 3 months"
 Output: "compelling Defendant to provide complete responses to all outstanding discovery requests within 10 days and for monetary sanctions"
 
@@ -511,13 +517,16 @@ Input: "The second cause of action for fraud should be dismissed"
 Output: "sustaining Defendant's demurrer to the Second Cause of Action for Fraud without leave to amend"
 
 CRITICAL RULES:
-1. EXTRACT the cause of action NAME and NUMBER from the input (e.g., "Third Cause of Action for Negligent Hiring and Supervision")
-2. Do NOT include the full paragraphs of allegations - just the cause of action title
+1. EXTRACT the key information: cause of action name/number OR paragraph numbers
+2. Do NOT include the full paragraphs of allegations - just identify WHAT should be stricken
 3. Do NOT include the introductory phrase "will move the Court for an order" - just the relief portion
 4. Keep it to ONE concise sentence using proper California legal terminology
-5. No period at the end`
+5. No period at the end
+6. For paragraph strikes, summarize as "striking paragraphs X through Y" or "striking paragraphs X, Y, and Z"`
 
       try {
+        console.log(`[AI] Starting relief summarization for input length: ${caseRelief.length}`)
+        
         const reliefResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -546,11 +555,17 @@ CRITICAL RULES:
             noticeReliefSummary = summarized
               .replace(/^["']|["']$/g, '') // Remove surrounding quotes
               .replace(/\.$/g, '') // Remove trailing period
-            console.log(`[AI] Summarized relief: ${noticeReliefSummary.substring(0, 100)}...`)
+            console.log(`[AI] Successfully summarized relief: ${noticeReliefSummary.substring(0, 100)}...`)
+          } else {
+            console.error('[AI] Relief summarization returned empty response')
           }
+        } else {
+          // Log error details when API returns non-OK status
+          const errorText = await reliefResponse.text()
+          console.error(`[AI] Relief summarization API error: ${reliefResponse.status} - ${errorText.substring(0, 200)}`)
         }
       } catch (reliefError) {
-        console.error('Relief summarization failed, using original:', reliefError)
+        console.error('[AI] Relief summarization exception:', reliefError)
         // Keep the original caseRelief if summarization fails
       }
     }
