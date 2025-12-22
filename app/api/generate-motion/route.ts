@@ -478,6 +478,75 @@ DATA ISOLATION: This is a single user session. Do not reference any external inf
     }
     const motion = data.choices[0].message.content.trim()
 
+    // Generate a summarized relief statement for the Notice of Motion
+    // This transforms the user's plain-language input into proper legal language
+    let noticeReliefSummary = caseRelief || ''
+    
+    if (caseRelief && caseRelief.length > 100) {
+      // Only summarize if the input is substantial
+      const reliefSummaryPrompt = `You are a California civil litigation attorney. Convert the following client request into a single, professional sentence suitable for a Notice of Motion.
+
+CLIENT'S REQUEST:
+${caseRelief}
+
+MOTION TYPE: ${config.title}
+MOVING PARTY: ${movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'}
+${movingParty === 'plaintiff' ? 'PLAINTIFF' : 'DEFENDANT'} NAME: ${movingParty === 'plaintiff' ? plaintiffNames : defendantNames}
+
+OUTPUT FORMAT:
+Write ONE sentence that completes: "...will move the Court for an order [YOUR OUTPUT HERE]"
+
+EXAMPLE OUTPUTS for different motion types:
+- For Motion to Strike: "striking the Fourth Cause of Action for Intentional Infliction of Emotional Distress from Plaintiff's Complaint in its entirety on the grounds that it fails to state facts sufficient to constitute a cause of action"
+- For Motion to Compel: "compelling Defendant to provide complete responses to all outstanding discovery requests within 10 days and for monetary sanctions in the amount of $3,500"
+- For Demurrer: "sustaining Defendant's demurrer to the Second Cause of Action for Fraud without leave to amend"
+- For Motion for Summary Judgment: "granting summary judgment in favor of Defendant on all causes of action"
+
+RULES:
+1. Do NOT include the introductory phrase "will move the Court for an order" - just the relief portion
+2. Be concise and use proper California legal terminology
+3. If the input mentions striking a specific cause of action, identify it by name and number
+4. Keep it to ONE sentence - no periods at the end, as it will be followed by more text
+5. Do NOT include the full text of what's being challenged - just summarize what relief is sought`
+
+      try {
+        const reliefResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { 
+                role: 'system', 
+                content: 'You are a legal drafting assistant. Your task is to summarize relief requests into proper legal language for a Notice of Motion. Be concise and professional. Output ONLY the relief clause - no explanations.' 
+              },
+              { role: 'user', content: reliefSummaryPrompt }
+            ],
+            temperature: 0.3,
+            max_tokens: 200,
+          })
+        })
+
+        if (reliefResponse.ok) {
+          const reliefData = await reliefResponse.json()
+          const summarized = reliefData.choices[0]?.message?.content?.trim()
+          if (summarized) {
+            // Clean up the response - remove quotes and trailing periods
+            noticeReliefSummary = summarized
+              .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+              .replace(/\.$/g, '') // Remove trailing period
+            console.log(`[AI] Summarized relief: ${noticeReliefSummary.substring(0, 100)}...`)
+          }
+        }
+      } catch (reliefError) {
+        console.error('Relief summarization failed, using original:', reliefError)
+        // Keep the original caseRelief if summarization fails
+      }
+    }
+
     // AUDIT LOG - includes user ID for security tracking, no cross-user data
     console.log(`[AUDIT] User ${user.id} generated ${detectedMotionType} for case ${caseId || 'standalone'} - isolated session`)
 
@@ -487,6 +556,7 @@ DATA ISOLATION: This is a single user session. Do not reference any external inf
       detectedMotionType,
       applicableRule,
       title: config.title,
+      noticeReliefSummary,
     })
 
   } catch (error) {

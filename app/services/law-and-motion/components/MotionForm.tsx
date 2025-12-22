@@ -50,6 +50,7 @@ export interface NoticeOfMotionData {
   hearingTime: string
   department: string
   reliefSought: string
+  reliefSoughtSummary: string  // AI-summarized version for Notice of Motion
   argumentSummary: string
   applicableRule: string
 }
@@ -337,6 +338,7 @@ export default function MotionForm({
           hearingTime: captionData.hearingTime || '08:30',
           department: captionData.departmentNumber || '',
           reliefSought,
+          reliefSoughtSummary: data.noticeReliefSummary || reliefSought, // Use AI summary if available
           argumentSummary: motionDescription,
           applicableRule: data.applicableRule || MOTION_RULES[motionType] || '',
         },

@@ -58,6 +58,7 @@ export default function MotionOutput({
     hearingTime: '08:30',
     department: '',
     reliefSought: '',
+    reliefSoughtSummary: '',  // AI-summarized version for Notice
     argumentSummary: '',
     applicableRule: '',
   })
@@ -469,16 +470,19 @@ export default function MotionOutput({
       ? new Date(captionData.hearingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) 
       : '[DATE]'
     
+    // Use the AI-summarized relief for the Notice, falling back to raw input
+    const reliefText = noticeOfMotion.reliefSoughtSummary || noticeOfMotion.reliefSought || '[RELIEF SOUGHT]'
+    
     const text = `TO ALL PARTIES AND THEIR ATTORNEYS OF RECORD:
 
-PLEASE TAKE NOTICE that on ${formattedDate} at ${captionData.hearingTime || '[TIME]'}, or as soon thereafter as the matter may be heard, in Department ${captionData.departmentNumber || '[DEPT]'} of the above-entitled Court, ${movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} ${movingPartyName} will move the Court for an order ${noticeOfMotion.reliefSought || '[RELIEF SOUGHT]'}.${noticeOfMotion.argumentSummary ? `
+PLEASE TAKE NOTICE that on ${formattedDate} at ${captionData.hearingTime || '[TIME]'}, or as soon thereafter as the matter may be heard, in Department ${captionData.departmentNumber || '[DEPT]'} of the above-entitled Court, ${movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} ${movingPartyName} will move the Court for an order ${reliefText}.${noticeOfMotion.argumentSummary ? `
 
 ${noticeOfMotion.argumentSummary}` : ''}
 
 This motion is based upon this Notice of Motion, the attached Memorandum of Points and Authorities, the Declaration of ${declaration.declarantName || captionData.attorneys?.[0]?.name || '[ATTORNEY]'}, Esq., and upon all of the pleadings and records contained in the Court file herein, and upon such oral and documentary evidence as may be presented at the time of hearing on this motion.`
     
     setNoticeText(text)
-  }, [captionData, movingParty, noticeOfMotion.reliefSought, noticeOfMotion.argumentSummary, declaration.declarantName])
+  }, [captionData, movingParty, noticeOfMotion.reliefSought, noticeOfMotion.reliefSoughtSummary, noticeOfMotion.argumentSummary, declaration.declarantName])
 
   // Auto-resize textarea helper
   const autoResizeTextarea = (textarea: HTMLTextAreaElement | null) => {

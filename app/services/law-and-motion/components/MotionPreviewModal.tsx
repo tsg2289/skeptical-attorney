@@ -325,7 +325,7 @@ export default function MotionPreviewModal({
                       at {captionData.hearingTime || '[TIME]'}, or as soon thereafter as the matter may be heard, 
                       in Department {captionData.departmentNumber || '[DEPT]'} of the above-entitled Court,{' '}
                       {movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} {getMovingPartyName()} will move the Court for an order{' '}
-                      {noticeOfMotion.reliefSought || '[RELIEF SOUGHT]'}.
+                      {noticeOfMotion.reliefSoughtSummary || noticeOfMotion.reliefSought || '[RELIEF SOUGHT]'}.
                     </p>
                     
                     {noticeOfMotion.argumentSummary && (
