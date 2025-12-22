@@ -202,7 +202,54 @@ export default function MotionOutput({
     const existingMotion = caseData?.motionDocuments?.find(m => m.motionType === motionType)
     
     if (existingMotion?.sections && existingMotion.sections.length > 0) {
+      console.log('[Load] Loading saved motion:', existingMotion.id)
       setSections(existingMotion.sections)
+      
+      // Load all saved structured data
+      if (existingMotion.savedNoticeOfMotion) {
+        setNoticeOfMotion(prev => ({
+          ...prev,
+          ...existingMotion.savedNoticeOfMotion,
+        }))
+      }
+      
+      if (existingMotion.savedMemorandum) {
+        setMemorandum(prev => ({
+          ...prev,
+          introduction: existingMotion.savedMemorandum?.introduction || prev.introduction,
+          facts: existingMotion.savedMemorandum?.facts || prev.facts,
+          law: existingMotion.savedMemorandum?.law || prev.law,
+          argument: existingMotion.savedMemorandum?.argument || prev.argument,
+          argumentSubsections: existingMotion.savedMemorandum?.argumentSubsections || prev.argumentSubsections,
+          conclusion: existingMotion.savedMemorandum?.conclusion || prev.conclusion,
+        }))
+      }
+      
+      if (existingMotion.savedDeclaration) {
+        setDeclaration(prev => ({
+          ...prev,
+          declarantName: existingMotion.savedDeclaration?.declarantName || prev.declarantName,
+          barNumber: existingMotion.savedDeclaration?.barNumber || prev.barNumber,
+          facts: existingMotion.savedDeclaration?.facts || prev.facts,
+        }))
+      }
+      
+      if (existingMotion.savedCaptionData) {
+        setCaptionData(prev => ({
+          ...prev,
+          ...existingMotion.savedCaptionData,
+        }))
+      }
+      
+      if (existingMotion.movingParty) {
+        setMovingParty(existingMotion.movingParty)
+      }
+      
+      if (existingMotion.noticeText) {
+        setNoticeText(existingMotion.noticeText)
+      }
+      
+      console.log('[Load] Restored structured data from saved motion')
     } else if (motion) {
       const parsedSections = parseMotionIntoSections(motion)
       setSections(parsedSections)
@@ -676,7 +723,7 @@ This motion is based upon this Notice of Motion, the attached Memorandum of Poin
     setSaveError(null)
 
     try {
-      // Create or update motion document
+      // Create or update motion document with all structured data
       const motionDoc: MotionDocument = {
         id: `motion_${motionType}_${Date.now()}`,
         motionType,
@@ -685,6 +732,32 @@ This motion is based upon this Notice of Motion, the attached Memorandum of Poin
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         status: 'draft',
+        // Save all structured editable data
+        savedNoticeOfMotion: {
+          hearingDate: noticeOfMotion.hearingDate,
+          hearingTime: noticeOfMotion.hearingTime,
+          department: noticeOfMotion.department,
+          reliefSought: noticeOfMotion.reliefSought,
+          reliefSoughtSummary: noticeOfMotion.reliefSoughtSummary,
+          argumentSummary: noticeOfMotion.argumentSummary,
+          applicableRule: noticeOfMotion.applicableRule,
+        },
+        savedMemorandum: {
+          introduction: memorandum.introduction,
+          facts: memorandum.facts,
+          law: memorandum.law,
+          argument: memorandum.argument,
+          argumentSubsections: memorandum.argumentSubsections,
+          conclusion: memorandum.conclusion,
+        },
+        savedDeclaration: {
+          declarantName: declaration.declarantName,
+          barNumber: declaration.barNumber,
+          facts: declaration.facts,
+        },
+        savedCaptionData: captionData,
+        movingParty,
+        noticeText,
       }
 
       // Get existing motion documents or initialize empty array

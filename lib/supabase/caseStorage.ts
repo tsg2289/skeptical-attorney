@@ -128,6 +128,67 @@ export interface MotionSection {
   citations?: MotionCaseCitation[]
 }
 
+// Structured data for motion editing
+export interface SavedNoticeOfMotion {
+  hearingDate?: string
+  hearingTime?: string
+  department?: string
+  reliefSought?: string
+  reliefSoughtSummary?: string
+  argumentSummary?: string
+  applicableRule?: string
+}
+
+export interface SavedMemorandum {
+  introduction?: string
+  facts?: string
+  law?: string
+  argument?: string
+  argumentSubsections?: Array<{
+    id: string
+    letter: string
+    title: string
+    content: string
+  }>
+  conclusion?: string
+}
+
+export interface SavedDeclaration {
+  declarantName?: string
+  barNumber?: string
+  facts?: Array<{
+    id: string
+    number: number
+    content: string
+  }>
+}
+
+export interface SavedCaptionData {
+  attorneys?: Array<{
+    id: string
+    name: string
+    barNumber: string
+    firm: string
+    address: string
+    phone: string
+    fax?: string
+    email: string
+  }>
+  plaintiffs?: string[]
+  defendants?: string[]
+  includeDoes?: boolean
+  county?: string
+  caseNumber?: string
+  judgeName?: string
+  departmentNumber?: string
+  documentType?: string
+  demandJuryTrial?: boolean
+  complaintFiledDate?: string
+  trialDate?: string
+  hearingDate?: string
+  hearingTime?: string
+}
+
 export interface MotionDocument {
   id: string
   motionType: string
@@ -140,6 +201,13 @@ export interface MotionDocument {
   hearingTime?: string
   department?: string
   reservationNumber?: string
+  // Structured editable data
+  savedNoticeOfMotion?: SavedNoticeOfMotion
+  savedMemorandum?: SavedMemorandum
+  savedDeclaration?: SavedDeclaration
+  savedCaptionData?: SavedCaptionData
+  movingParty?: 'plaintiff' | 'defendant'
+  noticeText?: string
 }
 
 export interface CaseFrontend {
