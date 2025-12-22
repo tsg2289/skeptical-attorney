@@ -16,6 +16,7 @@ interface MotionPreviewModalProps {
   captionData: CaseCaptionData & { hearingDate?: string; hearingTime?: string };
   noticeOfMotion: {
     reliefSought: string;
+    reliefSoughtSummary?: string;
     argumentSummary?: string;
     applicableRule?: string;
   };
