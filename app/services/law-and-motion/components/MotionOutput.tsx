@@ -238,6 +238,11 @@ export default function MotionOutput({
         setCaptionData(prev => ({
           ...prev,
           ...existingMotion.savedCaptionData,
+          // Ensure attorneys have required fax field (string, not undefined)
+          attorneys: existingMotion.savedCaptionData?.attorneys?.map(att => ({
+            ...att,
+            fax: att.fax || '',
+          })) || prev.attorneys,
         }))
       }
       
