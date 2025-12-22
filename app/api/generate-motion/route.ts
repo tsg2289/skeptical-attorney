@@ -496,18 +496,26 @@ ${movingParty === 'plaintiff' ? 'PLAINTIFF' : 'DEFENDANT'} NAME: ${movingParty =
 OUTPUT FORMAT:
 Write ONE sentence that completes: "...will move the Court for an order [YOUR OUTPUT HERE]"
 
-EXAMPLE OUTPUTS for different motion types:
-- For Motion to Strike: "striking the Fourth Cause of Action for Intentional Infliction of Emotional Distress from Plaintiff's Complaint in its entirety on the grounds that it fails to state facts sufficient to constitute a cause of action"
-- For Motion to Compel: "compelling Defendant to provide complete responses to all outstanding discovery requests within 10 days and for monetary sanctions in the amount of $3,500"
-- For Demurrer: "sustaining Defendant's demurrer to the Second Cause of Action for Fraud without leave to amend"
-- For Motion for Summary Judgment: "granting summary judgment in favor of Defendant on all causes of action"
+EXAMPLE INPUTS AND OUTPUTS:
 
-RULES:
-1. Do NOT include the introductory phrase "will move the Court for an order" - just the relief portion
-2. Be concise and use proper California legal terminology
-3. If the input mentions striking a specific cause of action, identify it by name and number
-4. Keep it to ONE sentence - no periods at the end, as it will be followed by more text
-5. Do NOT include the full text of what's being challenged - just summarize what relief is sought`
+Input: "the third cause of action is false, it needs to be stricken THIRD CAUSE OF ACTION: NEGLIGENT HIRING AND SUPERVISION (CACI 426) 21. Plaintiff incorporates..."
+Output: "striking the Third Cause of Action for Negligent Hiring and Supervision from Plaintiff's Complaint in its entirety on the grounds that it fails to state facts sufficient to constitute a cause of action"
+
+Input: "I need this cause of action removed: FOURTH CAUSE OF ACTION: INTENTIONAL INFLICTION OF EMOTIONAL DISTRESS..."
+Output: "striking the Fourth Cause of Action for Intentional Infliction of Emotional Distress from Plaintiff's Complaint in its entirety"
+
+Input: "Defendant hasn't provided discovery responses for 3 months"
+Output: "compelling Defendant to provide complete responses to all outstanding discovery requests within 10 days and for monetary sanctions"
+
+Input: "The second cause of action for fraud should be dismissed"
+Output: "sustaining Defendant's demurrer to the Second Cause of Action for Fraud without leave to amend"
+
+CRITICAL RULES:
+1. EXTRACT the cause of action NAME and NUMBER from the input (e.g., "Third Cause of Action for Negligent Hiring and Supervision")
+2. Do NOT include the full paragraphs of allegations - just the cause of action title
+3. Do NOT include the introductory phrase "will move the Court for an order" - just the relief portion
+4. Keep it to ONE concise sentence using proper California legal terminology
+5. No period at the end`
 
       try {
         const reliefResponse = await fetch('https://api.openai.com/v1/chat/completions', {
