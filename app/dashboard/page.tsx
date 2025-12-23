@@ -3,8 +3,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, FileText, LogOut, Trash2, Calendar, DollarSign, Clock, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
+import { Plus, FileText, LogOut, Trash2, Calendar, DollarSign, Clock, ChevronLeft, ChevronRight, AlertCircle, Sparkles } from 'lucide-react'
 import { supabaseCaseStorage, CaseFrontend, Deadline } from '@/lib/supabase/caseStorage'
+import { supabaseBillingStorage, DailyBillingSummary } from '@/lib/supabase/billingStorage'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
@@ -18,18 +19,6 @@ interface UserInfo {
 interface DeadlineWithCase extends Deadline {
   caseName: string
   caseId: string
-}
-
-// Placeholder billing data structure
-interface DailyBilling {
-  totalHours: number
-  totalAmount: number
-  entries: {
-    caseName: string
-    description: string
-    hours: number
-    amount: number
-  }[]
 }
 
 export default function Dashboard() {
@@ -47,14 +36,8 @@ export default function Dashboard() {
     caseType: '',
     client: ''
   })
+  const [todaysBilling, setTodaysBilling] = useState<DailyBillingSummary | null>(null)
   const router = useRouter()
-
-  // Placeholder billing data - replace with real data later
-  const todaysBilling: DailyBilling = useMemo(() => ({
-    totalHours: 0,
-    totalAmount: 0,
-    entries: []
-  }), [])
 
   // Get all deadlines from all cases
   const allDeadlines: DeadlineWithCase[] = useMemo(() => {
@@ -133,6 +116,10 @@ export default function Dashboard() {
         
         const userCases = await supabaseCaseStorage.getUserCases()
         setCases(userCases)
+        
+        // Load today's billing data
+        const billingData = await supabaseBillingStorage.getTodaysBilling()
+        setTodaysBilling(billingData)
       } else {
         router.push('/login')
       }
@@ -238,7 +225,7 @@ export default function Dashboard() {
 
         {/* Top Row: Billing + Upcoming Deadlines */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Daily Billing Widget - Placeholder */}
+          {/* Daily Billing Widget */}
           <div className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-lg border border-white/50 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-3">
@@ -248,19 +235,19 @@ export default function Dashboard() {
                 <h2 className="text-xl font-bold text-gray-900">Today&apos;s Billing</h2>
               </div>
               <Link 
-                href="/services/billing-comparison"
+                href="/dashboard/billing"
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
               >
                 Open Billing →
               </Link>
             </div>
             
-            {todaysBilling.entries.length === 0 ? (
+            {!todaysBilling || todaysBilling.entries.length === 0 ? (
               <div className="text-center py-8">
                 <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-gray-500 mb-2">No billing entries for today</p>
                 <Link
-                  href="/services/billing-comparison"
+                  href="/dashboard/billing"
                   className="inline-flex items-center text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
                   <Plus className="h-4 w-4 mr-1" />
@@ -269,23 +256,40 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="space-y-3">
-                {todaysBilling.entries.map((entry, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-                    <div>
-                      <p className="font-medium text-gray-900">{entry.caseName}</p>
-                      <p className="text-sm text-gray-500">{entry.description}</p>
+                {todaysBilling.entries.slice(0, 3).map((entry) => (
+                  <div key={entry.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900">{entry.caseName}</p>
+                        {entry.isAiGenerated && (
+                          <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                            <Sparkles className="h-2.5 w-2.5" />
+                            AI
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 truncate max-w-[200px]">{entry.description}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-emerald-600">{entry.hours}h</p>
-                      <p className="text-sm text-gray-500">${entry.amount}</p>
+                    <div className="text-right ml-3">
+                      <p className="font-bold text-emerald-600">{entry.hours.toFixed(1)}h</p>
+                      {entry.amount && entry.amount > 0 && (
+                        <p className="text-sm text-gray-500">${entry.amount.toFixed(2)}</p>
+                      )}
                     </div>
                   </div>
                 ))}
+                {todaysBilling.entries.length > 3 && (
+                  <p className="text-center text-sm text-gray-500">
+                    +{todaysBilling.entries.length - 3} more entries
+                  </p>
+                )}
                 <div className="flex justify-between items-center pt-3 border-t border-gray-200">
                   <span className="font-semibold text-gray-700">Total</span>
                   <div className="text-right">
-                    <span className="font-bold text-lg text-emerald-600">{todaysBilling.totalHours}h</span>
-                    <span className="text-gray-500 ml-2">(${todaysBilling.totalAmount})</span>
+                    <span className="font-bold text-lg text-emerald-600">{todaysBilling.totalHours.toFixed(1)}h</span>
+                    {todaysBilling.totalAmount > 0 && (
+                      <span className="text-gray-500 ml-2">(${todaysBilling.totalAmount.toFixed(2)})</span>
+                    )}
                   </div>
                 </div>
               </div>
