@@ -264,7 +264,7 @@ export const supabaseBillingStorage = {
     
     if (error || !data) return []
     
-    return [...new Set(data.map(d => d.case_name))] as string[]
+    return [...new Set(data.map((d: { case_name: string }) => d.case_name))]
   }
 }
 
