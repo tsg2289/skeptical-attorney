@@ -43,12 +43,12 @@ export default function PreviewModal({ isOpen, onClose, sections, reportInfo, us
         caseName: reportInfo.caseName,
         caseNumber: reportInfo.caseNumber,
         reportDate: reportInfo.reportDate,
-        preparedBy: reportInfo.preparedBy || userProfile?.fullName,
+        preparedBy: reportInfo.preparedBy || userProfile?.fullName || undefined,
         preparedFor: reportInfo.preparedFor,
-        firmName: userProfile?.firmName,
-        firmAddress: userProfile?.firmAddress,
-        firmPhone: userProfile?.firmPhone,
-        firmEmail: userProfile?.firmEmail,
+        firmName: userProfile?.firmName || undefined,
+        firmAddress: userProfile?.firmAddress || undefined,
+        firmPhone: userProfile?.firmPhone || undefined,
+        firmEmail: userProfile?.firmEmail || undefined,
       };
 
       await downloadStatusReportDocument(statusReportData);
