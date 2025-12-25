@@ -938,7 +938,7 @@ export async function POST(request: NextRequest) {
     const actions: AssistantAction[] = []
 
     // Helper function to find a case by identifier (name, number, or client)
-    const findCaseByIdentifier = (identifier: string, cases: typeof context.caseOverview.cases) => {
+    const findCaseByIdentifier = (identifier: string, cases: Array<{ id: string; caseName: string; caseNumber: string; caseType?: string; client?: string; trialDate?: string; incompleteDeadlines: number }>) => {
       const searchTerm = identifier.toLowerCase().trim()
       
       // Try exact matches first
