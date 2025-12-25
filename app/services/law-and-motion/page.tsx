@@ -31,7 +31,7 @@ export default function LawAndMotionPage() {
 
 function LawAndMotionPageContent() {
   const searchParams = useSearchParams()
-  const { isTrialMode, trialCaseId, saveToTrial, loadFromTrial, canAccessDatabase, isTrialCaseId } = useTrialMode()
+  const { isTrialMode, canAccessDatabase, isTrialCaseId } = useTrialMode()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
   const [generatedMotion, setGeneratedMotion] = useState<string>('')
@@ -62,28 +62,12 @@ function LawAndMotionPageContent() {
             console.log(`[AUDIT] Law and Motion page accessed for case: ${caseId}`)
           }
         }
-      } else if (isTrialMode) {
-        // Load from session storage in trial mode
-        const savedMotion = loadFromTrial('motion-content', '')
-        const savedMotionType = loadFromTrial('motion-type', '')
-        if (savedMotion) {
-          setGeneratedMotion(savedMotion)
-          setCurrentMotionType(savedMotionType)
-          setShowForm(false)
-        }
       }
+      // Trial mode: Always start fresh with the form (no session storage)
     }
     
     loadCase()
-  }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId, loadFromTrial])
-
-  // Auto-save to session storage in trial mode
-  useEffect(() => {
-    if (isTrialMode && generatedMotion) {
-      saveToTrial('motion-content', generatedMotion)
-      saveToTrial('motion-type', currentMotionType)
-    }
-  }, [generatedMotion, currentMotionType, isTrialMode, saveToTrial])
+  }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId])
 
   const handleMotionGenerated = (motion: string, motionType: string, motionFormData?: MotionFormData) => {
     setGeneratedMotion(motion)
@@ -97,10 +81,6 @@ function LawAndMotionPageContent() {
     setCurrentMotionType('')
     setCurrentMotionFormData(undefined)
     setShowForm(true)
-    if (isTrialMode) {
-      saveToTrial('motion-content', '')
-      saveToTrial('motion-type', '')
-    }
   }
 
   // Load a saved motion from the database

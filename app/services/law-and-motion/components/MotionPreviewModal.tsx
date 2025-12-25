@@ -22,10 +22,16 @@ interface MotionPreviewModalProps {
   };
   memorandum: {
     introduction: string;
+    exigentCircumstances?: string;
+    irreparableHarm?: string;
+    noticeDate?: string;
+    noticeTime?: string;
+    noticeMethod?: string;
     facts: string;
     law: string;
     argument: string;
     argumentSubsections: ArgumentSubsection[];
+    leaveToAmend?: string;
     conclusion: string;
   };
   declaration: {
@@ -124,7 +130,7 @@ export default function MotionPreviewModal({
         departmentNumber: captionData.departmentNumber || undefined,
         hearingDate: captionData.hearingDate || undefined,
         hearingTime: captionData.hearingTime || '8:30 a.m.',
-        reliefSought: noticeOfMotion.reliefSought || undefined,
+        reliefSought: noticeOfMotion.reliefSoughtSummary || noticeOfMotion.reliefSought || undefined,
         includeProofOfService: showProofOfService,
         proofOfServiceText: showProofOfService ? proofOfServiceText : undefined,
       };
@@ -148,10 +154,16 @@ export default function MotionPreviewModal({
         hearingDate: captionData.hearingDate || undefined,
         hearingTime: captionData.hearingTime || '8:30 a.m.',
         introduction: memorandum.introduction || undefined,
+        exigentCircumstances: memorandum.exigentCircumstances || undefined,
+        irreparableHarm: memorandum.irreparableHarm || undefined,
+        noticeDate: memorandum.noticeDate || undefined,
+        noticeTime: memorandum.noticeTime || undefined,
+        noticeMethod: memorandum.noticeMethod || undefined,
         facts: memorandum.facts || undefined,
         law: memorandum.law || undefined,
         argument: memorandum.argument || undefined,
         argumentSubsections: memorandum.argumentSubsections || [],
+        leaveToAmend: memorandum.leaveToAmend || undefined,
         conclusion: memorandum.conclusion || undefined,
         declarantName: declaration.declarantName || primaryAttorney?.name || undefined,
         declarantBarNumber: declaration.barNumber || primaryAttorney?.barNumber || undefined,
@@ -314,26 +326,38 @@ export default function MotionPreviewModal({
                     <p>
                       <strong>TO ALL PARTIES AND THEIR ATTORNEYS OF RECORD:</strong>
                     </p>
-                    <p>
-                      PLEASE TAKE NOTICE that on{' '}
-                      {captionData.hearingDate 
-                        ? new Date(captionData.hearingDate).toLocaleDateString('en-US', { 
-                            month: 'long', 
-                            day: 'numeric', 
-                            year: 'numeric' 
-                          }) 
-                        : '[DATE]'}{' '}
-                      at {captionData.hearingTime || '[TIME]'}, or as soon thereafter as the matter may be heard, 
-                      in Department {captionData.departmentNumber || '[DEPT]'} of the above-entitled Court,{' '}
-                      {movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} {getMovingPartyName()} will move the Court for an order{' '}
-                      {noticeOfMotion.reliefSoughtSummary || noticeOfMotion.reliefSought || '[RELIEF SOUGHT]'}.
-                    </p>
-                    
-                    {noticeOfMotion.argumentSummary && (
-                      <p>
-                        {noticeOfMotion.argumentSummary}
-                      </p>
-                    )}
+                    {(() => {
+                      // Split relief text after first sentence for paragraph break
+                      const fullReliefText = noticeOfMotion.reliefSoughtSummary || noticeOfMotion.reliefSought || '[RELIEF SOUGHT]'
+                      const firstPeriodIndex = fullReliefText.indexOf('. ')
+                      const reliefClause = firstPeriodIndex > 0 ? fullReliefText.substring(0, firstPeriodIndex + 1) : fullReliefText
+                      const summaryParagraph = firstPeriodIndex > 0 ? fullReliefText.substring(firstPeriodIndex + 2).trim() : ''
+                      
+                      return (
+                        <>
+                          <p>
+                            PLEASE TAKE NOTICE that on{' '}
+                            {captionData.hearingDate 
+                              ? new Date(captionData.hearingDate).toLocaleDateString('en-US', { 
+                                  month: 'long', 
+                                  day: 'numeric', 
+                                  year: 'numeric' 
+                                }) 
+                              : '[DATE]'}{' '}
+                            at {captionData.hearingTime || '[TIME]'}, or as soon thereafter as the matter may be heard, 
+                            in Department {captionData.departmentNumber || '[DEPT]'} of the above-entitled Court,{' '}
+                            {movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} {getMovingPartyName()} will move the Court for an order{' '}
+                            {reliefClause}
+                          </p>
+                          
+                          {summaryParagraph && (
+                            <p>
+                              {summaryParagraph}
+                            </p>
+                          )}
+                        </>
+                      )
+                    })()}
                     
                     <p>
                       This motion is based upon this Notice of Motion, the attached 
@@ -358,23 +382,62 @@ export default function MotionPreviewModal({
                     </div>
                   )}
                   
+                  {/* Ex Parte: Statement of Exigent Circumstances - only for ex parte applications */}
+                  {motionType === 'ex-parte-application' && (
+                    <div>
+                      <h4 className="text-sm font-bold mb-2 text-black">II. STATEMENT OF EXIGENT CIRCUMSTANCES AND IRREPARABLE HARM</h4>
+                      <div className="text-sm leading-relaxed text-justify text-black space-y-3">
+                        <p>
+                          Exigent circumstances exist due to circumstances beyond {movingParty === 'plaintiff' ? "Plaintiff's" : "Defendant's"} control. {movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} will not have enough time to fully and adequately protect {movingParty === 'plaintiff' ? "Plaintiff's" : "Defendant's"} interests if this ex parte application is not heard and granted.
+                        </p>
+                        {memorandum.exigentCircumstances && (
+                          <p className="whitespace-pre-wrap">{memorandum.exigentCircumstances}</p>
+                        )}
+                        <p>
+                          Irreparable harm will occur if the Court does not grant the requested relief because it will deprive {movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} of the ability to {memorandum.irreparableHarm || '[describe irreparable harm]'}.
+                        </p>
+                        <p>
+                          Based upon the above, good cause exists to grant the requested relief. The requested relief will not prejudice the parties to this action in any way and is not intended to unjustly affect either party.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Ex Parte: Timely Notice Given - only for ex parte applications */}
+                  {motionType === 'ex-parte-application' && (
+                    <div>
+                      <h4 className="text-sm font-bold mb-2 text-black">III. TIMELY NOTICE GIVEN</h4>
+                      <div className="text-sm leading-relaxed text-justify text-black">
+                        <p>
+                          On {memorandum.noticeDate || '[DATE]'} at {memorandum.noticeTime || '[TIME]'}, attorney {captionData.attorneys?.[0]?.name || '[ATTORNEY NAME]'}, counsel for the applying party herein, personally gave timely notice of the within application via {memorandum.noticeMethod || '[method of notice]'} to all parties, advising them that {movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} would apply for the requested relief on {captionData.hearingDate ? new Date(captionData.hearingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '[HEARING DATE]'}. (Declaration of {captionData.attorneys?.[0]?.name || '[ATTORNEY]'}, hereinafter "Decl. of {(captionData.attorneys?.[0]?.name || '[ATTORNEY]').split(' ').pop()}")
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  
                   {memorandum.facts && (
                     <div>
-                      <h4 className="text-sm font-bold mb-2 text-black">II. STATEMENT OF FACTS</h4>
+                      <h4 className="text-sm font-bold mb-2 text-black">
+                        {motionType === 'ex-parte-application' ? 'IV' : 'II'}. STATEMENT OF FACTS
+                      </h4>
                       <p className="text-sm leading-relaxed text-justify text-black whitespace-pre-wrap">{memorandum.facts}</p>
                     </div>
                   )}
                   
                   {memorandum.law && (
                     <div>
-                      <h4 className="text-sm font-bold mb-2 text-black">III. APPLICABLE LAW</h4>
+                      <h4 className="text-sm font-bold mb-2 text-black">
+                        {motionType === 'ex-parte-application' ? 'V' : 'III'}. APPLICABLE LAW
+                      </h4>
                       <p className="text-sm leading-relaxed text-justify text-black whitespace-pre-wrap">{memorandum.law}</p>
                     </div>
                   )}
                   
                   {memorandum.argument && (
                     <div>
-                      <h4 className="text-sm font-bold mb-2 text-black">IV. ARGUMENT</h4>
+                      <h4 className="text-sm font-bold mb-2 text-black">
+                        {motionType === 'ex-parte-application' ? 'VI' : 'IV'}. ARGUMENT
+                      </h4>
                       <p className="text-sm leading-relaxed text-justify text-black whitespace-pre-wrap">{memorandum.argument}</p>
                       
                       {memorandum.argumentSubsections.map((sub) => (
@@ -386,9 +449,19 @@ export default function MotionPreviewModal({
                     </div>
                   )}
                   
+                  {/* Demurrer: Leave to Amend section - only for demurrers */}
+                  {motionType === 'demurrer' && memorandum.leaveToAmend && (
+                    <div>
+                      <h4 className="text-sm font-bold mb-2 text-black">V. THE COURT SHOULD NOT GRANT PLAINTIFF LEAVE TO AMEND</h4>
+                      <p className="text-sm leading-relaxed text-justify text-black whitespace-pre-wrap">{memorandum.leaveToAmend}</p>
+                    </div>
+                  )}
+                  
                   {memorandum.conclusion && (
                     <div>
-                      <h4 className="text-sm font-bold mb-2 text-black">V. CONCLUSION</h4>
+                      <h4 className="text-sm font-bold mb-2 text-black">
+                        {motionType === 'ex-parte-application' ? 'VII' : motionType === 'demurrer' ? 'VI' : 'V'}. CONCLUSION
+                      </h4>
                       <p className="text-sm leading-relaxed text-justify text-black whitespace-pre-wrap">{memorandum.conclusion}</p>
                     </div>
                   )}

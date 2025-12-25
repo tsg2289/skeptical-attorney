@@ -3051,10 +3051,18 @@ export interface MemorandumDocumentData {
   hearingDate?: string
   hearingTime?: string
   introduction?: string
+  // Ex parte specific fields
+  exigentCircumstances?: string
+  irreparableHarm?: string
+  noticeDate?: string
+  noticeTime?: string
+  noticeMethod?: string
   facts?: string
   law?: string
   argument?: string
   argumentSubsections?: ArgumentSubsection[]
+  // Demurrer specific - Leave to Amend
+  leaveToAmend?: string
   conclusion?: string
   // Declaration
   declarantName?: string
@@ -3360,7 +3368,13 @@ export function generateNoticeOfMotionDocument(data: NoticeOfMotionDocumentData)
     ? new Date(hearingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : hearingDate
 
-  const noticeText = `PLEASE TAKE NOTICE that on ${formattedHearingDate} at ${hearingTime}, or as soon thereafter as the matter may be heard, in Department ${departmentNumber} of the above-entitled Court, ${movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} ${movingPartyName} will move the Court for ${reliefSought}.`
+  // Split relief text after first sentence for paragraph break
+  const fullReliefText = reliefSought || '[RELIEF SOUGHT]'
+  const firstPeriodIndex = fullReliefText.indexOf('. ')
+  const reliefClause = firstPeriodIndex > 0 ? fullReliefText.substring(0, firstPeriodIndex + 1) : fullReliefText
+  const summaryParagraph = firstPeriodIndex > 0 ? fullReliefText.substring(firstPeriodIndex + 2).trim() : ''
+
+  const noticeText = `PLEASE TAKE NOTICE that on ${formattedHearingDate} at ${hearingTime}, or as soon thereafter as the matter may be heard, in Department ${departmentNumber} of the above-entitled Court, ${movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} ${movingPartyName} will move the Court for an order ${reliefClause}`
 
   children.push(new Paragraph({
     children: [
@@ -3377,12 +3391,12 @@ export function generateNoticeOfMotionDocument(data: NoticeOfMotionDocumentData)
 
   children.push(createParagraph(''))
 
-  // Motion Summary paragraph (plain English)
-  if (argumentSummary) {
+  // Summary paragraph (facts, harm, and specific relief) - split from relief clause
+  if (summaryParagraph) {
     children.push(new Paragraph({
       children: [
         new TextRun({
-          text: argumentSummary,
+          text: summaryParagraph,
           size: 24,
           font: 'Times New Roman',
         }),
@@ -3633,10 +3647,16 @@ export function generateMemorandumDocument(data: MemorandumDocumentData): Docume
     hearingDate = "[HEARING DATE]",
     hearingTime = "8:30 a.m.",
     introduction = '',
+    exigentCircumstances = '',
+    irreparableHarm = '',
+    noticeDate = '',
+    noticeTime = '',
+    noticeMethod = '',
     facts = '',
     law = '',
     argument = '',
     argumentSubsections = [],
+    leaveToAmend = '',
     conclusion = '',
     declarantName,
     declarantBarNumber,
@@ -3792,6 +3812,17 @@ export function generateMemorandumDocument(data: MemorandumDocumentData): Docume
   }))
   children.push(createParagraph(''))
 
+  // Determine section numbers based on motion type
+  // Ex parte has two extra sections (Exigent Circumstances + Timely Notice)
+  // Demurrer has one extra section (Leave to Amend)
+  const isExParte = motionType === 'ex-parte-application'
+  const isDemurrer = motionType === 'demurrer'
+  const factsSection = isExParte ? 'IV' : 'II'
+  const lawSection = isExParte ? 'V' : 'III'
+  const argumentSection = isExParte ? 'VI' : 'IV'
+  const leaveToAmendSection = 'V' // Only used for demurrers
+  const conclusionSection = isExParte ? 'VII' : isDemurrer ? 'VI' : 'V'
+
   // I. INTRODUCTION
   if (introduction) {
     children.push(new Paragraph({
@@ -3826,12 +3857,149 @@ export function generateMemorandumDocument(data: MemorandumDocumentData): Docume
     children.push(createParagraph(''))
   }
 
-  // II. STATEMENT OF FACTS
+  // II. STATEMENT OF EXIGENT CIRCUMSTANCES AND IRREPARABLE HARM (Ex Parte only)
+  if (isExParte) {
+    const movingPartyTitle = movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'
+    const movingPartyPossessive = movingParty === 'plaintiff' ? "Plaintiff's" : "Defendant's"
+    
+    children.push(new Paragraph({
+      children: [
+        new TextRun({
+          text: 'II. STATEMENT OF EXIGENT CIRCUMSTANCES AND IRREPARABLE HARM',
+          size: 24,
+          font: 'Times New Roman',
+          bold: true,
+          underline: {},
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+    }))
+    children.push(createParagraph(''))
+    
+    // First paragraph - exigent circumstances intro
+    children.push(new Paragraph({
+      children: [
+        new TextRun({
+          text: `Exigent circumstances exist due to circumstances beyond ${movingPartyPossessive} control. ${movingPartyTitle} will not have enough time to fully and adequately protect ${movingPartyPossessive} interests if this ex parte application is not heard and granted.`,
+          size: 24,
+          font: 'Times New Roman',
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+      indent: { firstLine: 720 },
+      alignment: AlignmentType.JUSTIFIED,
+    }))
+    children.push(createParagraph(''))
+    
+    // Exigent circumstances details
+    if (exigentCircumstances) {
+      const exigentLines = exigentCircumstances.split('\n').filter(line => line.trim())
+      exigentLines.forEach(line => {
+        children.push(new Paragraph({
+          children: [
+            new TextRun({
+              text: line.trim(),
+              size: 24,
+              font: 'Times New Roman',
+            }),
+          ],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+          indent: { firstLine: 720 },
+          alignment: AlignmentType.JUSTIFIED,
+        }))
+      })
+      children.push(createParagraph(''))
+    }
+    
+    // Irreparable harm paragraph
+    children.push(new Paragraph({
+      children: [
+        new TextRun({
+          text: `Irreparable harm will occur if the Court does not grant the requested relief because it will deprive ${movingPartyTitle} of the ability to ${irreparableHarm || '[describe irreparable harm]'}.`,
+          size: 24,
+          font: 'Times New Roman',
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+      indent: { firstLine: 720 },
+      alignment: AlignmentType.JUSTIFIED,
+    }))
+    children.push(createParagraph(''))
+    
+    // Good cause paragraph
+    children.push(new Paragraph({
+      children: [
+        new TextRun({
+          text: 'Based upon the above, good cause exists to grant the requested relief. The requested relief will not prejudice the parties to this action in any way and is not intended to unjustly affect either party.',
+          size: 24,
+          font: 'Times New Roman',
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+      indent: { firstLine: 720 },
+      alignment: AlignmentType.JUSTIFIED,
+    }))
+    children.push(createParagraph(''))
+    
+    // III. TIMELY NOTICE GIVEN (Ex Parte only)
+    children.push(new Paragraph({
+      children: [
+        new TextRun({
+          text: 'III. TIMELY NOTICE GIVEN',
+          size: 24,
+          font: 'Times New Roman',
+          bold: true,
+          underline: {},
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+    }))
+    children.push(createParagraph(''))
+    
+    // Format notice date
+    const formattedNoticeDate = noticeDate 
+      ? new Date(noticeDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      : '[DATE]'
+    
+    // Format notice time (convert 24h to 12h format)
+    let formattedNoticeTime = '[TIME]'
+    if (noticeTime) {
+      const [hours, minutes] = noticeTime.split(':')
+      const hour = parseInt(hours)
+      const ampm = hour >= 12 ? 'p.m.' : 'a.m.'
+      const hour12 = hour % 12 || 12
+      formattedNoticeTime = `${hour12}:${minutes} ${ampm}`
+    }
+    
+    // Format hearing date
+    const formattedHearingDateForNotice = hearingDate && hearingDate !== '[HEARING DATE]'
+      ? new Date(hearingDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      : '[HEARING DATE]'
+    
+    // Get attorney last name for declaration reference
+    const attorneyLastName = attorneyName.split(' ').pop() || attorneyName
+    
+    children.push(new Paragraph({
+      children: [
+        new TextRun({
+          text: `On ${formattedNoticeDate} at ${formattedNoticeTime}, attorney ${attorneyName}, counsel for the applying party herein, personally gave timely notice of the within application via ${noticeMethod || '[method of notice]'} to all parties, advising them that ${movingPartyTitle} would apply for the requested relief on ${formattedHearingDateForNotice}. (Declaration of ${attorneyName}, hereinafter "Decl. of ${attorneyLastName}")`,
+          size: 24,
+          font: 'Times New Roman',
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+      indent: { firstLine: 720 },
+      alignment: AlignmentType.JUSTIFIED,
+    }))
+    children.push(createParagraph(''))
+  }
+
+  // II/IV. STATEMENT OF FACTS
   if (facts) {
     children.push(new Paragraph({
       children: [
         new TextRun({
-          text: 'II. STATEMENT OF FACTS',
+          text: `${factsSection}. STATEMENT OF FACTS`,
           size: 24,
           font: 'Times New Roman',
           bold: true,
@@ -3860,12 +4028,12 @@ export function generateMemorandumDocument(data: MemorandumDocumentData): Docume
     children.push(createParagraph(''))
   }
 
-  // III. APPLICABLE LAW
+  // III/IV. APPLICABLE LAW
   if (law) {
     children.push(new Paragraph({
       children: [
         new TextRun({
-          text: 'III. APPLICABLE LAW',
+          text: `${lawSection}. APPLICABLE LAW`,
           size: 24,
           font: 'Times New Roman',
           bold: true,
@@ -3898,7 +4066,7 @@ export function generateMemorandumDocument(data: MemorandumDocumentData): Docume
   children.push(new Paragraph({
     children: [
       new TextRun({
-        text: 'IV. ARGUMENT',
+        text: `${argumentSection}. ARGUMENT`,
         size: 24,
         font: 'Times New Roman',
         bold: true,
@@ -3964,12 +4132,46 @@ export function generateMemorandumDocument(data: MemorandumDocumentData): Docume
     }
   })
 
-  // V. CONCLUSION
+  // V. THE COURT SHOULD NOT GRANT PLAINTIFF LEAVE TO AMEND (Demurrer only)
+  if (isDemurrer && leaveToAmend) {
+    children.push(new Paragraph({
+      children: [
+        new TextRun({
+          text: `${leaveToAmendSection}. THE COURT SHOULD NOT GRANT PLAINTIFF LEAVE TO AMEND`,
+          size: 24,
+          font: 'Times New Roman',
+          bold: true,
+          underline: {},
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+    }))
+    children.push(createParagraph(''))
+    
+    const leaveLines = leaveToAmend.split('\n').filter(line => line.trim())
+    leaveLines.forEach(line => {
+      children.push(new Paragraph({
+        children: [
+          new TextRun({
+            text: line.trim(),
+            size: 24,
+            font: 'Times New Roman',
+          }),
+        ],
+        spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        indent: { firstLine: 720 },
+        alignment: AlignmentType.JUSTIFIED,
+      }))
+    })
+    children.push(createParagraph(''))
+  }
+
+  // V/VI/VII. CONCLUSION
   if (conclusion) {
     children.push(new Paragraph({
       children: [
         new TextRun({
-          text: 'V. CONCLUSION',
+          text: `${conclusionSection}. CONCLUSION`,
           size: 24,
           font: 'Times New Roman',
           bold: true,
@@ -4312,5 +4514,438 @@ export async function downloadMotionDocuments(
   } catch (error) {
     console.error('Error generating Motion documents:', error)
     throw new Error(`Failed to generate Motion documents: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+// ============================================
+// STATUS REPORT TYPES AND FUNCTIONS
+// ============================================
+
+export interface StatusReportSection {
+  id: string
+  title: string
+  content: string
+}
+
+export interface StatusReportData {
+  sections: StatusReportSection[]
+  caseName?: string
+  caseNumber?: string
+  reportDate?: string
+  preparedBy?: string
+  preparedFor?: string
+  firmName?: string
+  firmAddress?: string
+  firmPhone?: string
+  firmEmail?: string
+}
+
+export function generateStatusReportDocument(data: StatusReportData): Document {
+  const {
+    sections,
+    caseName = "[Case Name]",
+    caseNumber = "[Case Number]",
+    reportDate = new Date().toISOString().split('T')[0],
+    preparedBy = "[Attorney Name]",
+    preparedFor,
+    firmName,
+    firmAddress,
+    firmPhone,
+    firmEmail,
+  } = data
+
+  const children: Paragraph[] = []
+
+  // Filter out Case Summary (id: '0')
+  const reportSections = sections.filter(s => s.id !== '0')
+
+  // Report Title
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: "CASE STATUS REPORT",
+          bold: true,
+          size: 32,
+          allCaps: true,
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 100 },
+    })
+  )
+
+  // Firm Name (if provided)
+  if (firmName) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: firmName,
+            bold: true,
+            size: 24,
+          }),
+        ],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 50 },
+      })
+    )
+  }
+
+  // Horizontal line separator
+  children.push(
+    new Paragraph({
+      children: [],
+      border: {
+        bottom: {
+          color: '000000',
+          space: 1,
+          style: BorderStyle.SINGLE,
+          size: 12,
+        },
+      },
+      spacing: { after: 300 },
+    })
+  )
+
+  // Report Info Table
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return ''
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+  }
+
+  // Case Name Row
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: "Case Name: ",
+          bold: true,
+          size: 24,
+        }),
+        new TextRun({
+          text: caseName,
+          size: 24,
+        }),
+      ],
+      spacing: { after: 100 },
+    })
+  )
+
+  // Case Number Row
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: "Case Number: ",
+          bold: true,
+          size: 24,
+        }),
+        new TextRun({
+          text: caseNumber,
+          size: 24,
+        }),
+      ],
+      spacing: { after: 100 },
+    })
+  )
+
+  // Report Date Row
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: "Report Date: ",
+          bold: true,
+          size: 24,
+        }),
+        new TextRun({
+          text: formatDate(reportDate),
+          size: 24,
+        }),
+      ],
+      spacing: { after: 100 },
+    })
+  )
+
+  // Prepared By Row
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: "Prepared By: ",
+          bold: true,
+          size: 24,
+        }),
+        new TextRun({
+          text: preparedBy,
+          size: 24,
+        }),
+      ],
+      spacing: { after: 100 },
+    })
+  )
+
+  // Prepared For Row (if provided)
+  if (preparedFor) {
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: "Prepared For: ",
+            bold: true,
+            size: 24,
+          }),
+          new TextRun({
+            text: preparedFor,
+            size: 24,
+          }),
+        ],
+        spacing: { after: 100 },
+      })
+    )
+  }
+
+  // Separator line
+  children.push(
+    new Paragraph({
+      children: [],
+      border: {
+        bottom: {
+          color: 'CCCCCC',
+          space: 1,
+          style: BorderStyle.SINGLE,
+          size: 6,
+        },
+      },
+      spacing: { before: 200, after: 400 },
+    })
+  )
+
+  // Report Sections
+  reportSections.forEach((section, index) => {
+    // Section Header
+    children.push(
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: `${index + 1}. ${section.title.toUpperCase()}`,
+            bold: true,
+            size: 26,
+          }),
+        ],
+        spacing: { before: 300, after: 150 },
+        border: {
+          bottom: {
+            color: 'CCCCCC',
+            space: 1,
+            style: BorderStyle.SINGLE,
+            size: 4,
+          },
+        },
+      })
+    )
+
+    // Section Content - split by paragraphs
+    const paragraphs = section.content.split('\n\n').filter(p => p.trim())
+    
+    paragraphs.forEach((paragraph, pIndex) => {
+      // Check if this is a bullet point
+      const lines = paragraph.split('\n')
+      
+      lines.forEach((line) => {
+        const trimmedLine = line.trim()
+        
+        if (trimmedLine.startsWith('•') || trimmedLine.startsWith('-') || trimmedLine.startsWith('*')) {
+          // Bullet point
+          const bulletText = trimmedLine.replace(/^[•\-*]\s*/, '')
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: `• ${bulletText}`,
+                  size: 24,
+                }),
+              ],
+              spacing: { after: 80 },
+              indent: { left: 360 }, // 0.25 inch indent
+            })
+          )
+        } else if (trimmedLine) {
+          // Regular paragraph
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: trimmedLine,
+                  size: 24,
+                }),
+              ],
+              spacing: { after: 120 },
+            })
+          )
+        }
+      })
+    })
+
+    // Add spacing after section
+    children.push(
+      new Paragraph({
+        children: [],
+        spacing: { after: 200 },
+      })
+    )
+  })
+
+  // End of Report marker
+  children.push(
+    new Paragraph({
+      children: [],
+      border: {
+        top: {
+          color: '000000',
+          space: 1,
+          style: BorderStyle.SINGLE,
+          size: 6,
+        },
+      },
+      spacing: { before: 400, after: 200 },
+    })
+  )
+
+  children.push(
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: "— End of Report —",
+          italics: true,
+          size: 22,
+          color: '666666',
+        }),
+      ],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 300 },
+    })
+  )
+
+  // Firm Footer
+  if (firmName || firmAddress || firmPhone || firmEmail) {
+    children.push(
+      new Paragraph({
+        children: [],
+        spacing: { after: 200 },
+      })
+    )
+
+    if (firmName) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: firmName,
+              size: 20,
+              color: '666666',
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 50 },
+        })
+      )
+    }
+
+    if (firmAddress) {
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: firmAddress,
+              size: 20,
+              color: '666666',
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 50 },
+        })
+      )
+    }
+
+    if (firmPhone || firmEmail) {
+      const contactParts = []
+      if (firmPhone) contactParts.push(`Tel: ${firmPhone}`)
+      if (firmEmail) contactParts.push(firmEmail)
+      
+      children.push(
+        new Paragraph({
+          children: [
+            new TextRun({
+              text: contactParts.join(' | '),
+              size: 20,
+              color: '666666',
+            }),
+          ],
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 50 },
+        })
+      )
+    }
+  }
+
+  return new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 1440, // 1 inch
+              right: 1440,
+              bottom: 1440,
+              left: 1440,
+            },
+          },
+        },
+        children,
+      },
+    ],
+  })
+}
+
+export async function downloadStatusReportDocument(data: StatusReportData): Promise<void> {
+  console.log('Starting Status Report document generation...')
+  
+  try {
+    const doc = generateStatusReportDocument(data)
+    const blob = await Packer.toBlob(doc)
+    
+    const caseName = data.caseName || 'Case'
+    const cleanCaseName = caseName.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 30)
+    const dateStr = new Date().toISOString().split('T')[0]
+    const fileName = `Status_Report_${cleanCaseName}_${dateStr}.docx`
+    
+    if (typeof saveAs === 'function') {
+      saveAs(blob, fileName)
+      return
+    }
+    
+    // Fallback
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = fileName
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    
+    setTimeout(() => {
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }, 100)
+    
+  } catch (error) {
+    console.error('Error generating Status Report document:', error)
+    throw new Error(`Failed to generate Status Report: ${error instanceof Error ? error.message : String(error)}`)
   }
 }

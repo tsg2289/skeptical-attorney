@@ -111,6 +111,34 @@ export default function BillingGenerator({ caseId: propCaseId, isTrialMode = fal
     localStorage.setItem('billing-app-theme', theme);
   }, [theme]);
 
+  // Listen for billing entries added by AI Assistant
+  useEffect(() => {
+    const handleAssistantBilling = (event: CustomEvent) => {
+      const { caseName: eventCaseName, hours, description } = event.detail;
+      
+      // Add the entry to local state
+      const newEntry: BillingEntry = {
+        id: Date.now(),
+        case: eventCaseName || caseName || 'General',
+        entry: `${description} (${hours} hours)`,
+        hours: hours,
+        date: new Date().toISOString().split('T')[0],
+        group: null
+      };
+      
+      setEntries(prev => [...prev, newEntry]);
+      
+      // Show a brief notification that entry was added
+      console.log(`[BILLING] AI Assistant added entry: ${hours}h - ${description}`);
+    };
+
+    window.addEventListener('assistantBillingLogged', handleAssistantBilling as EventListener);
+    
+    return () => {
+      window.removeEventListener('assistantBillingLogged', handleAssistantBilling as EventListener);
+    };
+  }, [caseName]);
+
   // Ensure editingText is properly synchronized when switching from hours to text editing
   useEffect(() => {
     if (editingIndex !== null && !editingHours && editingText === '') {

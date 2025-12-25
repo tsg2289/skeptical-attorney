@@ -6,6 +6,7 @@ import TrialModeBanner from '@/components/TrialModeBanner'
 import Link from 'next/link'
 
 const discoveryTools = [
+  { title: 'Form Interrogatories', href: '/services/discovery/form-interrogatories', description: 'Generate California Judicial Council Form Interrogatories (DISC-001) with case data auto-populated.' },
   { title: 'Propound Discovery', href: '/services/discovery/propound-discovery', description: 'Draft interrogatories, RFAs, and RFPs with AI assistance.' },
   { title: 'Respond to Discovery', href: '/services/discovery/respond-to-discovery', description: 'Generate responses and objections that track the requests received.' },
   { title: 'Subpoena', href: '/services/discovery/subpoena', description: 'Create subpoenas with the right recipients, dates, and scope.' },

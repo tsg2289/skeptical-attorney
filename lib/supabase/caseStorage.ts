@@ -29,7 +29,20 @@ export interface Deadline {
   isCalculated?: boolean
 }
 
+export interface CaseNote {
+  id: string
+  content: string
+  createdAt: string
+  updatedAt?: string
+}
+
 export interface DemandLetterSection {
+  id: string
+  title: string
+  content: string
+}
+
+export interface StatusReportSection {
   id: string
   title: string
   content: string
@@ -232,10 +245,12 @@ export interface CaseFrontend {
   plaintiffs: Party[]
   defendants: Party[]
   demandLetterSections?: DemandLetterSection[]
+  statusReportSections?: StatusReportSection[]
   complaintSections?: ComplaintSection[]
   answerSections?: AnswerSections
   discoveryDocuments?: DiscoveryDocuments
   motionDocuments?: MotionDocument[]
+  notes?: CaseNote[]
   createdAt: string
   userId: string
 }
@@ -264,10 +279,12 @@ function mapCaseFromDb(dbCase: any): CaseFrontend {
     plaintiffs: dbCase.plaintiffs || [],
     defendants: dbCase.defendants || [],
     demandLetterSections: dbCase.demand_letter_sections || undefined,
+    statusReportSections: dbCase.status_report_sections || undefined,
     complaintSections: dbCase.complaint_sections || undefined,
     answerSections: dbCase.answer_sections || undefined,
     discoveryDocuments: dbCase.discovery_documents || undefined,
     motionDocuments: dbCase.motion_documents || undefined,
+    notes: dbCase.notes || [],
     createdAt: dbCase.created_at,
     userId: dbCase.user_id
   }
@@ -297,10 +314,12 @@ function mapCaseToDb(updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'crea
   if (updates.plaintiffs !== undefined) dbUpdates.plaintiffs = updates.plaintiffs
   if (updates.defendants !== undefined) dbUpdates.defendants = updates.defendants
   if (updates.demandLetterSections !== undefined) dbUpdates.demand_letter_sections = updates.demandLetterSections
+  if (updates.statusReportSections !== undefined) dbUpdates.status_report_sections = updates.statusReportSections
   if (updates.complaintSections !== undefined) dbUpdates.complaint_sections = updates.complaintSections
   if (updates.answerSections !== undefined) dbUpdates.answer_sections = updates.answerSections
   if (updates.discoveryDocuments !== undefined) dbUpdates.discovery_documents = updates.discoveryDocuments
   if (updates.motionDocuments !== undefined) dbUpdates.motion_documents = updates.motionDocuments
+  if (updates.notes !== undefined) dbUpdates.notes = updates.notes
   
   return dbUpdates
 }

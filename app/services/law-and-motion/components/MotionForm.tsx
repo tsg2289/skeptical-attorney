@@ -26,10 +26,19 @@ export interface ArgumentSubsection {
 
 export interface MemorandumData {
   introduction: string
+  // Ex parte specific fields (only used when motionType === 'ex-parte-application')
+  exigentCircumstances?: string
+  irreparableHarm?: string
+  // Timely Notice fields (ex parte)
+  noticeDate?: string
+  noticeTime?: string
+  noticeMethod?: string
   facts: string
   law: string
   argument: string
   argumentSubsections: ArgumentSubsection[]
+  // Demurrer specific - Leave to Amend section
+  leaveToAmend?: string
   conclusion: string
 }
 
@@ -285,10 +294,8 @@ export default function MotionForm({
       toast.error('Please describe what the motion is about')
       return
     }
-    if (!reliefSought.trim()) {
-      toast.error('Please describe the relief you are seeking')
-      return
-    }
+    // Relief is now combined with motion description - use motionDescription for both
+    const combinedRelief = reliefSought.trim() || motionDescription
 
     setIsGenerating(true)
     try {
@@ -298,9 +305,9 @@ export default function MotionForm({
         body: JSON.stringify({
           // Motion type from dropdown
           motionType,
-          // Simplified inputs
+          // Simplified inputs - combined facts and relief
           motionDescription,
-          reliefSought,
+          reliefSought: combinedRelief,
           autoDetectType: false, // Use the selected type
           // Uploaded document content
           uploadedDocumentContent: uploadedDocument?.content || null,
@@ -337,8 +344,8 @@ export default function MotionForm({
           hearingDate: captionData.hearingDate || '',
           hearingTime: captionData.hearingTime || '08:30',
           department: captionData.departmentNumber || '',
-          reliefSought,
-          reliefSoughtSummary: data.noticeReliefSummary || reliefSought, // Use AI summary if available
+          reliefSought: combinedRelief,
+          reliefSoughtSummary: data.noticeReliefSummary || combinedRelief, // Use AI summary if available
           argumentSummary: motionDescription,
           applicableRule: data.applicableRule || MOTION_RULES[motionType] || '',
         },
@@ -485,63 +492,222 @@ export default function MotionForm({
         )}
       </div>
 
-      {/* Main Input Card - Simplified */}
-      <div className="glass-card p-8 rounded-2xl shadow-xl border border-blue-100">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
-            <FileText className="w-8 h-8 text-white" />
+      {/* Case Information Card */}
+      <div className="glass-card p-6 rounded-2xl shadow-lg border border-purple-100">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-md">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
           </div>
           <div>
-            <h3 className="text-2xl font-bold text-gray-900">Tell Us About Your Motion</h3>
-            <p className="text-gray-600">Describe your situation in plain English — we'll generate the legal documents for you</p>
+            <h3 className="text-xl font-bold text-gray-900">Case Information</h3>
+            <p className="text-sm text-gray-600">Enter the case caption details for your motion</p>
           </div>
         </div>
 
-        <div className="space-y-6">
-          {/* Motion Description */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Plaintiff(s) */}
           <div>
-            <label className="block text-lg font-semibold text-gray-900 mb-2">
-              What is your motion about? <span className="text-red-500">*</span>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Plaintiff(s) <span className="text-red-500">*</span>
             </label>
-            <p className="text-sm text-gray-600 mb-3">
-              Describe the situation, the facts, and why you need this motion. Be as detailed as possible.
-            </p>
-            <textarea
-              value={motionDescription}
-              onChange={(e) => {
-                setMotionDescription(e.target.value)
-                autoResizeTextarea(e)
-              }}
-              placeholder="Example: The defendant has refused to respond to our discovery requests for over 60 days. We served interrogatories and document requests on March 1, 2024, and despite multiple meet and confer attempts via email and phone calls, they have not provided any responses. The discovery is critical to proving our case because it will reveal the defendant's financial records showing the fraud. We need to compel their compliance and seek sanctions for their delay and obstruction..."
-              rows={8}
-              className="w-full px-5 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 resize-none text-base leading-relaxed transition-all"
+            <input
+              type="text"
+              value={captionData.plaintiffs[0] || ''}
+              onChange={(e) => setCaptionData(prev => ({
+                ...prev,
+                plaintiffs: [e.target.value]
+              }))}
+              placeholder="e.g., John Smith"
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
             />
-            <p className="text-xs text-gray-500 mt-2">
-              💡 Tip: The more detail you provide, the better your motion will be. Include dates, names, and specific actions taken.
-            </p>
           </div>
 
-          {/* Relief Sought */}
+          {/* Defendant(s) */}
           <div>
-            <label className="block text-lg font-semibold text-gray-900 mb-2">
-              What relief are you seeking? <span className="text-red-500">*</span>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Defendant(s) <span className="text-red-500">*</span>
             </label>
-            <p className="text-sm text-gray-600 mb-3">
-              Describe what you want the Court to order in plain language.
-            </p>
-            <textarea
-              value={reliefSought}
-              onChange={(e) => {
-                setReliefSought(e.target.value)
-                autoResizeTextarea(e)
-              }}
-              placeholder="Example: We request the Court order the defendant to provide complete responses to all outstanding discovery requests within 10 days, and award us monetary sanctions in the amount of $3,500 for the attorney's fees and costs incurred in bringing this motion..."
-              rows={4}
-              className="w-full px-5 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 resize-none text-base leading-relaxed transition-all"
+            <input
+              type="text"
+              value={captionData.defendants[0] || ''}
+              onChange={(e) => setCaptionData(prev => ({
+                ...prev,
+                defendants: [e.target.value]
+              }))}
+              placeholder="e.g., ABC Corporation"
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
             />
+          </div>
+
+          {/* County */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              County
+            </label>
+            <input
+              type="text"
+              value={captionData.county || ''}
+              onChange={(e) => setCaptionData(prev => ({
+                ...prev,
+                county: e.target.value
+              }))}
+              placeholder="e.g., Los Angeles"
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+            />
+          </div>
+
+          {/* Case Number */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Case Number
+            </label>
+            <input
+              type="text"
+              value={captionData.caseNumber || ''}
+              onChange={(e) => setCaptionData(prev => ({
+                ...prev,
+                caseNumber: e.target.value
+              }))}
+              placeholder="e.g., 24STCV12345"
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+            />
+          </div>
+
+          {/* Hearing Date */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Hearing Date
+            </label>
+            <input
+              type="date"
+              value={captionData.hearingDate || ''}
+              onChange={(e) => setCaptionData(prev => ({
+                ...prev,
+                hearingDate: e.target.value
+              }))}
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+            />
+          </div>
+
+          {/* Department */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Department
+            </label>
+            <input
+              type="text"
+              value={captionData.departmentNumber || ''}
+              onChange={(e) => setCaptionData(prev => ({
+                ...prev,
+                departmentNumber: e.target.value
+              }))}
+              placeholder="e.g., 32"
+              className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Attorney Information */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4">Attorney Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Attorney Name
+              </label>
+              <input
+                type="text"
+                value={captionData.attorneys[0]?.name || ''}
+                onChange={(e) => setCaptionData(prev => ({
+                  ...prev,
+                  attorneys: [{
+                    ...prev.attorneys[0],
+                    name: e.target.value
+                  }]
+                }))}
+                placeholder="e.g., Jane Doe, Esq."
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                State Bar Number
+              </label>
+              <input
+                type="text"
+                value={captionData.attorneys[0]?.barNumber || ''}
+                onChange={(e) => setCaptionData(prev => ({
+                  ...prev,
+                  attorneys: [{
+                    ...prev.attorneys[0],
+                    barNumber: e.target.value
+                  }]
+                }))}
+                placeholder="e.g., 123456"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Law Firm
+              </label>
+              <input
+                type="text"
+                value={captionData.attorneys[0]?.firm || ''}
+                onChange={(e) => setCaptionData(prev => ({
+                  ...prev,
+                  attorneys: [{
+                    ...prev.attorneys[0],
+                    firm: e.target.value
+                  }]
+                }))}
+                placeholder="e.g., Smith & Associates"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Phone
+              </label>
+              <input
+                type="tel"
+                value={captionData.attorneys[0]?.phone || ''}
+                onChange={(e) => setCaptionData(prev => ({
+                  ...prev,
+                  attorneys: [{
+                    ...prev.attorneys[0],
+                    phone: e.target.value
+                  }]
+                }))}
+                placeholder="e.g., (555) 123-4567"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">
+                Address
+              </label>
+              <input
+                type="text"
+                value={captionData.attorneys[0]?.address || ''}
+                onChange={(e) => setCaptionData(prev => ({
+                  ...prev,
+                  attorneys: [{
+                    ...prev.attorneys[0],
+                    address: e.target.value
+                  }]
+                }))}
+                placeholder="e.g., 123 Main Street, Suite 100, Los Angeles, CA 90001"
+                className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 transition-all"
+              />
+            </div>
+          </div>
           </div>
 
           {/* Moving Party Selection */}
+        <div className="mt-6 pt-6 border-t border-gray-200">
           <div className="flex items-center gap-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
             <label className="text-base font-semibold text-gray-700">You are filing on behalf of:</label>
             <div className="flex gap-6">
@@ -551,9 +717,9 @@ export default function MotionForm({
                   value="plaintiff"
                   checked={movingParty === 'plaintiff'}
                   onChange={() => setMovingParty('plaintiff')}
-                  className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  className="w-5 h-5 text-purple-600 border-gray-300 focus:ring-purple-500"
                 />
-                <span className="text-gray-700 group-hover:text-blue-600 transition-colors font-medium">Plaintiff</span>
+                <span className="text-gray-700 group-hover:text-purple-600 transition-colors font-medium">Plaintiff</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer group">
                 <input
@@ -561,11 +727,51 @@ export default function MotionForm({
                   value="defendant"
                   checked={movingParty === 'defendant'}
                   onChange={() => setMovingParty('defendant')}
-                  className="w-5 h-5 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  className="w-5 h-5 text-purple-600 border-gray-300 focus:ring-purple-500"
                 />
-                <span className="text-gray-700 group-hover:text-blue-600 transition-colors font-medium">Defendant</span>
+                <span className="text-gray-700 group-hover:text-purple-600 transition-colors font-medium">Defendant</span>
             </label>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Motion Details Card - Combined Facts and Relief */}
+      <div className="glass-card p-8 rounded-2xl shadow-xl border border-blue-100">
+        <div className="flex items-center gap-4 mb-6">
+          <div className="p-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
+            <FileText className="w-8 h-8 text-white" />
+          </div>
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900">Motion Details</h3>
+            <p className="text-gray-600">Describe your situation and what you're asking the Court to do</p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {/* Combined Motion Description and Relief */}
+          <div>
+            <label className="block text-lg font-semibold text-gray-900 mb-2">
+              Facts and Relief Sought <span className="text-red-500">*</span>
+            </label>
+            <p className="text-sm text-gray-600 mb-3">
+              Describe the situation, the facts, why you need this motion, and what you want the Court to order. Be as detailed as possible.
+            </p>
+            <textarea
+              value={motionDescription}
+              onChange={(e) => {
+                setMotionDescription(e.target.value)
+                autoResizeTextarea(e)
+              }}
+              placeholder="Example: The defendant has refused to respond to our discovery requests for over 60 days. We served interrogatories and document requests on March 1, 2024, and despite multiple meet and confer attempts via email and phone calls, they have not provided any responses. The discovery is critical to proving our case because it will reveal the defendant's financial records showing the fraud.
+
+We request the Court order the defendant to provide complete responses to all outstanding discovery requests within 10 days, and award us monetary sanctions in the amount of $3,500 for the attorney's fees and costs incurred in bringing this motion."
+              rows={12}
+              className="w-full px-5 py-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 resize-none text-base leading-relaxed transition-all"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              💡 Tip: Include the facts of your case AND what specific relief you're seeking from the Court. The more detail you provide, the better your motion will be.
+            </p>
           </div>
 
         </div>
@@ -573,9 +779,9 @@ export default function MotionForm({
         {/* Generate Button */}
         <button
           onClick={handleGenerate}
-          disabled={isGenerating || !motionType || !motionDescription.trim() || !reliefSought.trim()}
+          disabled={isGenerating || !motionType || !motionDescription.trim()}
           className={`mt-8 w-full py-5 px-6 rounded-xl font-bold text-lg flex items-center justify-center gap-3 transition-all duration-300 ${
-            isGenerating || !motionType || !motionDescription.trim() || !reliefSought.trim()
+            isGenerating || !motionType || !motionDescription.trim()
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-gradient-to-r from-blue-600 to-purple-700 hover:from-blue-700 hover:to-purple-800 text-white shadow-xl hover:shadow-2xl transform hover:-translate-y-1'
           }`}

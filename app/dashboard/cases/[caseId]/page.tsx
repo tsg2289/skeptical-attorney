@@ -3,8 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Calendar, Clock, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, Building2, Users, Briefcase } from 'lucide-react'
-import { supabaseCaseStorage, CaseFrontend, Deadline, Party, Attorney } from '@/lib/supabase/caseStorage'
+import { ArrowLeft, Calendar, Clock, Plus, Trash2, Edit2, Save, X, ChevronDown, ChevronUp, Building2, Users, Briefcase, FileText, GripVertical } from 'lucide-react'
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { supabaseCaseStorage, CaseFrontend, Deadline, Party, Attorney, CaseNote } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
 import { calculateDeadlinesFromTrialDate, generateDeadlineId } from '@/lib/utils/deadlineCalculator'
 import Header from '@/components/Header'
@@ -15,6 +18,122 @@ interface UserInfo {
   id: string
   email: string
   fullName: string
+}
+
+interface SortableNoteProps {
+  note: CaseNote
+  editingNoteId: string | null
+  editNoteContent: string
+  setEditNoteContent: (content: string) => void
+  setEditingNoteId: (id: string | null) => void
+  handleUpdateNote: (id: string) => void
+  handleDeleteNote: (id: string) => void
+  isSavingNote: boolean
+}
+
+function SortableNote({ 
+  note, 
+  editingNoteId, 
+  editNoteContent, 
+  setEditNoteContent, 
+  setEditingNoteId, 
+  handleUpdateNote, 
+  handleDeleteNote,
+  isSavingNote 
+}: SortableNoteProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: note.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-white rounded-xl border-2 shadow-sm ${isDragging ? 'border-amber-400 shadow-lg' : 'border-gray-200'}`}
+    >
+      {editingNoteId === note.id ? (
+        <div className="p-4 space-y-3">
+          <textarea
+            value={editNoteContent}
+            onChange={(e) => setEditNoteContent(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 text-black min-h-[100px]"
+          />
+          <div className="flex space-x-2">
+            <button
+              onClick={() => handleUpdateNote(note.id)}
+              disabled={isSavingNote}
+              className="bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 text-sm"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {
+                setEditingNoteId(null)
+                setEditNoteContent('')
+              }}
+              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="flex items-center justify-center px-3 bg-gray-50 rounded-l-xl cursor-grab active:cursor-grabbing border-r border-gray-200 hover:bg-gray-100"
+          >
+            <GripVertical className="h-5 w-5 text-gray-400" />
+          </div>
+          
+          {/* Note Content */}
+          <div className="flex-1 p-4">
+            <div className="flex justify-between items-start mb-2">
+              <div className="text-xs text-gray-500">
+                {new Date(note.createdAt).toLocaleString()}
+                {note.updatedAt && (
+                  <span className="ml-2 italic">(edited {new Date(note.updatedAt).toLocaleString()})</span>
+                )}
+              </div>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => {
+                    setEditingNoteId(note.id)
+                    setEditNoteContent(note.content)
+                  }}
+                  className="text-blue-500 hover:text-blue-700 p-1"
+                  title="Edit"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteNote(note.id)}
+                  className="text-red-500 hover:text-red-700 p-1"
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <p className="text-gray-700 whitespace-pre-wrap">{note.content}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function CaseDetailPage() {
@@ -62,6 +181,14 @@ export default function CaseDetailPage() {
   const [editingDefendantId, setEditingDefendantId] = useState<string | null>(null)
   const [editingAttorneyId, setEditingAttorneyId] = useState<string | null>(null)
   const [editingAttorneyPartyId, setEditingAttorneyPartyId] = useState<string | null>(null)
+  
+  // Notes state
+  const [notes, setNotes] = useState<CaseNote[]>([])
+  const [showNoteForm, setShowNoteForm] = useState(false)
+  const [newNoteContent, setNewNoteContent] = useState('')
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editNoteContent, setEditNoteContent] = useState('')
+  const [isSavingNote, setIsSavingNote] = useState(false)
   
   const [newPartyForm, setNewPartyForm] = useState<Omit<Party, 'id' | 'attorneys'>>({
     name: '',
@@ -140,6 +267,8 @@ export default function CaseDetailPage() {
           // Load parties (attorneys are nested within each party)
           setPlaintiffs(foundCase.plaintiffs || [])
           setDefendants(foundCase.defendants || [])
+          // Load notes
+          setNotes(foundCase.notes || [])
         } else {
           router.push('/dashboard')
         }
@@ -150,6 +279,25 @@ export default function CaseDetailPage() {
     
     checkAuthAndLoadCase()
   }, [caseId, router])
+
+  // Listen for deadlines added by the AI Assistant
+  useEffect(() => {
+    const handleDeadlineAdded = async (event: CustomEvent<{ caseId: string; deadline: { id: string; date: string; description: string } }>) => {
+      // Only refresh if it's for this case
+      if (event.detail.caseId === caseId) {
+        // Refresh case data to show the new deadline
+        const refreshedCase = await supabaseCaseStorage.getCase(caseId)
+        if (refreshedCase) {
+          setCaseItem(refreshedCase)
+        }
+      }
+    }
+    
+    window.addEventListener('assistantDeadlineAdded', handleDeadlineAdded as EventListener)
+    return () => {
+      window.removeEventListener('assistantDeadlineAdded', handleDeadlineAdded as EventListener)
+    }
+  }, [caseId])
 
   const handleSave = async () => {
     if (!user || !caseItem) return
@@ -296,6 +444,85 @@ export default function CaseDetailPage() {
     const updated = await supabaseCaseStorage.updateDeadline(caseItem.id, deadlineId, { completed })
     if (updated) {
       setCaseItem(updated)
+    }
+  }
+
+  // Note handlers
+  const handleAddNote = async () => {
+    if (!user || !caseItem || !newNoteContent.trim()) return
+    
+    setIsSavingNote(true)
+    const newNote: CaseNote = {
+      id: `note_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      content: newNoteContent.trim(),
+      createdAt: new Date().toISOString()
+    }
+    
+    const updatedNotes = [newNote, ...notes]
+    const updated = await supabaseCaseStorage.updateCase(caseItem.id, { notes: updatedNotes })
+    
+    if (updated) {
+      setNotes(updatedNotes)
+      setNewNoteContent('')
+      setShowNoteForm(false)
+    }
+    setIsSavingNote(false)
+  }
+
+  const handleUpdateNote = async (noteId: string) => {
+    if (!user || !caseItem || !editNoteContent.trim()) return
+    
+    setIsSavingNote(true)
+    const updatedNotes = notes.map(n => 
+      n.id === noteId 
+        ? { ...n, content: editNoteContent.trim(), updatedAt: new Date().toISOString() }
+        : n
+    )
+    
+    const updated = await supabaseCaseStorage.updateCase(caseItem.id, { notes: updatedNotes })
+    
+    if (updated) {
+      setNotes(updatedNotes)
+      setEditingNoteId(null)
+      setEditNoteContent('')
+    }
+    setIsSavingNote(false)
+  }
+
+  const handleDeleteNote = async (noteId: string) => {
+    if (!user || !caseItem) return
+    if (!confirm('Are you sure you want to delete this note?')) return
+    
+    const updatedNotes = notes.filter(n => n.id !== noteId)
+    const updated = await supabaseCaseStorage.updateCase(caseItem.id, { notes: updatedNotes })
+    
+    if (updated) {
+      setNotes(updatedNotes)
+    }
+  }
+
+  // DnD sensors for notes
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
+
+  const handleNoteDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      const oldIndex = notes.findIndex((n) => n.id === active.id)
+      const newIndex = notes.findIndex((n) => n.id === over.id)
+      
+      const reorderedNotes = arrayMove(notes, oldIndex, newIndex)
+      setNotes(reorderedNotes)
+      
+      // Save to database
+      if (caseItem) {
+        await supabaseCaseStorage.updateCase(caseItem.id, { notes: reorderedNotes })
+      }
     }
   }
 
@@ -1397,6 +1624,87 @@ export default function CaseDetailPage() {
               )}
             </div>
 
+            {/* Notes Section */}
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-6">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-6 w-6 text-amber-600" />
+                  <h2 className="text-2xl font-bold text-gray-900">Case Notes</h2>
+                </div>
+                <button
+                  onClick={() => setShowNoteForm(!showNoteForm)}
+                  className="flex items-center space-x-2 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                  <span>Add Note</span>
+                </button>
+              </div>
+
+              {/* Add Note Form */}
+              {showNoteForm && (
+                <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
+                  <div className="space-y-4">
+                    <textarea
+                      value={newNoteContent}
+                      onChange={(e) => setNewNoteContent(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-colors text-black min-h-[120px]"
+                      placeholder="Enter your note..."
+                    />
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={handleAddNote}
+                        disabled={isSavingNote || !newNoteContent.trim()}
+                        className="flex-1 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+                      >
+                        {isSavingNote ? 'Saving...' : 'Save Note'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowNoteForm(false)
+                          setNewNoteContent('')
+                        }}
+                        className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes List with Drag and Drop */}
+              {notes.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No notes yet. Click &quot;Add Note&quot; to create one.</p>
+                </div>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleNoteDragEnd}
+                >
+                  <SortableContext items={notes.map(n => n.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                      {notes.map((note) => (
+                        <SortableNote
+                          key={note.id}
+                          note={note}
+                          editingNoteId={editingNoteId}
+                          editNoteContent={editNoteContent}
+                          setEditNoteContent={setEditNoteContent}
+                          setEditingNoteId={setEditingNoteId}
+                          handleUpdateNote={handleUpdateNote}
+                          handleDeleteNote={handleDeleteNote}
+                          isSavingNote={isSavingNote}
+                        />
+                      ))}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+
             {/* Trial Date Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
               <div className="flex items-center space-x-2 mb-4">
@@ -1671,13 +1979,24 @@ export default function CaseDetailPage() {
                     <p className="text-xs text-gray-500 mt-1 ml-6">All discovery documents</p>
                   </Link>
                   <Link
+                    href={`/services/discovery/form-interrogatories?caseId=${caseItem.id}`}
+                    className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium border-b border-gray-100"
+                    onClick={() => setIsDiscoveryHovered(false)}
+                  >
+                    <div className="flex items-center">
+                      <span className="mr-2">📄</span>
+                      <span>Form Interrogatories (DISC-001)</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1 ml-6">CA Judicial Council form</p>
+                  </Link>
+                  <Link
                     href={`/dashboard/cases/${caseItem.id}/discovery/interrogatories`}
                     className="block px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors text-sm font-medium"
                     onClick={() => setIsDiscoveryHovered(false)}
                   >
                     <div className="flex items-center">
                       <span className="mr-2">📝</span>
-                      <span>Interrogatories</span>
+                      <span>Special Interrogatories</span>
                     </div>
                   </Link>
                   <Link

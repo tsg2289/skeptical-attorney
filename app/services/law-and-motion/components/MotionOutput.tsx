@@ -72,6 +72,7 @@ export default function MotionOutput({
     law: '',
     argument: '',
     argumentSubsections: [] as ArgumentSubsection[],
+    leaveToAmend: '',
     conclusion: '',
   })
 
@@ -129,6 +130,20 @@ export default function MotionOutput({
       [section]: !prev[section],
     }))
   }
+
+  // Memoized callback for CaseCaptionCard to prevent infinite loops
+  const handleCaptionChange = useCallback((newData: CaseCaptionData) => {
+    setCaptionData(newData)
+    // Sync hearing date/time/department with noticeOfMotion
+    if (newData.hearingDate !== undefined || newData.hearingTime !== undefined || newData.departmentNumber !== undefined) {
+      setNoticeOfMotion(prev => ({
+        ...prev,
+        hearingDate: newData.hearingDate || prev.hearingDate,
+        hearingTime: newData.hearingTime || prev.hearingTime,
+        department: newData.departmentNumber || prev.department,
+      }))
+    }
+  }, [])
 
   // Argument subsection handlers
   const addArgumentSubsection = () => {
@@ -531,18 +546,28 @@ export default function MotionOutput({
       : '[DATE]'
     
     // Use the AI-summarized relief for the Notice, falling back to raw input
-    const reliefText = noticeOfMotion.reliefSoughtSummary || noticeOfMotion.reliefSought || '[RELIEF SOUGHT]'
+    const fullReliefText = noticeOfMotion.reliefSoughtSummary || noticeOfMotion.reliefSought || '[RELIEF SOUGHT]'
+    
+    // Split after first sentence (relief clause) to create paragraph break before the summary sentences
+    const firstPeriodIndex = fullReliefText.indexOf('. ')
+    let reliefClause = fullReliefText
+    let summaryParagraph = ''
+    
+    if (firstPeriodIndex > 0) {
+      reliefClause = fullReliefText.substring(0, firstPeriodIndex + 1) // Include the period
+      summaryParagraph = fullReliefText.substring(firstPeriodIndex + 2).trim() // Rest after ". "
+    }
     
     const text = `TO ALL PARTIES AND THEIR ATTORNEYS OF RECORD:
 
-PLEASE TAKE NOTICE that on ${formattedDate} at ${captionData.hearingTime || '[TIME]'}, or as soon thereafter as the matter may be heard, in Department ${captionData.departmentNumber || '[DEPT]'} of the above-entitled Court, ${movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} ${movingPartyName} will move the Court for an order ${reliefText}.${noticeOfMotion.argumentSummary ? `
+PLEASE TAKE NOTICE that on ${formattedDate} at ${captionData.hearingTime || '[TIME]'}, or as soon thereafter as the matter may be heard, in Department ${captionData.departmentNumber || '[DEPT]'} of the above-entitled Court, ${movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} ${movingPartyName} will move the Court for an order ${reliefClause}${summaryParagraph ? `
 
-${noticeOfMotion.argumentSummary}` : ''}
+${summaryParagraph}` : ''}
 
 This motion is based upon this Notice of Motion, the attached Memorandum of Points and Authorities, the Declaration of ${declaration.declarantName || captionData.attorneys?.[0]?.name || '[ATTORNEY]'}, Esq., and upon all of the pleadings and records contained in the Court file herein, and upon such oral and documentary evidence as may be presented at the time of hearing on this motion.`
     
     setNoticeText(text)
-  }, [captionData, movingParty, noticeOfMotion.reliefSought, noticeOfMotion.reliefSoughtSummary, noticeOfMotion.argumentSummary, declaration.declarantName])
+  }, [captionData, movingParty, noticeOfMotion.reliefSought, noticeOfMotion.reliefSoughtSummary, declaration.declarantName])
 
   // Auto-resize textarea helper
   const autoResizeTextarea = (textarea: HTMLTextAreaElement | null) => {
@@ -757,10 +782,16 @@ This motion is based upon this Notice of Motion, the attached Memorandum of Poin
         },
         savedMemorandum: {
           introduction: memorandum.introduction,
+          exigentCircumstances: memorandum.exigentCircumstances,
+          irreparableHarm: memorandum.irreparableHarm,
+          noticeDate: memorandum.noticeDate,
+          noticeTime: memorandum.noticeTime,
+          noticeMethod: memorandum.noticeMethod,
           facts: memorandum.facts,
           law: memorandum.law,
           argument: memorandum.argument,
           argumentSubsections: memorandum.argumentSubsections,
+          leaveToAmend: memorandum.leaveToAmend,
           conclusion: memorandum.conclusion,
         },
         savedDeclaration: {
@@ -897,8 +928,7 @@ Executed on ${currentDate}, at ${cityName}, California.
         departmentNumber: captionData?.departmentNumber || noticeOfMotion.department || undefined,
         hearingDate: noticeOfMotion.hearingDate || undefined,
         hearingTime: noticeOfMotion.hearingTime || '8:30 a.m.',
-        reliefSought: noticeOfMotion.reliefSought || undefined,
-        argumentSummary: noticeOfMotion.argumentSummary || undefined,
+        reliefSought: noticeOfMotion.reliefSoughtSummary || noticeOfMotion.reliefSought || undefined,
         includeProofOfService: showProofOfService,
         proofOfServiceText: showProofOfService ? generateProofOfServiceText() : undefined,
       }
@@ -922,10 +952,16 @@ Executed on ${currentDate}, at ${cityName}, California.
         hearingDate: noticeOfMotion.hearingDate || undefined,
         hearingTime: noticeOfMotion.hearingTime || '8:30 a.m.',
         introduction: memorandum.introduction || undefined,
+        exigentCircumstances: memorandum.exigentCircumstances || undefined,
+        irreparableHarm: memorandum.irreparableHarm || undefined,
+        noticeDate: memorandum.noticeDate || undefined,
+        noticeTime: memorandum.noticeTime || undefined,
+        noticeMethod: memorandum.noticeMethod || undefined,
         facts: memorandum.facts || undefined,
         law: memorandum.law || undefined,
         argument: memorandum.argument || undefined,
         argumentSubsections: memorandum.argumentSubsections || [],
+        leaveToAmend: memorandum.leaveToAmend || undefined,
         conclusion: memorandum.conclusion || undefined,
         declarantName: declaration.declarantName || primaryAttorney?.name || profile?.fullName || undefined,
         declarantBarNumber: declaration.barNumber || primaryAttorney?.barNumber || profile?.barNumber || undefined,
@@ -1087,35 +1123,23 @@ Executed on ${currentDate}, at ${cityName}, California.
       )}
 
       {/* Editable Caption Card */}
-            {!isTrialMode && (
-        <div className="glass-card p-6 rounded-2xl shadow-lg border border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-gray-100 rounded-xl">
-              <FileText className="w-6 h-6 text-gray-700" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Case Caption & Attorney Header</h3>
-              <p className="text-sm text-gray-600">Edit caption information for the Word documents</p>
-            </div>
+      {/* Case Caption & Attorney Header - visible for all users (trial and logged-in) */}
+      <div className="glass-card p-6 rounded-2xl shadow-lg border border-gray-100">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-3 bg-gray-100 rounded-xl">
+            <FileText className="w-6 h-6 text-gray-700" />
           </div>
-          <CaseCaptionCard
-            initialData={captionData}
-            onChange={(newData) => {
-              setCaptionData(newData)
-              // Sync hearing date/time/department with noticeOfMotion
-              if (newData.hearingDate !== undefined || newData.hearingTime !== undefined || newData.departmentNumber !== undefined) {
-                setNoticeOfMotion(prev => ({
-                  ...prev,
-                  hearingDate: newData.hearingDate || prev.hearingDate,
-                  hearingTime: newData.hearingTime || prev.hearingTime,
-                  department: newData.departmentNumber || prev.department,
-                }))
-              }
-            }}
-            disabled={false}
-          />
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Case Caption & Attorney Header</h3>
+            <p className="text-sm text-gray-600">Edit caption information for the Word documents</p>
+          </div>
         </div>
-      )}
+        <CaseCaptionCard
+          initialData={captionData}
+          onChange={handleCaptionChange}
+          disabled={false}
+        />
+      </div>
 
       {/* Notice of Motion Card */}
       {motionFormData && (
@@ -1235,11 +1259,125 @@ Executed on ${currentDate}, at ${cityName}, California.
                 </div>
               </div>
 
+              {/* Ex Parte: Exigent Circumstances Section - only for ex parte applications */}
+              {motionType === 'ex-parte-application' && (
+                <div className="bg-orange-50 rounded-xl p-4 border-2 border-orange-300">
+                  <label className="block text-sm font-bold text-orange-900 mb-2">
+                    II. STATEMENT OF EXIGENT CIRCUMSTANCES AND IRREPARABLE HARM
+                  </label>
+                  <p className="text-xs text-orange-700 mb-3">
+                    Required for ex parte applications per Cal. Rules of Court 3.1202
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-orange-800 mb-1">
+                        Exigent Circumstances
+                      </label>
+                      <p className="text-xs text-orange-600 mb-2">
+                        Describe why emergency relief is needed and what circumstances require immediate action
+                      </p>
+                      <textarea
+                        ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }}
+                        value={memorandum.exigentCircumstances || ''}
+                        onChange={(e) => {
+                          setMemorandum(prev => ({ ...prev, exigentCircumstances: e.target.value }))
+                          autoResizeTextareaOnChange(e)
+                        }}
+                        placeholder="The discovery deadline is in 5 days and defendant has failed to respond despite multiple meet and confer attempts. Without immediate court intervention, plaintiff will be unable to obtain critical evidence before the deadline expires..."
+                        rows={4}
+                        className="w-full px-4 py-3 rounded-xl border border-orange-200 bg-white text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-orange-800 mb-1">
+                        Irreparable Harm
+                      </label>
+                      <p className="text-xs text-orange-600 mb-2">
+                        Describe the harm that will occur if relief is not granted (this text follows "...will deprive [Party] of the ability to")
+                      </p>
+                      <textarea
+                        ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }}
+                        value={memorandum.irreparableHarm || ''}
+                        onChange={(e) => {
+                          setMemorandum(prev => ({ ...prev, irreparableHarm: e.target.value }))
+                          autoResizeTextareaOnChange(e)
+                        }}
+                        placeholder="obtain necessary discovery before trial, resulting in the inability to adequately prepare the case and present critical evidence to the jury"
+                        rows={3}
+                        className="w-full px-4 py-3 rounded-xl border border-orange-200 bg-white text-gray-900 placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 resize-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Ex Parte: Timely Notice Given - only for ex parte applications */}
+              {motionType === 'ex-parte-application' && (
+                <div className="bg-teal-50 rounded-xl p-4 border-2 border-teal-300">
+                  <label className="block text-sm font-bold text-teal-900 mb-2">
+                    III. TIMELY NOTICE GIVEN
+                  </label>
+                  <p className="text-xs text-teal-700 mb-3">
+                    Required per Cal. Rules of Court 3.1204 - Describe how notice was given to opposing parties
+                  </p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-teal-800 mb-1">
+                          Date Notice Given
+                        </label>
+                        <input
+                          type="date"
+                          value={memorandum.noticeDate || ''}
+                          onChange={(e) => setMemorandum(prev => ({ ...prev, noticeDate: e.target.value }))}
+                          className="w-full px-4 py-3 rounded-xl border border-teal-200 bg-white text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-semibold text-teal-800 mb-1">
+                          Time Notice Given
+                        </label>
+                        <input
+                          type="time"
+                          value={memorandum.noticeTime || ''}
+                          onChange={(e) => setMemorandum(prev => ({ ...prev, noticeTime: e.target.value }))}
+                          className="w-full px-4 py-3 rounded-xl border border-teal-200 bg-white text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-teal-800 mb-1">
+                        Method of Notice
+                      </label>
+                      <p className="text-xs text-teal-600 mb-2">
+                        How was notice provided to opposing counsel/parties?
+                      </p>
+                      <select
+                        value={memorandum.noticeMethod || ''}
+                        onChange={(e) => setMemorandum(prev => ({ ...prev, noticeMethod: e.target.value }))}
+                        className="w-full px-4 py-3 rounded-xl border border-teal-200 bg-white text-gray-900 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+                      >
+                        <option value="">Select method of notice...</option>
+                        <option value="telephone">Telephone</option>
+                        <option value="email">Email</option>
+                        <option value="facsimile">Facsimile (Fax)</option>
+                        <option value="personal delivery">Personal Delivery</option>
+                        <option value="telephone and email">Telephone and Email</option>
+                        <option value="telephone, email, and facsimile">Telephone, Email, and Facsimile</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Facts */}
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                 <label className="block text-sm font-bold text-amber-900 mb-2">
-                  II. STATEMENT OF FACTS
+                  {motionType === 'ex-parte-application' ? 'IV' : 'II'}. STATEMENT OF FACTS
                 </label>
+                <p className="text-xs text-amber-700 mb-3">
+                  Include: (1) Core facts giving rise to this motion, (2) Procedural history (complaint date, discovery, continuances, trial date), (3) Summary of relief requested
+                </p>
                 <div className="relative">
                   <textarea
                     ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }}
@@ -1248,8 +1386,12 @@ Executed on ${currentDate}, at ${cityName}, California.
                       setMemorandum(prev => ({ ...prev, facts: e.target.value }))
                       autoResizeTextareaOnChange(e)
                     }}
-                    placeholder="Describe the relevant facts of the case that support your motion..."
-                    rows={6}
+                    placeholder={`This matter stems from [describe the core facts and circumstances giving rise to this motion].
+
+On [COMPLAINT DATE], Plaintiff filed the instant action alleging [CAUSES OF ACTION/ALLEGATIONS]. [Describe discovery conducted, any meet and confer efforts, and relevant procedural history]. Trial is currently set for [TRIAL DATE].
+
+[Summarize the specific relief being sought in this motion and why it is necessary based on the facts above].`}
+                    rows={8}
                     className="w-full px-4 py-3 pr-14 rounded-xl border border-amber-200 bg-white text-gray-900 placeholder-gray-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 resize-none"
                   />
                   <button
@@ -1268,7 +1410,7 @@ Executed on ${currentDate}, at ${cityName}, California.
               {/* Law */}
               <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                 <label className="block text-sm font-bold text-green-900 mb-2">
-                  III. APPLICABLE LAW
+                  {motionType === 'ex-parte-application' ? 'V' : 'III'}. APPLICABLE LAW
                 </label>
                 <div className="relative">
                   <textarea
@@ -1298,7 +1440,7 @@ Executed on ${currentDate}, at ${cityName}, California.
               {/* Argument */}
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
                 <label className="block text-sm font-bold text-blue-900 mb-2">
-                  IV. ARGUMENT
+                  {motionType === 'ex-parte-application' ? 'VI' : 'IV'}. ARGUMENT
                 </label>
                 <div className="relative">
                   <textarea
@@ -1370,10 +1512,39 @@ Executed on ${currentDate}, at ${cityName}, California.
             </button>
           </div>
 
+              {/* Demurrer: Leave to Amend Section - only for demurrers */}
+              {motionType === 'demurrer' && (
+                <div className="bg-red-50 rounded-xl p-4 border-2 border-red-300">
+                  <label className="block text-sm font-bold text-red-900 mb-2">
+                    V. THE COURT SHOULD NOT GRANT PLAINTIFF LEAVE TO AMEND
+                  </label>
+                  <p className="text-xs text-red-700 mb-3">
+                    Argue why leave to amend should be denied per CCP § 472a(c) - Plaintiff bears the burden of showing amendment can cure defects
+                  </p>
+                  <div className="relative">
+                    <textarea
+                      ref={(el) => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px' } }}
+                      value={memorandum.leaveToAmend || ''}
+                      onChange={(e) => {
+                        setMemorandum(prev => ({ ...prev, leaveToAmend: e.target.value }))
+                        autoResizeTextareaOnChange(e)
+                      }}
+                      placeholder={`"When a demurrer is sustained, the court may grant leave to amend the pleading upon any terms as may be just..." (Cal. Civ. Proc. § 472a(c).) Leave to amend following a demurrer should only be granted when there is a reasonable possibility plaintiff can amend the complaint to cure the defect. (Maxton v. Western States Metals (2012) 203 Cal.App.4th 81, 95.) Plaintiff has the burden of establishing that there is a reasonable possibility the complaint can be amended to cure the defect. (Sprinkles v. Assoc. Indem. Corp. (2010) 188 Cal.App.4th 69, 76.)
+
+A party may not change, contradict or omit prior factual allegations in superseding pleadings in order to avoid a challenge to pleadings. (Owens v. Kings Supermarket (1988) 198 Cal.App.3d 379, 384.) Leave to amend is properly denied where the amendment to cure would necessarily contradict prior allegations establishing that no cause of action existed as a matter of law. (Congleton v. National Union Fire Ins. Co. (1987) 189 Cal.App.3d 51, 62.)
+
+[Explain why Plaintiff cannot cure the defects identified in the demurrer and why leave to amend should be denied]`}
+                      rows={10}
+                      className="w-full px-4 py-3 rounded-xl border border-red-200 bg-white text-gray-900 placeholder-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 resize-none"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Conclusion */}
               <div className="bg-rose-50 rounded-xl p-4 border border-rose-200">
                 <label className="block text-sm font-bold text-rose-900 mb-2">
-                  V. CONCLUSION
+                  {motionType === 'ex-parte-application' ? 'VII' : motionType === 'demurrer' ? 'VI' : 'V'}. CONCLUSION
                 </label>
                 <div className="relative">
                   <textarea

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server'
 import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize';
 
 interface BillingTemplate {
@@ -150,6 +151,15 @@ function getTimeEstimate(matchingTemplates: BillingTemplate[], description: stri
 
 export async function POST(req: NextRequest) {
   try {
+    // SECURITY: Authentication check
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      console.warn('[SECURITY] Attempted to generate billing without authentication')
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     // Step 1: Parse request body
     let caseName: string, description: string, providedHours: string | undefined;
     try {

@@ -1210,56 +1210,59 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
     draggedQuestionId: string;
   } | null>(null);
 
-  // Handle question drag start to track initial position
+  // Cache dragged question data to avoid expensive lookups on every pointer move
+  const [draggedQuestionCache, setDraggedQuestionCache] = useState<{
+    question: DepositionQuestion;
+    sectionId: string;
+    subsectionId?: string;
+  } | null>(null);
+
+  // Handle question drag start to track initial position and cache question data
   const handleQuestionDragStart = useCallback((event: DragStartEvent) => {
     // Reset movement tracking
     setDragHorizontalMovement(0);
     
-    // Get the initial position of the dragged element
-    const activeElement = document.querySelector(`[data-id="${event.active.id}"]`);
-    if (activeElement) {
-      const rect = activeElement.getBoundingClientRect();
-      console.log(`🎯 Drag start: position=${rect.left}, ${rect.top}`);
-    }
-  }, []);
-
-  // Handle question drag move to track horizontal movement
-  const handleQuestionDragMove = useCallback((event: DragMoveEvent) => {
-    if (event.delta) {
-      // event.delta.x is already cumulative from drag start, use it directly
-      const horizontalMovement = event.delta.x;
-      console.log(`🔄 Drag move: cumulative delta=${horizontalMovement}px`);
-      
-      // Calculate preview indentation level
-      const indentSteps = Math.round(horizontalMovement / 50);
-      
-      // Find the current question being dragged
-      const currentQuestion = sections.find(s => 
-        s.questions?.some(q => q.id === event.active.id) ||
-        s.subsections?.some(sub => sub.questions?.some(q => q.id === event.active.id))
-      )?.questions?.find(q => q.id === event.active.id) ||
-      sections.find(s => 
-        s.subsections?.some(sub => sub.questions?.some(q => q.id === event.active.id))
-      )?.subsections?.find(sub => 
-        sub.questions?.some(q => q.id === event.active.id)
-      )?.questions?.find(q => q.id === event.active.id);
-      
-      const previewIndentLevel = Math.max(0, Math.min(3, 
-        (currentQuestion?.indentLevel || 0) + indentSteps
-      ));
-      
-      // Update preview state
-      setDragPreview({
-        isActive: true,
-        targetIndentLevel: previewIndentLevel,
-        targetPosition: horizontalMovement,
-        draggedQuestionId: event.active.id as string
-      });
-      
-      // Store the cumulative horizontal movement directly
-      setDragHorizontalMovement(horizontalMovement);
+    // Find and cache the dragged question ONCE at drag start (avoids O(n*m) lookup on every move)
+    for (const section of sections) {
+      const question = section.questions?.find(q => q.id === event.active.id);
+      if (question) {
+        setDraggedQuestionCache({ question, sectionId: section.id });
+        return;
+      }
+      for (const subsection of section.subsections || []) {
+        const subQuestion = subsection.questions?.find(q => q.id === event.active.id);
+        if (subQuestion) {
+          setDraggedQuestionCache({ question: subQuestion, sectionId: section.id, subsectionId: subsection.id });
+          return;
+        }
+      }
     }
   }, [sections]);
+
+  // Handle question drag move to track horizontal movement (optimized - uses cached question data)
+  const handleQuestionDragMove = useCallback((event: DragMoveEvent) => {
+    if (!event.delta || !draggedQuestionCache) return;
+    
+    // event.delta.x is already cumulative from drag start, use it directly
+    const horizontalMovement = event.delta.x;
+    
+    // Calculate preview indentation level using cached question data (O(1) instead of O(n*m))
+    const indentSteps = Math.round(horizontalMovement / 50);
+    const previewIndentLevel = Math.max(0, Math.min(3, 
+      (draggedQuestionCache.question.indentLevel || 0) + indentSteps
+    ));
+    
+    // Update preview state
+    setDragPreview({
+      isActive: true,
+      targetIndentLevel: previewIndentLevel,
+      targetPosition: horizontalMovement,
+      draggedQuestionId: event.active.id as string
+    });
+    
+    // Store the cumulative horizontal movement directly
+    setDragHorizontalMovement(horizontalMovement);
+  }, [draggedQuestionCache]);
 
   // Handle question drag end with drag-to-indent functionality
   const handleQuestionDragEnd = useCallback((event: DragEndEvent) => {
@@ -1372,9 +1375,10 @@ const FastDepositionOutlineWithDatabase = React.memo(function FastDepositionOutl
       return newSections;
     });
     
-    // Reset horizontal movement tracking and preview state
+    // Reset horizontal movement tracking, preview state, and cached question data
     setDragHorizontalMovement(0);
     setDragPreview(null);
+    setDraggedQuestionCache(null);
   }, [questionReorderContext, dragPreview, dragHorizontalMovement]);
 
   // Handle subsection drag end for reordering subsections within a section

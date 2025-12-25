@@ -3,13 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 
 export async function POST(request: NextRequest) {
   try {
-    // SECURITY: Authentication check
+    // Check authentication (optional - allow trial users to parse documents)
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -58,7 +54,12 @@ export async function POST(request: NextRequest) {
       .replace(/\n{3,}/g, '\n\n')
       .trim()
 
-    console.log(`[AUDIT] User ${user.id} parsed document: ${file.name} (${extractedText.length} chars)`)
+    // Audit log for both authenticated and trial users
+    if (user) {
+      console.log(`[AUDIT] User ${user.id} parsed document: ${file.name} (${extractedText.length} chars)`)
+    } else {
+      console.log(`[AUDIT] Trial user parsed document: ${file.name} (${extractedText.length} chars)`)
+    }
 
     return NextResponse.json({ 
       success: true,

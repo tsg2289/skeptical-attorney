@@ -11,6 +11,49 @@ interface Message {
   timestamp: Date
 }
 
+interface DeadlineAction {
+  type: 'deadline_added'
+  data: {
+    id: string
+    date: string
+    description: string
+    completed: boolean
+    caseId?: string
+    caseName?: string
+  }
+}
+
+interface NavigationAction {
+  type: 'navigate'
+  data: {
+    documentType: string
+    url: string
+    caseName?: string
+  }
+}
+
+interface BillingAction {
+  type: 'billing_logged'
+  data: {
+    caseName: string
+    hours: number
+    description: string
+    id?: string
+  }
+}
+
+type AssistantAction = DeadlineAction | NavigationAction | BillingAction
+
+interface Position {
+  x: number
+  y: number
+}
+
+interface Size {
+  width: number
+  height: number
+}
+
 interface AssistantContextType {
   isOpen: boolean
   setIsOpen: (open: boolean) => void
@@ -22,6 +65,10 @@ interface AssistantContextType {
   isLoading: boolean
   sendMessage: (message: string) => Promise<void>
   clearChat: () => void
+  position: Position
+  setPosition: (pos: Position) => void
+  size: Size
+  setSize: (size: Size) => void
 }
 
 const AssistantContext = createContext<AssistantContextType | null>(null)
@@ -34,33 +81,126 @@ export function useAssistant() {
   return context
 }
 
+const POSITION_STORAGE_KEY = 'assistant-position'
+const SIZE_STORAGE_KEY = 'assistant-size'
+const DEFAULT_POSITION: Position = { x: -1, y: -1 } // -1 means use default (bottom-right)
+const DEFAULT_SIZE: Size = { width: 384, height: 500 } // Default w-96 (384px) and h-[500px]
+const MIN_SIZE: Size = { width: 320, height: 400 }
+const MAX_SIZE: Size = { width: 700, height: 900 }
+
 export function AssistantProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [sizeState, setSizeState] = useState<Size>(DEFAULT_SIZE)
   const [caseName, setCaseName] = useState<string | null>(null)
   const [hasShownOpening, setHasShownOpening] = useState(false)
+  const [position, setPositionState] = useState<Position>(DEFAULT_POSITION)
   
   const pathname = usePathname()
   
-  // Determine mode and caseId from pathname
-  const getContextFromPath = () => {
-    if (!pathname) return { mode: 'disabled' as const, caseId: null }
+  // Load position from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(POSITION_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          setPositionState(parsed)
+        }
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [])
+  
+  // Load size from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(SIZE_STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (typeof parsed.width === 'number' && typeof parsed.height === 'number') {
+          // Clamp to min/max bounds
+          setSizeState({
+            width: Math.max(MIN_SIZE.width, Math.min(parsed.width, MAX_SIZE.width)),
+            height: Math.max(MIN_SIZE.height, Math.min(parsed.height, MAX_SIZE.height))
+          })
+        }
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, [])
+  
+  // Save size to localStorage when it changes
+  const setSize = (newSize: Size) => {
+    const clampedSize = {
+      width: Math.max(MIN_SIZE.width, Math.min(newSize.width, MAX_SIZE.width)),
+      height: Math.max(MIN_SIZE.height, Math.min(newSize.height, MAX_SIZE.height))
+    }
+    setSizeState(clampedSize)
+    try {
+      localStorage.setItem(SIZE_STORAGE_KEY, JSON.stringify(clampedSize))
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
+  
+  // Save position to localStorage when it changes
+  const setPosition = (newPos: Position) => {
+    setPositionState(newPos)
+    try {
+      localStorage.setItem(POSITION_STORAGE_KEY, JSON.stringify(newPos))
+    } catch {
+      // Ignore localStorage errors
+    }
+  }
+  
+  // Determine mode and caseId from pathname and URL params
+  const getContextFromPath = (): { mode: 'case' | 'dashboard' | 'disabled'; caseId: string | null } => {
+    if (!pathname) return { mode: 'disabled', caseId: null }
     
-    // Case-specific page
+    // Public pages where assistant should NOT show (even if logged in)
+    const publicPages = ['/', '/login', '/forgot-password', '/reset-password', '/get-started', '/about', '/contact', '/privacy', '/terms', '/cookies', '/help', '/careers', '/blog']
+    if (publicPages.includes(pathname) || pathname.startsWith('/blog/')) {
+      return { mode: 'disabled', caseId: null }
+    }
+    
+    // Case-specific page in dashboard
     const caseMatch = pathname.match(/\/dashboard\/cases\/([^/]+)/)
     if (caseMatch) {
-      return { mode: 'case' as const, caseId: caseMatch[1] }
+      return { mode: 'case', caseId: caseMatch[1] }
     }
     
-    // Dashboard or settings
+    // Deposition pages have caseId in the path
+    const depositionMatch = pathname.match(/\/services\/deposition\/depositions\/([^/]+)/)
+    if (depositionMatch) {
+      return { mode: 'case', caseId: depositionMatch[1] }
+    }
+    
+    // Service pages with caseId in query params
+    if (pathname.startsWith('/services/')) {
+      // Check URL for caseId query param (client-side only)
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        const queryCaseId = params.get('caseId')
+        if (queryCaseId) {
+          return { mode: 'case', caseId: queryCaseId }
+        }
+      }
+      // Service page without case context - use dashboard mode
+      return { mode: 'dashboard', caseId: null }
+    }
+    
+    // Dashboard, settings, or any other authenticated page
     if (pathname.startsWith('/dashboard') || pathname.startsWith('/settings')) {
-      return { mode: 'dashboard' as const, caseId: null }
+      return { mode: 'dashboard', caseId: null }
     }
     
-    // Not on a logged-in page
-    return { mode: 'disabled' as const, caseId: null }
+    // Default: show in dashboard mode for any other page (user might be logged in)
+    return { mode: 'dashboard', caseId: null }
   }
   
   const { mode, caseId } = getContextFromPath()
@@ -172,6 +312,52 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
       
       const data = await response.json()
       
+      // Handle actions (like deadline added or navigation)
+      if (data.actions && Array.isArray(data.actions) && data.actions.length > 0) {
+        for (const action of data.actions as AssistantAction[]) {
+          if (action.type === 'deadline_added') {
+            // Use caseId from action (for dashboard mode) or context caseId (for case mode)
+            const targetCaseId = action.data.caseId || caseId
+            
+            // Dispatch custom event so case page can refresh its deadlines
+            window.dispatchEvent(new CustomEvent('assistantDeadlineAdded', { 
+              detail: {
+                caseId: targetCaseId,
+                caseName: action.data.caseName,
+                deadline: action.data
+              }
+            }))
+          }
+          
+          if (action.type === 'navigate') {
+            // Dispatch custom event for navigation
+            // Small delay to let the assistant message render first
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('assistantNavigate', { 
+                detail: {
+                  url: action.data.url,
+                  documentType: action.data.documentType,
+                  caseName: action.data.caseName
+                }
+              }))
+            }, 500)
+          }
+          
+          if (action.type === 'billing_logged') {
+            // Dispatch custom event for billing entry added
+            window.dispatchEvent(new CustomEvent('assistantBillingLogged', { 
+              detail: {
+                caseId,
+                caseName: action.data.caseName,
+                hours: action.data.hours,
+                description: action.data.description,
+                id: action.data.id
+              }
+            }))
+          }
+        }
+      }
+      
       const assistantMessage: Message = {
         id: `msg_${Date.now() + 1}`,
         role: 'assistant',
@@ -212,13 +398,19 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
         messages,
         isLoading,
         sendMessage,
-        clearChat
+        clearChat,
+        position,
+        setPosition,
+        size: sizeState,
+        setSize
       }}
     >
       {children}
     </AssistantContext.Provider>
   )
 }
+
+
 
 
 

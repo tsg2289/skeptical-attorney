@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 // Simple in-memory queue to prevent concurrent requests
 let isProcessing = false
@@ -52,6 +53,16 @@ async function handleComplaintGeneration(request: NextRequest): Promise<NextResp
   isProcessing = true
   
   try {
+    // SECURITY: Authentication check
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      console.warn('[SECURITY] Attempted to generate complaint without authentication')
+      isProcessing = false
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { summary, causesOfAction, availableCauses, attorneys, county, plaintiffs, defendants, caseNumber, representationType } = body
 

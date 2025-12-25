@@ -29,13 +29,9 @@ const MOTION_RULES: Record<string, string> = {
 
 export async function POST(request: NextRequest) {
   try {
-    // SECURITY: Authentication check - prevents data leakage between users
+    // SECURITY: Authentication check - allows trial mode but protects real case data
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     const body = await request.json()
     const { 
@@ -66,8 +62,14 @@ export async function POST(request: NextRequest) {
       opposingParty,
     } = body
 
-    // SECURITY: Validate caseId belongs to user (if provided)
-    if (caseId) {
+    // SECURITY: If a caseId is provided, user MUST be authenticated (protects real case data)
+    if (caseId && !user) {
+      console.warn('[SECURITY] Attempted to access case data without authentication')
+      return NextResponse.json({ error: 'Authentication required to access case data' }, { status: 401 })
+    }
+
+    // SECURITY: Validate caseId belongs to user (if authenticated and caseId provided)
+    if (caseId && user) {
       const { data: caseCheck } = await supabase
         .from('cases')
         .select('id')
@@ -186,7 +188,33 @@ Respond with ONLY the motion type ID:`
       'demurrer': {
         title: 'DEMURRER',
         statutes: 'CCP § 430.10, 430.30, 430.41',
-        format: 'Include: (1) Notice of Demurrer, (2) Demurrer with specification of grounds, (3) Memorandum of Points and Authorities, (4) Meet and confer declaration (CCP § 430.41)'
+        format: `DEMURRER REQUIREMENTS - Follow California Code of Civil Procedure § 430.10:
+
+NOTICE OF DEMURRER must state the SPECIFIC statutory ground(s) from CCP § 430.10:
+- (a) The court has no jurisdiction of the subject of the cause of action alleged
+- (b) The person who filed the pleading does not have the legal capacity to sue
+- (c) There is another action pending between the same parties on the same cause of action
+- (d) There is a defect or misjoinder of parties
+- (e) The pleading does not state facts sufficient to constitute a cause of action [MOST COMMON]
+- (f) The pleading is uncertain - ambiguous or unintelligible
+- (g) In an action on contract, cannot ascertain whether contract is written, oral, or implied
+- (h) No certificate filed as required by CCP § 411.35 or § 411.36
+
+FORMAT the Notice as: "Defendant demurs to Plaintiff's [Complaint/specific cause of action] pursuant to CCP § 430.10, subdivision [letter], on the ground that [state the specific ground]."
+
+APPLICABLE LAW section MUST include:
+1. Full text of CCP § 430.10 subdivision(s) being invoked
+2. Standard of review: "A demurrer tests the legal sufficiency of the complaint" (Blank v. Kirwan (1985) 39 Cal.3d 311)
+3. Rule that facts alleged must be accepted as true for purposes of demurrer
+4. Relevant case law supporting the specific ground
+
+ARGUMENT section must:
+1. Identify each cause of action being challenged
+2. Explain specifically WHY the pleading fails under the cited § 430.10 ground
+3. For § 430.10(e): Show what essential element is missing or inadequately pled
+4. For § 430.10(f): Identify the specific ambiguous or unintelligible language
+
+Include: (1) Notice of Demurrer citing specific CCP § 430.10 subdivision(s), (2) Demurrer with specification of grounds, (3) Memorandum of Points and Authorities with statutory text in Applicable Law, (4) Meet and confer declaration per CCP § 430.41`
       },
       'motion-to-strike': {
         title: 'MOTION TO STRIKE',
@@ -235,8 +263,29 @@ Respond with ONLY the motion type ID:`
       },
       'ex-parte-application': {
         title: 'EX PARTE APPLICATION',
-        statutes: 'Cal. Rules of Court 3.1200-3.1207',
-        format: 'Include: (1) Application, (2) Memorandum of Points and Authorities, (3) Declaration showing irreparable harm and notice attempts'
+        statutes: 'Cal. Rules of Court 3.1200-3.1207, 3.1332',
+        format: `Use this EXACT template format for the Notice/Application:
+
+---BEGIN NOTICE TEMPLATE---
+TO ALL PARTIES AND TO THEIR RESPECTIVE COUNSEL OF RECORD:
+
+PLEASE TAKE NOTICE that on [HEARING DATE] at [HEARING TIME] in Department [DEPARTMENT] of the [COUNTY] Superior Court, located at [COURT ADDRESS], [MOVING PARTY TYPE] [MOVING PARTY NAME] (hereinafter referred to as "[MOVING PARTY TYPE]") hereby applies ex parte for the following orders:
+
+[RELIEF REQUESTED - Insert the relief sought from the user's input]
+
+STATEMENT OF EXIGENT CIRCUMSTANCES AND IRREPARABLE HARM
+
+The need for the ex parte hearing is due to the following:
+
+[EXIGENT CIRCUMSTANCES - Extract from the user's motion description]
+
+Based upon the above, good cause exists to grant [SUMMARY OF REQUESTED RELIEF]. The requested relief will not prejudice the parties to this action. This application is based upon California Rules of Court, Rules 3.1200-3.1207 and 3.1332, as well as the attached Memorandum of Points and Authorities, Declaration of [ATTORNEY NAME], Esq., and upon all of the pleadings and records contained in the Court file herein, and upon such oral and documentary evidence as may be presented at time for hearing on this application.
+---END NOTICE TEMPLATE---
+
+After the Notice, include:
+(1) Memorandum of Points and Authorities explaining the legal basis for the ex parte relief
+(2) Declaration of [ATTORNEY NAME] showing irreparable harm, exigent circumstances, and notice attempts to opposing parties (per Cal. Rules of Court 3.1204)
+(3) Proposed Order granting the requested relief`
       },
     }
 
@@ -341,7 +390,15 @@ I. INTRODUCTION
 [Brief overview of the motion based on the situation described]
 
 II. STATEMENT OF FACTS
-[Detailed factual background from the client's description]
+[Use this template structure:
+
+Paragraph 1: "This matter stems from [core facts giving rise to this motion - what happened, who is involved, key dates and events]."
+
+Paragraph 2: "On [COMPLAINT DATE if known], [Plaintiff/Petitioner] filed the instant action alleging [causes of action/nature of claims]. [Describe procedural history: discovery conducted or sought, meet and confer efforts, any previous motions, continuances granted]. Trial is currently set for [TRIAL DATE if known], or 'No trial date has been set.'"
+
+Paragraph 3: "[Summarize the specific relief being sought and why it is necessary based on the facts above. Connect the factual background to what the moving party needs from the Court.]"
+
+Write in third person, past tense for historical facts. Be specific with dates and names when provided.]
 
 III. APPLICABLE LAW
 [Relevant statutes and legal standards]
@@ -478,54 +535,45 @@ DATA ISOLATION: This is a single user session. Do not reference any external inf
     }
     const motion = data.choices[0].message.content.trim()
 
-    // Generate a summarized relief statement for the Notice of Motion
-    // This transforms the user's plain-language input into proper legal language
+    // Generate a comprehensive 3-sentence summary for the Notice of Motion
+    // This summarizes facts, liability, damages, and relief sought
     let noticeReliefSummary = caseRelief || ''
     
-    if (caseRelief && caseRelief.length > 100) {
-      // Only summarize if the input is substantial
-      const reliefSummaryPrompt = `You are a California civil litigation attorney. Convert the following client request into a single, professional sentence suitable for a Notice of Motion.
+    // Use the full motion description (facts + relief combined) for better summarization
+    const fullMotionInput = caseFacts + (caseRelief ? '\n\n' + caseRelief : '')
+    
+    if (fullMotionInput && fullMotionInput.length > 50) {
+      // Generate comprehensive summary
+      const summaryPrompt = `You are a California civil litigation attorney. Create a concise 3-sentence summary of this motion for the Notice of Motion section.
 
-CLIENT'S REQUEST:
-${caseRelief}
+MOTION INPUT (Facts and Relief):
+${fullMotionInput}
 
 MOTION TYPE: ${config.title}
 MOVING PARTY: ${movingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'}
 ${movingParty === 'plaintiff' ? 'PLAINTIFF' : 'DEFENDANT'} NAME: ${movingParty === 'plaintiff' ? plaintiffNames : defendantNames}
+OPPOSING PARTY: ${opposingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'} ${opposingParty === 'plaintiff' ? plaintiffNames : defendantNames}
 
 OUTPUT FORMAT:
-Write ONE sentence that completes: "...will move the Court for an order [YOUR OUTPUT HERE]"
+Write EXACTLY 3 sentences that will follow "...will move the Court for an order [RELIEF]." in the Notice of Motion:
 
-EXAMPLE INPUTS AND OUTPUTS:
+Sentence 1: Briefly state the KEY FACTS that give rise to this motion (what happened, when, who is involved)
+Sentence 2: Explain the legal issue or harm caused (liability, prejudice, or damages)  
+Sentence 3: State the specific relief being sought from the Court
 
-Input: "the third cause of action is false, it needs to be stricken THIRD CAUSE OF ACTION: NEGLIGENT HIRING AND SUPERVISION (CACI 426) 21. Plaintiff incorporates..."
-Output: "striking the Third Cause of Action for Negligent Hiring and Supervision from Plaintiff's Complaint in its entirety on the grounds that it fails to state facts sufficient to constitute a cause of action"
-
-Input: "I need this cause of action removed: FOURTH CAUSE OF ACTION: INTENTIONAL INFLICTION OF EMOTIONAL DISTRESS..."
-Output: "striking the Fourth Cause of Action for Intentional Infliction of Emotional Distress from Plaintiff's Complaint in its entirety"
-
-Input: "strike paragraph 4-9: 4. Plaintiff Emily Chen began her employment... [full paragraph text]"
-Output: "striking paragraphs 4 through 9 from Plaintiff's Complaint as irrelevant, false, or improper matter pursuant to Code of Civil Procedure section 436"
-
-Input: "strike paragraphs 10, 11, and 12 from the complaint - they contain false allegations"
-Output: "striking paragraphs 10, 11, and 12 from Plaintiff's Complaint as false or improper matter"
-
-Input: "Defendant hasn't provided discovery responses for 3 months"
-Output: "compelling Defendant to provide complete responses to all outstanding discovery requests within 10 days and for monetary sanctions"
-
-Input: "The second cause of action for fraud should be dismissed"
-Output: "sustaining Defendant's demurrer to the Second Cause of Action for Fraud without leave to amend"
+EXAMPLE OUTPUT:
+"granting a continuance of the trial date. This motion arises from Defendant's failure to respond to discovery requests served on March 1, 2024, despite multiple meet and confer attempts. The outstanding discovery is critical to Plaintiff's case preparation and Defendant's delay has caused substantial prejudice. Moving party respectfully requests the Court continue the trial date by 90 days and award monetary sanctions for the costs incurred in bringing this motion"
 
 CRITICAL RULES:
-1. EXTRACT the key information: cause of action name/number OR paragraph numbers
-2. Do NOT include the full paragraphs of allegations - just identify WHAT should be stricken
-3. Do NOT include the introductory phrase "will move the Court for an order" - just the relief portion
-4. Keep it to ONE concise sentence using proper California legal terminology
-5. No period at the end
-6. For paragraph strikes, summarize as "striking paragraphs X through Y" or "striking paragraphs X, Y, and Z"`
+1. Start with a SHORT relief clause (what order is being sought) - this completes "will move the Court for an order..."
+2. Follow with exactly 3 sentences covering facts, harm/liability, and specific relief
+3. Use professional legal language appropriate for California Superior Court
+4. Do NOT include party names in the relief clause - use "Moving party" or party designations
+5. Keep the entire summary under 100 words
+6. No quotation marks in your output`
 
       try {
-        console.log(`[AI] Starting relief summarization for input length: ${caseRelief.length}`)
+        console.log(`[AI] Starting motion summarization for input length: ${fullMotionInput.length}`)
         
         const reliefResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -538,12 +586,12 @@ CRITICAL RULES:
             messages: [
               { 
                 role: 'system', 
-                content: 'You are a legal drafting assistant. Your task is to summarize relief requests into proper legal language for a Notice of Motion. Be concise and professional. Output ONLY the relief clause - no explanations.' 
+                content: 'You are a legal drafting assistant specializing in California civil procedure. Create concise, professional summaries for Notice of Motion documents. Your summaries must cover the key facts, the legal harm or issue, and the specific relief sought. Be direct and use proper legal terminology.' 
               },
-              { role: 'user', content: reliefSummaryPrompt }
+              { role: 'user', content: summaryPrompt }
             ],
             temperature: 0.3,
-            max_tokens: 200,
+            max_tokens: 300,
           })
         })
 
@@ -551,27 +599,26 @@ CRITICAL RULES:
           const reliefData = await reliefResponse.json()
           const summarized = reliefData.choices[0]?.message?.content?.trim()
           if (summarized) {
-            // Clean up the response - remove quotes and trailing periods
+            // Clean up the response - remove quotes
             noticeReliefSummary = summarized
               .replace(/^["']|["']$/g, '') // Remove surrounding quotes
-              .replace(/\.$/g, '') // Remove trailing period
-            console.log(`[AI] Successfully summarized relief: ${noticeReliefSummary.substring(0, 100)}...`)
+            console.log(`[AI] Successfully generated motion summary: ${noticeReliefSummary.substring(0, 150)}...`)
           } else {
-            console.error('[AI] Relief summarization returned empty response')
+            console.error('[AI] Motion summarization returned empty response')
           }
         } else {
           // Log error details when API returns non-OK status
           const errorText = await reliefResponse.text()
-          console.error(`[AI] Relief summarization API error: ${reliefResponse.status} - ${errorText.substring(0, 200)}`)
+          console.error(`[AI] Motion summarization API error: ${reliefResponse.status} - ${errorText.substring(0, 200)}`)
         }
       } catch (reliefError) {
-        console.error('[AI] Relief summarization exception:', reliefError)
-        // Keep the original caseRelief if summarization fails
+        console.error('[AI] Motion summarization exception:', reliefError)
+        // Keep the original input if summarization fails
       }
     }
 
     // AUDIT LOG - includes user ID for security tracking, no cross-user data
-    console.log(`[AUDIT] User ${user.id} generated ${detectedMotionType} for case ${caseId || 'standalone'} - isolated session`)
+    console.log(`[AUDIT] ${user ? `User ${user.id}` : 'Trial user'} generated ${detectedMotionType} for case ${caseId || 'standalone (trial mode)'} - isolated session`)
 
     return NextResponse.json({ 
       motion,

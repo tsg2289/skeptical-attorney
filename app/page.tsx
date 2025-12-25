@@ -154,6 +154,19 @@ export default function Home() {
                 </div>
               </div>
             </Link>
+
+            <Link href="/services/status-report" className="group">
+              <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all hover-lift h-full">
+                <div className="text-blue-600 mb-6 text-5xl">📊</div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-4 group-hover:text-blue-600 transition-colors">
+                  Status Report
+                </h3>
+                <p className="text-gray-600 leading-relaxed mb-6">Generate comprehensive case status reports with AI-powered analysis and professional formatting.</p>
+                <div className="flex items-center text-blue-600 font-semibold group-hover:translate-x-2 transition-transform">
+                  Try It →
+                </div>
+              </div>
+            </Link>
           </div>
         </div>
       </section>

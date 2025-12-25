@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { sanitizeInput, validateAnswerInput, rateLimit, handleApiError } from '@/lib/utils/answerUtils'
 import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize'
 
@@ -867,6 +868,15 @@ Attorney for ${D} ${cleanDefendantName}`
 
 export async function POST(request: NextRequest) {
   try {
+    // SECURITY: Authentication check
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      console.warn('[SECURITY] Attempted to generate answer without authentication')
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     // Rate limiting
     const clientIP = request.headers.get('x-forwarded-for') || 'unknown'
     if (!rateLimit.isAllowed(clientIP, 5, 60000)) {
