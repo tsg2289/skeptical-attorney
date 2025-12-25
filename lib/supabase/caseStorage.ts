@@ -154,6 +154,11 @@ export interface SavedNoticeOfMotion {
 
 export interface SavedMemorandum {
   introduction?: string
+  exigentCircumstances?: string
+  irreparableHarm?: string
+  noticeDate?: string
+  noticeTime?: string
+  noticeMethod?: string
   facts?: string
   law?: string
   argument?: string
@@ -163,6 +168,7 @@ export interface SavedMemorandum {
     title: string
     content: string
   }>
+  leaveToAmend?: string
   conclusion?: string
 }
 
