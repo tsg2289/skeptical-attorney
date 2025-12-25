@@ -1402,14 +1402,13 @@ export async function POST(request: NextRequest) {
               
             } else if (summaryType === 'status_report') {
               summary = `📋 **Status Report: ${caseData.caseName}**\n\n`
-              summary += `**Client:** ${caseData.clientName || 'N/A'}\n`
+              summary += `**Client:** ${caseData.client || 'N/A'}\n`
               summary += `**Case Number:** ${caseData.caseNumber || 'Pending'}\n`
               summary += `**Phase:** ${caseData.casePhase || 'Active'}\n`
               summary += `**Case Type:** ${caseData.caseType || 'N/A'}\n\n`
               
               if (caseData.court) {
                 summary += `**Court:** ${caseData.court}\n`
-                if (caseData.judge) summary += `**Judge:** ${caseData.judge}\n`
               }
               
               summary += `\n**Billing Summary:**\n`
@@ -1421,14 +1420,9 @@ export async function POST(request: NextRequest) {
               
             } else if (summaryType === 'case_overview') {
               summary = `📁 **Case Overview: ${caseData.caseName}**\n\n`
-              summary += `**Client:** ${caseData.clientName || 'N/A'}\n`
-              summary += `**Opposing Party:** ${caseData.opposingPartyName || 'N/A'}\n`
+              summary += `**Client:** ${caseData.client || 'N/A'}\n`
               summary += `**Case Type:** ${caseData.caseType || 'N/A'}\n`
               summary += `**Phase:** ${caseData.casePhase || 'Active'}\n\n`
-              
-              if (caseData.dateOfLoss) {
-                summary += `**Date of Incident:** ${caseData.dateOfLoss}\n`
-              }
               
               if (caseData.court) {
                 summary += `**Venue:** ${caseData.court}\n`
@@ -1957,14 +1951,13 @@ export async function POST(request: NextRequest) {
               
             } else if (summaryType === 'status_report') {
               summary = `📋 **Status Report: ${caseData.case_name || matchedCase.caseName}**\n\n`
-              summary += `**Client:** ${caseData.client_name || 'N/A'}\n`
+              summary += `**Client:** ${caseData.client || 'N/A'}\n`
               summary += `**Case Number:** ${caseData.case_number || 'Pending'}\n`
               summary += `**Phase:** ${caseData.case_phase || 'Active'}\n`
               summary += `**Type:** ${caseData.case_type || 'N/A'}\n\n`
               
               if (caseData.court) {
                 summary += `**Court:** ${caseData.court}\n`
-                if (caseData.judge) summary += `**Judge:** ${caseData.judge}\n`
               }
               
               summary += `\n**Hours Logged:** ${totalHours.toFixed(1)}\n`
@@ -1975,14 +1968,9 @@ export async function POST(request: NextRequest) {
               
             } else if (summaryType === 'case_overview') {
               summary = `📁 **Case Overview: ${caseData.case_name || matchedCase.caseName}**\n\n`
-              summary += `**Client:** ${caseData.client_name || 'N/A'}\n`
-              summary += `**Opposing Party:** ${caseData.opposing_party_name || 'N/A'}\n`
+              summary += `**Client:** ${caseData.client || 'N/A'}\n`
               summary += `**Case Type:** ${caseData.case_type || 'N/A'}\n`
               summary += `**Current Phase:** ${caseData.case_phase || 'Active'}\n\n`
-              
-              if (caseData.date_of_loss) {
-                summary += `**Date of Incident:** ${caseData.date_of_loss}\n`
-              }
               
               if (caseData.court) {
                 summary += `**Venue:** ${caseData.court}\n`
