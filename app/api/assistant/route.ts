@@ -32,6 +32,7 @@ interface BillingAction {
     caseName: string
     hours: number
     description: string
+    id?: string
   }
 }
 
