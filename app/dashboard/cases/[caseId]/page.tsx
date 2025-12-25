@@ -293,9 +293,9 @@ export default function CaseDetailPage() {
       }
     }
     
-    window.addEventListener('assistantDeadlineAdded', handleDeadlineAdded as EventListener)
+    window.addEventListener('assistantDeadlineAdded', handleDeadlineAdded as unknown as EventListener)
     return () => {
-      window.removeEventListener('assistantDeadlineAdded', handleDeadlineAdded as EventListener)
+      window.removeEventListener('assistantDeadlineAdded', handleDeadlineAdded as unknown as EventListener)
     }
   }, [caseId])
 
