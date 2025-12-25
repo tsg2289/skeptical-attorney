@@ -490,6 +490,7 @@ interface AssistantContext {
     caseName: string
     caseNumber: string
     caseType?: string
+    casePhase?: string
     client?: string
     trialDate?: string
     mscDate?: string
@@ -790,6 +791,7 @@ export async function POST(request: NextRequest) {
           caseName: caseData.case_name,
           caseNumber: caseData.case_number,
           caseType: caseData.case_type,
+          casePhase: caseData.case_phase,
           client: caseData.client,
           trialDate: caseData.trial_date,
           mscDate: caseData.msc_date,
