@@ -416,7 +416,12 @@ export const documentStorage = {
       return []
     }
     
-    return (data || []).map(doc => ({
+    return (data || []).map((doc: {
+      id: string
+      file_name: string
+      category: DocumentCategory | null
+      extracted_text: string
+    }) => ({
       id: doc.id,
       fileName: doc.file_name,
       category: doc.category,
