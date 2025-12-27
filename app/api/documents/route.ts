@@ -208,7 +208,19 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const documents = (data || []).map(doc => ({
+    const documents = (data || []).map((doc: {
+      id: string
+      case_id: string
+      file_name: string
+      file_type: string
+      file_size: number
+      category: DocumentCategory | null
+      description: string | null
+      extraction_status: string
+      extracted_text: string | null
+      created_at: string
+      updated_at: string
+    }) => ({
       id: doc.id,
       caseId: doc.case_id,
       fileName: doc.file_name,
