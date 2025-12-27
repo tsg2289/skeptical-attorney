@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, FileDown, Save, Check, Sparkles, ChevronDown, ChevronUp, Eye } from 'lucide-react'
+import { Plus, FileDown, Save, Check, Sparkles, ChevronDown, ChevronUp, Eye, FolderPlus } from 'lucide-react'
 import { 
   CaseFrontend, 
   supabaseCaseStorage, 
@@ -9,6 +9,7 @@ import {
   DiscoveryCategory,
   DiscoveryItem
 } from '@/lib/supabase/caseStorage'
+import { aiDocumentStorage } from '@/lib/supabase/aiDocumentStorage'
 import CategorySection from './CategorySection'
 import DefinitionsSection from './DefinitionsSection'
 import DiscoveryAIPanel from './DiscoveryAIPanel'
@@ -71,6 +72,8 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
   // Save state
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [savingToRepo, setSavingToRepo] = useState(false)
+  const [repoSaveSuccess, setRepoSaveSuccess] = useState(false)
   
   // Collapsed sections
   const [definitionsExpanded, setDefinitionsExpanded] = useState(true)
@@ -284,6 +287,43 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
     }
   }
 
+  // Save to AI Document Repository
+  const handleSaveToRepository = async () => {
+    setSavingToRepo(true)
+    setRepoSaveSuccess(false)
+
+    try {
+      const caseName = caseData.caseName || 'Untitled Case'
+      const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      const setNum = document.metadata.setNumber || 1
+      const title = `Interrogatories (Set ${setNum}) - ${caseName} (${dateStr})`
+
+      const result = await aiDocumentStorage.createDocument({
+        caseId: caseData.id,
+        documentType: 'interrogatories',
+        title,
+        description: `Set ${setNum} - ${document.categories.reduce((sum, cat) => sum + cat.items.length, 0)} interrogatories`,
+        content: {
+          document: document,
+          metadata: document.metadata,
+          definitions: document.definitions,
+          categories: document.categories,
+        },
+        status: 'draft',
+      })
+
+      if (result) {
+        setRepoSaveSuccess(true)
+        console.log(`[AUDIT] Interrogatories saved to repository for case: ${caseData.id}`)
+        setTimeout(() => setRepoSaveSuccess(false), 3000)
+      }
+    } catch (error) {
+      console.error('Error saving to repository:', error)
+    } finally {
+      setSavingToRepo(false)
+    }
+  }
+
   // Handle AI suggestions
   const handleAISuggestions = (categoryId: string, suggestions: string[]) => {
     setDocument(prev => {
@@ -355,6 +395,32 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
                 >
                   <Save className="w-4 h-4" />
                   {saving ? 'Saving...' : 'Save Draft'}
+                </button>
+                <button
+                  onClick={handleSaveToRepository}
+                  disabled={savingToRepo}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors ${
+                    repoSaveSuccess 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  } disabled:opacity-50`}
+                >
+                  {savingToRepo ? (
+                    <>
+                      <Save className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : repoSaveSuccess ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Saved!
+                    </>
+                  ) : (
+                    <>
+                      <FolderPlus className="w-4 h-4" />
+                      Save to Repository
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => setShowPreview(true)}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { 
   FileText, 
   Upload, 
@@ -58,9 +58,64 @@ export default function DocumentRepository({
   const [filterCategory, setFilterCategory] = useState<DocumentCategory | 'all'>('all')
   const [previewDoc, setPreviewDoc] = useState<CaseDocument | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewExtractedText, setPreviewExtractedText] = useState<string | null>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
+
+  // Listen for expand repository events from AI Assistant
+  useEffect(() => {
+    const handleExpandRepository = (event: CustomEvent<{ category: string | null }>) => {
+      // Expand the repository
+      setIsExpanded(true)
+      // Set filter category if provided
+      if (event.detail.category) {
+        setFilterCategory(event.detail.category as DocumentCategory)
+      }
+    }
+    
+    window.addEventListener('expandDocumentRepository', handleExpandRepository as EventListener)
+    return () => {
+      window.removeEventListener('expandDocumentRepository', handleExpandRepository as EventListener)
+    }
+  }, [])
+  
+  // Listen for open document events from AI Assistant
+  useEffect(() => {
+    const handleOpenDocument = async (event: CustomEvent<{ documentId: string; fileName: string }>) => {
+      // Find the document in our list
+      const doc = documents.find(d => d.id === event.detail.documentId)
+      if (doc) {
+        // Expand the repository first
+        setIsExpanded(true)
+        // Trigger preview
+        setPreviewDoc(doc)
+        setLoadingPreview(true)
+        setPreviewExtractedText(null)
+        
+        try {
+          const response = await fetch(`/api/documents/${doc.id}`)
+          if (!response.ok) throw new Error('Failed to load document')
+          
+          const data = await response.json()
+          setPreviewUrl(data.document.downloadUrl)
+          // Store extracted text for text-based document preview
+          if (data.document.extractedText) {
+            setPreviewExtractedText(data.document.extractedText)
+          }
+        } catch (error) {
+          console.error('Preview error:', error)
+        } finally {
+          setLoadingPreview(false)
+        }
+      }
+    }
+    
+    window.addEventListener('assistantOpenDocument', handleOpenDocument as EventListener)
+    return () => {
+      window.removeEventListener('assistantOpenDocument', handleOpenDocument as EventListener)
+    }
+  }, [documents])
 
   // Filter documents by category
   const filteredDocuments = filterCategory === 'all' 
@@ -169,6 +224,7 @@ export default function DocumentRepository({
   const handlePreview = async (doc: CaseDocument) => {
     setPreviewDoc(doc)
     setLoadingPreview(true)
+    setPreviewExtractedText(null)
 
     try {
       const response = await fetch(`/api/documents/${doc.id}`)
@@ -176,6 +232,10 @@ export default function DocumentRepository({
       
       const data = await response.json()
       setPreviewUrl(data.document.downloadUrl)
+      // Store extracted text for text-based document preview
+      if (data.document.extractedText) {
+        setPreviewExtractedText(data.document.extractedText)
+      }
     } catch (error) {
       console.error('Preview error:', error)
     } finally {
@@ -461,54 +521,128 @@ export default function DocumentRepository({
         </div>
       )}
 
-      {/* Preview Modal */}
+      {/* Preview Modal - Styled like Demand Letter Preview */}
       {previewDoc && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-semibold text-gray-900">{previewDoc.fileName}</h3>
-              <button 
-                onClick={() => { setPreviewDoc(null); setPreviewUrl(null); }}
-                className="p-1 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-auto p-4">
-              {loadingPreview ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-600 border-t-transparent" />
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+            onClick={() => { setPreviewDoc(null); setPreviewUrl(null); setPreviewExtractedText(null); }}
+          />
+          
+          {/* Modal */}
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header - Blue gradient like demand letter */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+                <div>
+                  <h2 className="text-2xl font-bold">Document Preview</h2>
+                  <p className="text-sm text-blue-100 mt-1">{previewDoc.fileName}</p>
                 </div>
-              ) : previewUrl ? (
-                ['jpg', 'png', 'webp'].includes(previewDoc.fileType) ? (
-                  <img 
-                    src={previewUrl} 
-                    alt={previewDoc.fileName}
-                    className="max-w-full mx-auto rounded-lg"
-                  />
-                ) : previewDoc.fileType === 'pdf' ? (
-                  <iframe
-                    src={previewUrl}
-                    className="w-full h-[600px] rounded-lg border"
-                    title={previewDoc.fileName}
-                  />
-                ) : (
-                  <div className="text-center py-8">
-                    <FileText className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                    <p className="text-gray-600 mb-4">Preview not available for this file type</p>
-                    <button
-                      onClick={() => handleDownload(previewDoc)}
-                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                    >
-                      Download File
-                    </button>
+                <button
+                  onClick={() => { setPreviewDoc(null); setPreviewUrl(null); setPreviewExtractedText(null); }}
+                  className="text-white hover:text-blue-100 transition-colors p-2 rounded-full hover:bg-blue-800"
+                  aria-label="Close preview"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Preview Content */}
+              <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
+                {loadingPreview ? (
+                  <div className="flex items-center justify-center h-64">
+                    <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-600 border-t-transparent" />
                   </div>
-                )
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  Failed to load preview
-                </div>
-              )}
+                ) : previewUrl ? (
+                  // Image preview
+                  ['jpg', 'png', 'webp'].includes(previewDoc.fileType) ? (
+                    <div className="max-w-3xl mx-auto bg-white p-8 shadow-lg">
+                      <img 
+                        src={previewUrl} 
+                        alt={previewDoc.fileName}
+                        className="max-w-full mx-auto rounded-lg"
+                      />
+                    </div>
+                  ) : previewDoc.fileType === 'pdf' ? (
+                    // PDF preview
+                    <div className="max-w-3xl mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+                      <iframe
+                        src={previewUrl}
+                        className="w-full h-[600px]"
+                        title={previewDoc.fileName}
+                      />
+                    </div>
+                  ) : previewExtractedText ? (
+                    // Text content preview for docx, txt files - styled like demand letter
+                    <div className="max-w-3xl mx-auto bg-white p-8 shadow-lg">
+                      {/* Document Header */}
+                      <div className="mb-6 text-center border-b border-gray-200 pb-4">
+                        <p className="text-lg font-bold text-gray-900">{DOCUMENT_CATEGORIES[previewDoc.category].toUpperCase()}</p>
+                        <p className="text-sm text-gray-600">{previewDoc.fileName}</p>
+                        <p className="text-sm text-gray-600">
+                          Uploaded: {new Date(previewDoc.createdAt).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })}
+                        </p>
+                      </div>
+
+                      {/* Document Content - Same styling as demand letter sections */}
+                      <div className="mb-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-3 uppercase tracking-wide underline">
+                          DOCUMENT CONTENT:
+                        </h3>
+                        <div className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm text-justify">
+                          {previewExtractedText}
+                        </div>
+                      </div>
+
+                      {/* Document Footer */}
+                      <div className="mt-12 pt-6 border-t border-gray-200">
+                        <p className="text-sm text-gray-500">
+                          File Size: {formatFileSize(previewDoc.fileSize)} • Type: {previewDoc.fileType.toUpperCase()}
+                        </p>
+                        {previewDoc.description && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            Description: {previewDoc.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    // Fallback for files without extracted text
+                    <div className="max-w-3xl mx-auto bg-white p-8 shadow-lg text-center">
+                      <FileText className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                      <p className="text-gray-600 mb-2">No text content available for preview</p>
+                      <p className="text-gray-400 text-sm mb-4">Text extraction may have failed or is not supported for this file</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="max-w-3xl mx-auto bg-white p-8 shadow-lg text-center">
+                    <AlertCircle className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                    <p className="text-gray-500">Failed to load preview</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Actions - Same style as demand letter */}
+              <div className="flex items-center justify-end gap-4 p-6 border-t border-gray-200 bg-white">
+                <button
+                  onClick={() => { setPreviewDoc(null); setPreviewUrl(null); setPreviewExtractedText(null); }}
+                  className="px-6 py-2 text-gray-700 bg-gray-100 rounded-full font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => handleDownload(previewDoc)}
+                  className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Original
+                </button>
+              </div>
             </div>
           </div>
         </div>

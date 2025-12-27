@@ -12,8 +12,9 @@ import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage';
 import { createClient } from '@/lib/supabase/client';
 import { useTrialMode } from '@/lib/contexts/TrialModeContext';
 import { userProfileStorage, UserProfile } from '@/lib/supabase/userProfileStorage';
-import { RotateCcw, FileText, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import { RotateCcw, FileText, ChevronDown, ChevronUp, CheckCircle, FolderPlus } from 'lucide-react';
 import { DocumentCategory, DOCUMENT_CATEGORIES } from '@/lib/supabase/documentStorage';
+import { aiDocumentStorage } from '@/lib/supabase/aiDocumentStorage';
 
 // Document interface for AI generation
 interface CaseDocumentForAI {
@@ -124,6 +125,8 @@ function StatusReportPageContent() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [savingToRepo, setSavingToRepo] = useState(false);
+  const [repoSaveSuccess, setRepoSaveSuccess] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [reportInfo, setReportInfo] = useState<ReportInfo>({
     caseName: '',
@@ -569,6 +572,70 @@ function StatusReportPageContent() {
       setTimeout(() => setSaveError(null), 5000);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Save to AI Document Repository
+  const handleSaveToRepository = async () => {
+    // SECURITY: Require a valid case ID
+    if (!currentCaseId) {
+      setSaveError('No case selected. Please access this page from the case dashboard.');
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
+
+    // SECURITY: Validate UUID format
+    if (!UUID_REGEX.test(currentCaseId)) {
+      console.warn('[SECURITY] Attempted to save to repository with invalid case ID format - blocked');
+      setSaveError('Invalid case ID. Cannot save to repository.');
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
+
+    // SECURITY: Block in trial mode
+    if (isTrialMode) {
+      setSaveError('Saving to repository is disabled in trial mode.');
+      setTimeout(() => setSaveError(null), 5000);
+      return;
+    }
+
+    setSavingToRepo(true);
+    setRepoSaveSuccess(false);
+    setSaveError(null);
+
+    try {
+      // Build document title
+      const caseName = currentCase?.caseName || 'Untitled Case';
+      const dateStr = reportInfo.reportDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const title = `Status Report - ${caseName} (${dateStr})`;
+
+      // Save to repository
+      const result = await aiDocumentStorage.createDocument({
+        caseId: currentCaseId,
+        documentType: 'status_report',
+        title,
+        description: reportInfo.caseNumber ? `Case No. ${reportInfo.caseNumber}` : undefined,
+        content: {
+          sections: sections,
+          reportInfo: reportInfo,
+        },
+        status: 'draft',
+      });
+
+      if (result) {
+        setRepoSaveSuccess(true);
+        console.log(`[AUDIT] Status report saved to repository for case: ${currentCaseId}`);
+        setTimeout(() => setRepoSaveSuccess(false), 3000);
+      } else {
+        setSaveError('Failed to save to repository. Please try again.');
+        setTimeout(() => setSaveError(null), 5000);
+      }
+    } catch (error) {
+      console.error('Error saving to repository:', error);
+      setSaveError('An error occurred while saving to repository. Please try again.');
+      setTimeout(() => setSaveError(null), 5000);
+    } finally {
+      setSavingToRepo(false);
     }
   };
 
@@ -1097,6 +1164,46 @@ function StatusReportPageContent() {
                   )}
                 </button>
               )}
+
+              {/* Save to Repository Button */}
+              {!isTrialMode && (
+                <button 
+                  onClick={handleSaveToRepository}
+                  disabled={savingToRepo || !currentCaseId}
+                  className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                    savingToRepo ? 'opacity-50 cursor-not-allowed' : ''
+                  } ${!currentCaseId 
+                    ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
+                    : repoSaveSuccess 
+                      ? 'bg-green-600 text-white'
+                      : 'bg-purple-600 text-white hover:bg-purple-700'
+                  }`}
+                  title={!currentCaseId ? 'Access from case dashboard to enable saving' : 'Save to document repository'}
+                >
+                  {savingToRepo ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      <span>Saving...</span>
+                    </>
+                  ) : repoSaveSuccess ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Saved to Repository!</span>
+                    </>
+                  ) : (
+                    <>
+                      <FolderPlus className="w-4 h-4" />
+                      <span>Save to Repository</span>
+                    </>
+                  )}
+                </button>
+              )}
+
               {/* New Report Button */}
               <button
                 onClick={handleNewReport}

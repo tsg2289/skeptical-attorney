@@ -42,7 +42,26 @@ interface BillingAction {
   }
 }
 
-type AssistantAction = DeadlineAction | NavigationAction | BillingAction
+interface RepositoryNavigationAction {
+  type: 'navigate_to_repository'
+  data: {
+    caseId: string
+    category: string | null
+    caseName?: string
+  }
+}
+
+interface OpenDocumentAction {
+  type: 'open_document'
+  data: {
+    documentId: string
+    fileName: string
+    caseId: string
+    caseName?: string
+  }
+}
+
+type AssistantAction = DeadlineAction | NavigationAction | BillingAction | RepositoryNavigationAction | OpenDocumentAction
 
 interface Position {
   x: number
@@ -354,6 +373,33 @@ export function AssistantProvider({ children }: { children: ReactNode }) {
                 id: action.data.id
               }
             }))
+          }
+          
+          if (action.type === 'navigate_to_repository') {
+            // Dispatch custom event to scroll to and expand Document Repository
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('assistantNavigateToRepository', { 
+                detail: {
+                  caseId: action.data.caseId,
+                  category: action.data.category,
+                  caseName: action.data.caseName
+                }
+              }))
+            }, 300)
+          }
+          
+          if (action.type === 'open_document') {
+            // Dispatch custom event to open/preview a specific document
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('assistantOpenDocument', { 
+                detail: {
+                  documentId: action.data.documentId,
+                  fileName: action.data.fileName,
+                  caseId: action.data.caseId,
+                  caseName: action.data.caseName
+                }
+              }))
+            }, 300)
           }
         }
       }

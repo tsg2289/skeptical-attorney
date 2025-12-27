@@ -14,6 +14,8 @@ import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { CALIFORNIA_COUNTIES } from '@/lib/constants/californiaCounties'
 import DocumentRepository from './DocumentRepository'
+import AIDocumentRepository from './AIDocumentRepository'
+import EvidenceRepository from './EvidenceRepository'
 import { DocumentCategory } from '@/lib/supabase/documentStorage'
 
 // Document interface for the case detail page
@@ -210,6 +212,23 @@ export default function CaseDetailPage() {
   // Documents state
   const [documents, setDocuments] = useState<CaseDocumentSummary[]>([])
   
+  // Collapsible section states
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
+    plaintiffs: false,
+    defendants: false,
+    facts: false,
+    notes: false,
+    trialDate: false,
+    deadlines: false,
+  })
+
+  const toggleSection = (section: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
+  }
+  
   const [newPartyForm, setNewPartyForm] = useState<Omit<Party, 'id' | 'attorneys'>>({
     name: '',
     type: 'individual',
@@ -332,6 +351,28 @@ export default function CaseDetailPage() {
     window.addEventListener('assistantDeadlineAdded', handleDeadlineAdded as unknown as EventListener)
     return () => {
       window.removeEventListener('assistantDeadlineAdded', handleDeadlineAdded as unknown as EventListener)
+    }
+  }, [caseId])
+  
+  // Listen for navigate to repository events from AI Assistant
+  useEffect(() => {
+    const handleNavigateToRepository = (event: CustomEvent<{ caseId: string; category: string | null }>) => {
+      if (event.detail.caseId === caseId) {
+        // Scroll to the document repository section
+        const repoSection = document.getElementById('document-repository-section')
+        if (repoSection) {
+          repoSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          // Dispatch event to expand repository if collapsed and filter by category
+          window.dispatchEvent(new CustomEvent('expandDocumentRepository', {
+            detail: { category: event.detail.category }
+          }))
+        }
+      }
+    }
+    
+    window.addEventListener('assistantNavigateToRepository', handleNavigateToRepository as unknown as EventListener)
+    return () => {
+      window.removeEventListener('assistantNavigateToRepository', handleNavigateToRepository as unknown as EventListener)
     }
   }, [caseId])
 
@@ -951,22 +992,40 @@ export default function CaseDetailPage() {
           <div>
             {/* Plaintiffs Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-              <div className="flex justify-between items-center mb-4">
+              <div 
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('plaintiffs')}
+              >
                 <div className="flex items-center space-x-2">
                   <Users className="h-6 w-6 text-blue-600" />
                   <h2 className="text-xl font-bold text-gray-900">Plaintiffs</h2>
+                  <span className="text-sm text-gray-500">({plaintiffs.length})</span>
                 </div>
-                {isEditing && (
-                  <button
-                    onClick={() => setShowPlaintiffForm(!showPlaintiffForm)}
-                    className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add</span>
+                <div className="flex items-center space-x-2">
+                  {isEditing && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowPlaintiffForm(!showPlaintiffForm)
+                      }}
+                      className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Add</span>
+                    </button>
+                  )}
+                  <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                    {collapsedSections.plaintiffs ? (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                    )}
                   </button>
-                )}
+                </div>
               </div>
               
+              {!collapsedSections.plaintiffs && (
+              <div className="mt-4">
               {/* Add Plaintiff Form */}
               {isEditing && showPlaintiffForm && (
                 <div className="mb-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
@@ -1284,6 +1343,8 @@ export default function CaseDetailPage() {
                   ))}
                 </div>
               )}
+              </div>
+              )}
             </div>
           </div>
 
@@ -1291,22 +1352,40 @@ export default function CaseDetailPage() {
           <div>
             {/* Defendants Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-              <div className="flex justify-between items-center mb-4">
+              <div 
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('defendants')}
+              >
                 <div className="flex items-center space-x-2">
                   <Users className="h-6 w-6 text-red-600" />
                   <h2 className="text-xl font-bold text-gray-900">Defendants</h2>
+                  <span className="text-sm text-gray-500">({defendants.length})</span>
                 </div>
-                {isEditing && (
-                  <button
-                    onClick={() => setShowDefendantForm(!showDefendantForm)}
-                    className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add</span>
+                <div className="flex items-center space-x-2">
+                  {isEditing && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowDefendantForm(!showDefendantForm)
+                      }}
+                      className="flex items-center space-x-1 text-blue-600 hover:text-blue-700 text-sm"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Add</span>
+                    </button>
+                  )}
+                  <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                    {collapsedSections.defendants ? (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                    )}
                   </button>
-                )}
+                </div>
               </div>
               
+              {!collapsedSections.defendants && (
+              <div className="mt-4">
               {/* Add Defendant Form */}
               {isEditing && showDefendantForm && (
                 <div className="mb-4 p-4 bg-red-50 rounded-xl border border-red-200">
@@ -1624,6 +1703,8 @@ export default function CaseDetailPage() {
                   ))}
                 </div>
               )}
+              </div>
+              )}
             </div>
           </div>
         </div>
@@ -1633,7 +1714,25 @@ export default function CaseDetailPage() {
           <div className="space-y-6">
             {/* Facts Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Case Facts</h2>
+              <div 
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('facts')}
+              >
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-6 w-6 text-blue-600" />
+                  <h2 className="text-xl font-bold text-gray-900">Case Facts</h2>
+                </div>
+                <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                  {collapsedSections.facts ? (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  )}
+                </button>
+              </div>
+              
+              {!collapsedSections.facts && (
+              <div className="mt-4">
               {isEditing ? (
                 <div className="space-y-4">
                   <textarea
@@ -1658,10 +1757,12 @@ export default function CaseDetailPage() {
                   )}
                 </div>
               )}
+              </div>
+              )}
             </div>
 
-            {/* Document Repository Section */}
-            <div className="mt-6">
+            {/* Document Repository Section (Uploaded Files) */}
+            <div id="document-repository-section" className="mt-6">
               <DocumentRepository
                 caseId={caseId}
                 documents={documents}
@@ -1669,22 +1770,53 @@ export default function CaseDetailPage() {
               />
             </div>
 
+            {/* AI Generated Documents Repository */}
+            <div id="ai-document-repository-section" className="mt-6">
+              <AIDocumentRepository
+                caseId={caseId}
+                caseName={caseItem?.caseName}
+              />
+            </div>
+
+            {/* Evidence Repository */}
+            <div id="evidence-repository-section" className="mt-6">
+              <EvidenceRepository caseId={caseId} />
+            </div>
+
             {/* Notes Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-6">
-              <div className="flex justify-between items-center mb-4">
+              <div 
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('notes')}
+              >
                 <div className="flex items-center space-x-2">
                   <FileText className="h-6 w-6 text-amber-600" />
-                  <h2 className="text-2xl font-bold text-gray-900">Case Notes</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Case Notes</h2>
+                  <span className="text-sm text-gray-500">({notes.length})</span>
                 </div>
-                <button
-                  onClick={() => setShowNoteForm(!showNoteForm)}
-                  className="flex items-center space-x-2 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors"
-                >
-                  <Plus className="h-5 w-5" />
-                  <span>Add Note</span>
-                </button>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowNoteForm(!showNoteForm)
+                    }}
+                    className="flex items-center space-x-2 bg-amber-600 text-white px-4 py-2 rounded-lg hover:bg-amber-700 transition-colors"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>Add Note</span>
+                  </button>
+                  <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                    {collapsedSections.notes ? (
+                      <ChevronDown className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <ChevronUp className="h-5 w-5 text-gray-500" />
+                    )}
+                  </button>
+                </div>
               </div>
 
+              {!collapsedSections.notes && (
+              <div className="mt-4">
               {/* Add Note Form */}
               {showNoteForm && (
                 <div className="mb-6 p-4 bg-amber-50 rounded-xl border border-amber-200">
@@ -1748,14 +1880,31 @@ export default function CaseDetailPage() {
                   </SortableContext>
                 </DndContext>
               )}
+              </div>
+              )}
             </div>
 
             {/* Trial Date Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <Calendar className="h-6 w-6 text-blue-600" />
-                <h2 className="text-2xl font-bold text-gray-900">Trial Date</h2>
+              <div 
+                className="flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('trialDate')}
+              >
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-6 w-6 text-blue-600" />
+                  <h2 className="text-xl font-bold text-gray-900">Trial Date</h2>
+                </div>
+                <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                  {collapsedSections.trialDate ? (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  )}
+                </button>
               </div>
+              
+              {!collapsedSections.trialDate && (
+              <div className="mt-4">
               {isEditing ? (
                 <div className="space-y-4">
                   <div>
@@ -1792,25 +1941,45 @@ export default function CaseDetailPage() {
                   )}
                 </div>
               )}
+              </div>
+              )}
             </div>
           </div>
 
           {/* Right Column - Deadlines */}
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-            <div className="flex justify-between items-center mb-4">
+            <div 
+              className="flex justify-between items-center cursor-pointer"
+              onClick={() => toggleSection('deadlines')}
+            >
               <div className="flex items-center space-x-2">
                 <Clock className="h-6 w-6 text-blue-600" />
-                <h2 className="text-2xl font-bold text-gray-900">Upcoming Deadlines</h2>
+                <h2 className="text-xl font-bold text-gray-900">Upcoming Deadlines</h2>
+                <span className="text-sm text-gray-500">({upcomingDeadlines.length})</span>
               </div>
-              <button
-                onClick={() => setShowDeadlineForm(!showDeadlineForm)}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-5 w-5" />
-                <span>Add Deadline</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setShowDeadlineForm(!showDeadlineForm)
+                  }}
+                  className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                  <span>Add Deadline</span>
+                </button>
+                <button className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                  {collapsedSections.deadlines ? (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronUp className="h-5 w-5 text-gray-500" />
+                  )}
+                </button>
+              </div>
             </div>
 
+            {!collapsedSections.deadlines && (
+            <div className="mt-4">
             {/* Add Deadline Form */}
             {showDeadlineForm && (
               <div className="mb-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
@@ -1948,6 +2117,8 @@ export default function CaseDetailPage() {
                 )}
               </>
             )}
+            </div>
+            )}
           </div>
         </div>
 
@@ -1955,6 +2126,13 @@ export default function CaseDetailPage() {
         <div className="mt-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">Quick Access to Services</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Link
+              href={`/dashboard/cases/${caseItem.id}/litigation-planning`}
+              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
+            >
+              <div className="text-3xl mb-2">📅</div>
+              <div className="text-sm font-medium text-gray-700">Litigation Planning</div>
+            </Link>
             <Link
               href={`/services/demand-letters?caseId=${caseItem.id}`}
               className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"

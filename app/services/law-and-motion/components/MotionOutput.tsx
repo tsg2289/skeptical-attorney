@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, Save, BookOpen, Eye, Download, Trash2, Scale } from 'lucide-react'
+import { FileText, Copy, Check, RotateCcw, Plus, FileIcon, ChevronDown, ChevronUp, X, Save, BookOpen, Eye, Download, Trash2, Scale, FolderPlus } from 'lucide-react'
 import { CaseFrontend, supabaseCaseStorage, MotionSection, MotionDocument } from '@/lib/supabase/caseStorage'
+import { aiDocumentStorage } from '@/lib/supabase/aiDocumentStorage'
 import { 
   downloadMotionDocument, 
   downloadMotionDocuments,
@@ -48,6 +49,8 @@ export default function MotionOutput({
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [savingToRepo, setSavingToRepo] = useState(false)
+  const [repoSaveSuccess, setRepoSaveSuccess] = useState(false)
 
   // Proof of Service state
   const [showProofOfService, setShowProofOfService] = useState(false)
@@ -835,6 +838,67 @@ This motion is based upon this Notice of Motion, the attached Memorandum of Poin
       setTimeout(() => setSaveError(null), 5000)
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Save to AI Document Repository
+  const handleSaveToRepository = async () => {
+    if (!caseData?.id) {
+      setSaveError('No case selected. Please access this page from the case dashboard.')
+      setTimeout(() => setSaveError(null), 5000)
+      return
+    }
+
+    if (isTrialMode) {
+      setSaveError('Saving to repository is disabled in trial mode.')
+      setTimeout(() => setSaveError(null), 5000)
+      return
+    }
+
+    setSavingToRepo(true)
+    setRepoSaveSuccess(false)
+    setSaveError(null)
+
+    try {
+      // Build document title
+      const caseName = caseData.caseName || 'Untitled Case'
+      const motionTitle = getMotionTitle(motionType)
+      const dateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      const title = `${motionTitle} - ${caseName} (${dateStr})`
+
+      // Save to repository
+      const result = await aiDocumentStorage.createDocument({
+        caseId: caseData.id,
+        documentType: 'motion',
+        title,
+        description: `${motionTitle}${captionData?.caseNumber ? ` - Case No. ${captionData.caseNumber}` : ''}`,
+        content: {
+          motionType,
+          sections: sections,
+          captionData: captionData,
+          noticeOfMotion: noticeOfMotion,
+          memorandum: memorandum,
+          declaration: declaration,
+          movingParty: movingParty,
+          noticeText: noticeText,
+        },
+        status: 'draft',
+      })
+
+      if (result) {
+        setRepoSaveSuccess(true)
+        console.log(`[AUDIT] Motion saved to repository for case: ${caseData.id}`)
+        setTimeout(() => setRepoSaveSuccess(false), 3000)
+      } else {
+        setSaveError('Failed to save to repository. Please try again.')
+        setTimeout(() => setSaveError(null), 5000)
+      }
+    } catch (error) {
+      console.error('Error saving to repository:', error)
+      setSaveError('An error occurred while saving to repository. Please try again.')
+      setTimeout(() => setSaveError(null), 5000)
+    } finally {
+      setSavingToRepo(false)
     }
   }
 
@@ -1892,6 +1956,43 @@ A party may not change, contradict or omit prior factual allegations in supersed
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                   </svg>
                   <span>Save Draft</span>
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Save to Repository Button */}
+          {!isTrialMode && (
+            <button 
+              onClick={handleSaveToRepository}
+              disabled={savingToRepo || !caseData?.id}
+              className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                savingToRepo ? 'opacity-50 cursor-not-allowed' : ''
+              } ${!caseData?.id 
+                ? 'opacity-50 cursor-not-allowed bg-gray-100 text-gray-400 border border-gray-200' 
+                : repoSaveSuccess 
+                  ? 'bg-green-600 text-white'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              }`}
+              title={!caseData?.id ? 'Access from case dashboard to enable saving' : 'Save to document repository'}
+            >
+              {savingToRepo ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  <span>Saving...</span>
+                </>
+              ) : repoSaveSuccess ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Saved to Repository!</span>
+                </>
+              ) : (
+                <>
+                  <FolderPlus className="w-4 h-4" />
+                  <span>Save to Repository</span>
                 </>
               )}
             </button>

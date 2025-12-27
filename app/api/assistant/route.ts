@@ -283,6 +283,59 @@ const CASE_MODE_TOOLS = [
         required: ['summary_type']
       }
     }
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'list_case_documents',
+      description: 'List all documents in the current case\'s document repository. Use when the user asks "what documents do I have?", "show my documents", "find a document", "list documents", or needs to locate a specific file.',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: {
+            type: 'string',
+            enum: ['medical_records', 'police_reports', 'correspondence', 'billing_financial', 'photographs', 'legal_documents', 'employment_records', 'insurance_documents', 'expert_reports', 'other', 'all'],
+            description: 'Filter by document category, or "all" for all documents'
+          }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'navigate_to_repository',
+      description: 'Navigate to the Document Repository section of the case page, optionally filtering by category. Use when user asks to "go to documents", "show the document repository", "open my documents", or "show [category] documents".',
+      parameters: {
+        type: 'object',
+        properties: {
+          category: {
+            type: 'string',
+            enum: ['medical_records', 'police_reports', 'correspondence', 'billing_financial', 'photographs', 'legal_documents', 'employment_records', 'insurance_documents', 'expert_reports', 'other'],
+            description: 'Optional category to filter to when navigating'
+          }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'open_document',
+      description: 'Open or preview a specific document from the case repository. Use when user asks to "open the [document name]", "show me the [document]", "view [document]", or references a specific uploaded file by name.',
+      parameters: {
+        type: 'object',
+        properties: {
+          document_name: {
+            type: 'string',
+            description: 'The name or partial name of the document to open (e.g., "medical records", "police report", "contract.pdf")'
+          }
+        },
+        required: ['document_name']
+      }
+    }
   }
 ]
 
@@ -602,7 +655,8 @@ DEADLINE CALCULATION (California CCP):
 - Mail service: add 5 calendar days (CCP § 1013)
 - Electronic service: add 2 court days (CCP § 1010.6)
 
-NAVIGATION: When user asks to draft/open/go to a document, use navigate_to_document function.
+NAVIGATION: When user asks to draft/open/go to a document type (demand letter, complaint, etc.), use navigate_to_document function.
+DOCUMENTS: When user asks about documents in their case, use list_case_documents. When user asks to open a specific document, use open_document. When user asks to go to the document repository, use navigate_to_repository.
 BILLING: When user mentions logging time, use log_billing_entry with professional descriptions.
 `
 
@@ -1449,6 +1503,213 @@ export async function POST(request: NextRequest) {
           } catch (parseError) {
             console.error('Error generating case summary:', parseError)
             toolResults.push({ toolCallId: toolCall.id, success: false, message: 'Failed to generate case summary' })
+          }
+        }
+        
+        // Handle CASE MODE: list_case_documents
+        if (toolCall.function.name === 'list_case_documents' && caseId) {
+          try {
+            const args = JSON.parse(toolCall.function.arguments || '{}')
+            const category = args.category || 'all'
+            
+            // Fetch documents for this case
+            let query = supabase
+              .from('case_documents')
+              .select('id, file_name, file_type, file_size, category, description, created_at')
+              .eq('case_id', caseId)
+              .eq('user_id', user.id)
+              .order('created_at', { ascending: false })
+            
+            if (category !== 'all') {
+              query = query.eq('category', category)
+            }
+            
+            const { data: documents, error: docError } = await query
+            
+            if (docError) {
+              console.error('Error fetching documents:', docError)
+              toolResults.push({
+                toolCallId: toolCall.id,
+                success: false,
+                message: 'Failed to fetch documents'
+              })
+              continue
+            }
+            
+            if (!documents || documents.length === 0) {
+              const categoryName = category === 'all' ? '' : ` in ${category.replace(/_/g, ' ')}`
+              toolResults.push({
+                toolCallId: toolCall.id,
+                success: true,
+                message: `📁 No documents found${categoryName} for this case. You can upload documents in the Document Repository section.`
+              })
+              continue
+            }
+            
+            // Format document list
+            const categoryNames: Record<string, string> = {
+              medical_records: 'Medical Records',
+              police_reports: 'Police/Incident Reports',
+              correspondence: 'Correspondence',
+              billing_financial: 'Billing & Financial',
+              photographs: 'Photographs',
+              legal_documents: 'Legal Documents',
+              employment_records: 'Employment Records',
+              insurance_documents: 'Insurance Documents',
+              expert_reports: 'Expert Reports',
+              other: 'Other'
+            }
+            
+            // Group by category
+            const grouped: Record<string, typeof documents> = {}
+            documents.forEach(doc => {
+              const cat = doc.category || 'other'
+              if (!grouped[cat]) grouped[cat] = []
+              grouped[cat].push(doc)
+            })
+            
+            let response = `📁 **Case Documents** (${documents.length} total)\n\n`
+            
+            Object.entries(grouped).forEach(([cat, docs]) => {
+              response += `**${categoryNames[cat] || cat}:**\n`
+              docs.slice(0, 5).forEach(doc => {
+                const size = doc.file_size ? `${(doc.file_size / 1024).toFixed(1)} KB` : ''
+                response += `- ${doc.file_name}${size ? ` (${size})` : ''}\n`
+              })
+              if (docs.length > 5) {
+                response += `  ... and ${docs.length - 5} more\n`
+              }
+              response += '\n'
+            })
+            
+            response += `\n💡 Say "open [document name]" to view a specific document.`
+            
+            toolResults.push({
+              toolCallId: toolCall.id,
+              success: true,
+              message: response
+            })
+            
+          } catch (parseError) {
+            console.error('Error listing documents:', parseError)
+            toolResults.push({ toolCallId: toolCall.id, success: false, message: 'Failed to list documents' })
+          }
+        }
+        
+        // Handle CASE MODE: navigate_to_repository
+        if (toolCall.function.name === 'navigate_to_repository' && caseId) {
+          try {
+            const args = JSON.parse(toolCall.function.arguments || '{}')
+            const category = args.category
+            
+            const categoryNames: Record<string, string> = {
+              medical_records: 'Medical Records',
+              police_reports: 'Police/Incident Reports',
+              correspondence: 'Correspondence',
+              billing_financial: 'Billing & Financial',
+              photographs: 'Photographs',
+              legal_documents: 'Legal Documents',
+              employment_records: 'Employment Records',
+              insurance_documents: 'Insurance Documents',
+              expert_reports: 'Expert Reports',
+              other: 'Other'
+            }
+            
+            actions.push({
+              type: 'navigate_to_repository',
+              data: {
+                caseId,
+                category: category || null,
+                caseName: context.currentCase?.caseName
+              }
+            })
+            
+            const categoryText = category ? ` (${categoryNames[category] || category})` : ''
+            toolResults.push({
+              toolCallId: toolCall.id,
+              success: true,
+              message: `📂 Opening Document Repository${categoryText}...`
+            })
+            
+          } catch (parseError) {
+            console.error('Error navigating to repository:', parseError)
+            toolResults.push({ toolCallId: toolCall.id, success: false, message: 'Failed to navigate to repository' })
+          }
+        }
+        
+        // Handle CASE MODE: open_document
+        if (toolCall.function.name === 'open_document' && caseId) {
+          try {
+            const args = JSON.parse(toolCall.function.arguments)
+            const searchName = args.document_name.toLowerCase()
+            
+            // Fetch documents for this case
+            const { data: documents, error: docError } = await supabase
+              .from('case_documents')
+              .select('id, file_name, file_type, category, description')
+              .eq('case_id', caseId)
+              .eq('user_id', user.id)
+            
+            if (docError || !documents || documents.length === 0) {
+              toolResults.push({
+                toolCallId: toolCall.id,
+                success: false,
+                message: `No documents found in this case. Upload documents first in the Document Repository.`
+              })
+              continue
+            }
+            
+            // Find matching document(s)
+            const matches = documents.filter(doc => 
+              doc.file_name.toLowerCase().includes(searchName) ||
+              (doc.description && doc.description.toLowerCase().includes(searchName)) ||
+              (doc.category && doc.category.toLowerCase().includes(searchName.replace(/\s+/g, '_')))
+            )
+            
+            if (matches.length === 0) {
+              // Suggest available documents
+              const availableDocs = documents.slice(0, 5).map(d => d.file_name).join(', ')
+              toolResults.push({
+                toolCallId: toolCall.id,
+                success: false,
+                message: `Could not find a document matching "${args.document_name}". Available documents include: ${availableDocs}${documents.length > 5 ? '...' : ''}`
+              })
+              continue
+            }
+            
+            if (matches.length > 1) {
+              // Multiple matches - ask for clarification
+              const matchList = matches.slice(0, 5).map(d => `- ${d.file_name}`).join('\n')
+              toolResults.push({
+                toolCallId: toolCall.id,
+                success: false,
+                message: `Found multiple documents matching "${args.document_name}":\n${matchList}\n\nPlease be more specific about which document you want to open.`
+              })
+              continue
+            }
+            
+            // Single match - open it
+            const doc = matches[0]
+            
+            actions.push({
+              type: 'open_document',
+              data: {
+                documentId: doc.id,
+                fileName: doc.file_name,
+                caseId,
+                caseName: context.currentCase?.caseName
+              }
+            })
+            
+            toolResults.push({
+              toolCallId: toolCall.id,
+              success: true,
+              message: `📄 Opening "${doc.file_name}"...`
+            })
+            
+          } catch (parseError) {
+            console.error('Error opening document:', parseError)
+            toolResults.push({ toolCallId: toolCall.id, success: false, message: 'Failed to open document' })
           }
         }
         
