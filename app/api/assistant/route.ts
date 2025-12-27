@@ -54,7 +54,17 @@ interface RepositoryNavigationAction {
   }
 }
 
-type AssistantAction = DeadlineAction | NavigationAction | BillingAction | AlertAction | RepositoryNavigationAction
+interface OpenDocumentAction {
+  type: 'open_document'
+  data: {
+    documentId: string
+    fileName: string
+    caseId: string
+    caseName?: string
+  }
+}
+
+type AssistantAction = DeadlineAction | NavigationAction | BillingAction | AlertAction | RepositoryNavigationAction | OpenDocumentAction
 
 // California Statute of Limitations by case type (in years, from date of loss/incident)
 const STATUTE_OF_LIMITATIONS: Record<string, { years: number; description: string }> = {
