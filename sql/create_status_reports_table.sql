@@ -92,3 +92,4 @@ COMMENT ON COLUMN status_reports.sections IS 'JSONB array of report sections wit
 COMMENT ON COLUMN status_reports.version IS 'Version number for tracking revisions';
 
 
+

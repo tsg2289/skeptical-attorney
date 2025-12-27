@@ -8,3 +8,4 @@ ADD COLUMN IF NOT EXISTS status_report_sections JSONB DEFAULT NULL;
 COMMENT ON COLUMN cases.status_report_sections IS 'Stores status report sections as JSONB array with id, title, and content fields';
 
 
+

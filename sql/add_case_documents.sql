@@ -107,3 +107,4 @@ GRANT USAGE ON TYPE document_category TO authenticated;
 -- 3. Allow authenticated users to delete their own files:
 --    DELETE policy: (bucket_id = 'case-files' AND auth.uid()::text = (storage.foldername(name))[1])
 
+

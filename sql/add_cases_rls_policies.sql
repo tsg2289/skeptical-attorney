@@ -50,3 +50,4 @@ USING (auth.uid() = user_id);
 -- 4. These policies apply to all database access, including direct SQL and API calls
 
 
+
