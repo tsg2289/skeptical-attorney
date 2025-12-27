@@ -49,3 +49,4 @@ USING (auth.uid() = user_id);
 -- 3. auth.uid() returns the authenticated user's ID from the Supabase auth context
 -- 4. These policies apply to all database access, including direct SQL and API calls
 
+

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { FileText, Scale, Users, Copy, Download, FileDown, Plus, X, Edit2, Save, RotateCcw, GripVertical, Sparkles, Eye, Check } from 'lucide-react'
+import { FileText, Scale, Users, Copy, Download, FileDown, Plus, X, Edit2, Save, RotateCcw, GripVertical, Sparkles, Eye, Check, ChevronDown, ChevronUp, CheckCircle, Folder } from 'lucide-react'
+import { DocumentCategory, DOCUMENT_CATEGORIES } from '@/lib/supabase/documentStorage'
 import toast from 'react-hot-toast'
 import { downloadWordDocument as generateWordDoc } from '@/lib/docx-generator'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
@@ -16,6 +17,15 @@ import CaseCaptionCard, { CaseCaptionData } from '../../complaint/components/Cas
 
 // Type alias for backward compatibility in this file
 type Defense = AnswerDefense
+
+// Document interface for AI generation
+interface CaseDocumentForAI {
+  id: string;
+  fileName: string;
+  category: DocumentCategory;
+  extractionStatus: 'pending' | 'completed' | 'failed' | 'not_applicable';
+  hasExtractedText: boolean;
+}
 
 // Parse the generated answer into sections
 function parseAnswer(answer: string): AnswerSections {
@@ -493,6 +503,12 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
   // State for proof of service
   const [showProofOfService, setShowProofOfService] = useState(false)
 
+  // Document selection for AI generation
+  const [caseDocuments, setCaseDocuments] = useState<CaseDocumentForAI[]>([])
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([])
+  const [showDocumentSelector, setShowDocumentSelector] = useState(false)
+  const [loadingDocuments, setLoadingDocuments] = useState(false)
+
   // Handler for CaseCaptionCard changes
   const handleCaptionChange = useCallback((newCaptionData: CaseCaptionData) => {
     setCaptionData(newCaptionData)
@@ -653,6 +669,34 @@ export default function AnswerGenerator({ caseId, isTrialMode = false }: AnswerG
     
     loadCase()
   }, [caseId])
+
+  // Fetch documents for the current case
+  const fetchCaseDocuments = async (targetCaseId: string) => {
+    if (!targetCaseId) return
+    setLoadingDocuments(true)
+    try {
+      const response = await fetch(`/api/documents?caseId=${targetCaseId}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Filter to only show documents with extracted text (usable for AI)
+        const docsWithText = (data.documents || []).filter(
+          (doc: any) => doc.extractionStatus === 'completed' && doc.hasExtractedText
+        )
+        setCaseDocuments(docsWithText)
+      }
+    } catch (error) {
+      console.error('Error fetching case documents:', error)
+    } finally {
+      setLoadingDocuments(false)
+    }
+  }
+
+  // Load documents when case is available
+  useEffect(() => {
+    if (caseId && !isTrialMode) {
+      fetchCaseDocuments(caseId)
+    }
+  }, [caseId, isTrialMode])
 
   // Load user profile on mount to pre-populate attorney info
   useEffect(() => {
@@ -1326,6 +1370,92 @@ Executed on ${currentDate}, at ${cityName}, California.
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
                 <span className="text-gray-600 text-sm font-medium">Complaint Details</span>
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-200 to-transparent"></div>
+              </div>
+            )}
+
+            {/* Document Selector for AI - Show for logged-in users with documents */}
+            {!isTrialMode && caseId && caseDocuments.length > 0 && (
+              <div className="glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-300 mb-8">
+                <button
+                  onClick={() => setShowDocumentSelector(!showDocumentSelector)}
+                  className="w-full flex items-center justify-between text-gray-700 hover:text-blue-600 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Folder className="w-5 h-5 text-blue-600" />
+                    <span className="font-semibold text-gray-900">
+                      Include Case Documents in AI Generation
+                    </span>
+                    {selectedDocumentIds.length > 0 && (
+                      <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+                        {selectedDocumentIds.length} selected
+                      </span>
+                    )}
+                  </div>
+                  {showDocumentSelector ? (
+                    <ChevronUp className="w-5 h-5" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5" />
+                  )}
+                </button>
+                
+                {showDocumentSelector && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <p className="text-sm text-gray-600 mb-3">
+                      Select documents to include when generating your answer. 
+                      The AI will use information from these documents to craft better defenses.
+                    </p>
+                    {loadingDocuments ? (
+                      <div className="text-gray-500 text-sm">Loading documents...</div>
+                    ) : (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {caseDocuments.map((doc) => (
+                          <label 
+                            key={doc.id}
+                            className="flex items-center space-x-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedDocumentIds.includes(doc.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedDocumentIds([...selectedDocumentIds, doc.id])
+                                } else {
+                                  setSelectedDocumentIds(selectedDocumentIds.filter(id => id !== doc.id))
+                                }
+                              }}
+                              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{doc.fileName}</p>
+                              <p className="text-xs text-gray-500">
+                                {DOCUMENT_CATEGORIES[doc.category]}
+                              </p>
+                            </div>
+                            {selectedDocumentIds.includes(doc.id) && (
+                              <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {caseDocuments.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
+                        <button
+                          onClick={() => setSelectedDocumentIds(caseDocuments.map(d => d.id))}
+                          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={() => setSelectedDocumentIds([])}
+                          className="text-sm text-gray-500 hover:text-gray-700"
+                        >
+                          Clear Selection
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

@@ -13,9 +13,16 @@ function extractJsonObject(text: string) {
   return JSON.parse(jsonString);
 }
 
+// Interface for document content passed to AI
+interface DocumentForAI {
+  fileName: string
+  category: string
+  extractedText: string
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { caseDescription, allSections, partyInfo } = await request.json();
+    const { caseDescription, allSections, partyInfo, documents } = await request.json();
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -28,6 +35,21 @@ export async function POST(request: NextRequest) {
     // Anonymize PII before sending to OpenAI, but keep mapping for re-identification
     const { anonymizedText: anonymizedDescription, mapping, contextualMappings } = 
       anonymizeDataWithMapping(caseDescription || '');
+    
+    // Anonymize document content as well
+    const anonymizedDocuments: DocumentForAI[] = [];
+    if (documents && Array.isArray(documents)) {
+      for (const doc of documents as DocumentForAI[]) {
+        if (doc.extractedText) {
+          const { anonymizedText } = anonymizeDataWithMapping(doc.extractedText);
+          anonymizedDocuments.push({
+            fileName: doc.fileName,
+            category: doc.category,
+            extractedText: anonymizedText
+          });
+        }
+      }
+    }
     
     // If explicit party info is provided (trial mode), add them to the mapping
     // This ensures the re-identification will use the user-provided names
@@ -93,6 +115,18 @@ IMPORTANT: In your generated sections, use these EXACT placeholders to refer to 
 
 CASE DESCRIPTION:
 ${anonymizedDescription}
+${anonymizedDocuments.length > 0 ? `
+
+=== SUPPORTING DOCUMENTS (From this case only) ===
+The following documents have been provided to support the case. Extract relevant facts, dates, amounts, and details from these documents.
+
+${anonymizedDocuments.map((doc, index) => `
+--- Document ${index + 1}: ${doc.category.replace(/_/g, ' ').toUpperCase()} - ${doc.fileName} ---
+${doc.extractedText}
+`).join('\n')}
+
+CRITICAL: Use facts from these documents to strengthen your analysis. Reference specific document content where applicable.
+` : ''}
 
 === STEP 1: CASE TYPE IDENTIFICATION ===
 

@@ -4776,7 +4776,7 @@ export function generateStatusReportDocument(data: StatusReportData): Document {
             })
           )
         } else if (trimmedLine) {
-          // Regular paragraph
+          // Regular paragraph - justified text
           children.push(
             new Paragraph({
               children: [
@@ -4786,6 +4786,7 @@ export function generateStatusReportDocument(data: StatusReportData): Document {
                 }),
               ],
               spacing: { after: 120 },
+              alignment: AlignmentType.JUSTIFIED,
             })
           )
         }

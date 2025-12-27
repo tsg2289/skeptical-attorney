@@ -13,6 +13,23 @@ import { calculateDeadlinesFromTrialDate, generateDeadlineId } from '@/lib/utils
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import { CALIFORNIA_COUNTIES } from '@/lib/constants/californiaCounties'
+import DocumentRepository from './DocumentRepository'
+import { DocumentCategory } from '@/lib/supabase/documentStorage'
+
+// Document interface for the case detail page
+interface CaseDocumentSummary {
+  id: string
+  caseId: string
+  fileName: string
+  fileType: string
+  fileSize: number
+  category: DocumentCategory
+  description?: string
+  extractionStatus: 'pending' | 'completed' | 'failed' | 'not_applicable'
+  hasExtractedText: boolean
+  createdAt: string
+  updatedAt: string
+}
 
 interface UserInfo {
   id: string
@@ -190,6 +207,9 @@ export default function CaseDetailPage() {
   const [editNoteContent, setEditNoteContent] = useState('')
   const [isSavingNote, setIsSavingNote] = useState(false)
   
+  // Documents state
+  const [documents, setDocuments] = useState<CaseDocumentSummary[]>([])
+  
   const [newPartyForm, setNewPartyForm] = useState<Omit<Party, 'id' | 'attorneys'>>({
     name: '',
     type: 'individual',
@@ -269,6 +289,8 @@ export default function CaseDetailPage() {
           setDefendants(foundCase.defendants || [])
           // Load notes
           setNotes(foundCase.notes || [])
+          // Load documents
+          await fetchDocuments()
         } else {
           router.push('/dashboard')
         }
@@ -279,6 +301,20 @@ export default function CaseDetailPage() {
     
     checkAuthAndLoadCase()
   }, [caseId, router])
+
+  // Fetch documents for this case
+  const fetchDocuments = async () => {
+    if (!caseId) return
+    try {
+      const response = await fetch(`/api/documents?caseId=${caseId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setDocuments(data.documents || [])
+      }
+    } catch (error) {
+      console.error('Error fetching documents:', error)
+    }
+  }
 
   // Listen for deadlines added by the AI Assistant
   useEffect(() => {
@@ -1624,6 +1660,15 @@ export default function CaseDetailPage() {
               )}
             </div>
 
+            {/* Document Repository Section */}
+            <div className="mt-6">
+              <DocumentRepository
+                caseId={caseId}
+                documents={documents}
+                onDocumentsChange={fetchDocuments}
+              />
+            </div>
+
             {/* Notes Section */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-6">
               <div className="flex justify-between items-center mb-4">
@@ -2061,6 +2106,13 @@ export default function CaseDetailPage() {
             >
               <div className="text-3xl mb-2">💰</div>
               <div className="text-sm font-medium text-gray-700">Billing Generator</div>
+            </Link>
+            <Link
+              href={`/services/status-report?caseId=${caseItem.id}`}
+              className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-blue-200 transition-all text-center"
+            >
+              <div className="text-3xl mb-2">📊</div>
+              <div className="text-sm font-medium text-gray-700">Status Report</div>
             </Link>
           </div>
         </div>

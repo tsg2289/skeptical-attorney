@@ -12,7 +12,17 @@ import { supabaseCaseStorage, CaseFrontend, Attorney } from '@/lib/supabase/case
 import { createClient } from '@/lib/supabase/client';
 import { useTrialMode } from '@/lib/contexts/TrialModeContext';
 import { userProfileStorage, UserProfile } from '@/lib/supabase/userProfileStorage';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, FileText, ChevronDown, ChevronUp, CheckCircle } from 'lucide-react';
+import { DocumentCategory, DOCUMENT_CATEGORIES } from '@/lib/supabase/documentStorage';
+
+// Document interface for AI generation
+interface CaseDocumentForAI {
+  id: string;
+  fileName: string;
+  category: DocumentCategory;
+  extractedText?: string;
+  hasExtractedText: boolean;
+}
 
 interface CardSection {
   id: string;
@@ -141,6 +151,12 @@ function DemandLetterPageContent() {
   const [representationType, setRepresentationType] = useState<'plaintiff' | 'defendant'>('plaintiff');
   const [clientName, setClientName] = useState('');
   const [opposingPartyName, setOpposingPartyName] = useState('');
+  
+  // Document selection for AI generation
+  const [caseDocuments, setCaseDocuments] = useState<CaseDocumentForAI[]>([]);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const [showDocumentSelector, setShowDocumentSelector] = useState(false);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   const autoResizeTextarea = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto';
@@ -302,6 +318,22 @@ function DemandLetterPageContent() {
         apiEndpoint = '/api/ai/populate-sections';
       }
 
+      // Fetch selected document content for AI
+      let documentsForAI: { fileName: string; category: string; extractedText: string }[] = [];
+      if (sectionId === '0' && selectedDocumentIds.length > 0 && currentCaseId) {
+        try {
+          const docResponse = await fetch(
+            `/api/documents/for-ai?caseId=${currentCaseId}&documentIds=${selectedDocumentIds.join(',')}`
+          );
+          if (docResponse.ok) {
+            const docData = await docResponse.json();
+            documentsForAI = docData.documents || [];
+          }
+        } catch (err) {
+          console.error('Error fetching documents for AI:', err);
+        }
+      }
+
       const requestBody = sectionId === '0' 
         ? { 
             caseDescription: section.content,
@@ -311,7 +343,9 @@ function DemandLetterPageContent() {
               representationType,
               clientName: clientName.trim(),
               opposingPartyName: opposingPartyName.trim()
-            } : undefined
+            } : undefined,
+            // Include selected documents for AI to reference
+            documents: documentsForAI.length > 0 ? documentsForAI : undefined
           }
         : {
             sectionId,
@@ -535,6 +569,9 @@ function DemandLetterPageContent() {
               dateOfLoss: '', // User will need to enter this
               caseNumber: foundCase.caseNumber || '',
             });
+            
+            // Load documents for this case
+            fetchCaseDocuments(caseId);
           }
         }
       }
@@ -542,6 +579,27 @@ function DemandLetterPageContent() {
     
     loadCase();
   }, [searchParams, isTrialMode, canAccessDatabase, isTrialCaseId]);
+
+  // Fetch documents for the current case
+  const fetchCaseDocuments = async (caseId: string) => {
+    if (!caseId) return;
+    setLoadingDocuments(true);
+    try {
+      const response = await fetch(`/api/documents?caseId=${caseId}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Filter to only show documents with extracted text (usable for AI)
+        const docsWithText = (data.documents || []).filter(
+          (doc: any) => doc.extractionStatus === 'completed' && doc.hasExtractedText
+        );
+        setCaseDocuments(docsWithText);
+      }
+    } catch (error) {
+      console.error('Error fetching case documents:', error);
+    } finally {
+      setLoadingDocuments(false);
+    }
+  };
 
   // Save draft - secure implementation with no data leakage
   const handleSaveDraft = async () => {
@@ -1076,6 +1134,90 @@ function DemandLetterPageContent() {
             </div>
           )}
 
+          {/* Document Selector for AI - Show if case has documents */}
+          {caseDescription && currentCaseId && caseDocuments.length > 0 && (
+            <div className="mb-4">
+              <button
+                onClick={() => setShowDocumentSelector(!showDocumentSelector)}
+                className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                <FileText className="w-5 h-5" />
+                <span className="font-medium">
+                  Include Case Documents in AI Generation
+                  {selectedDocumentIds.length > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-sm rounded-full">
+                      {selectedDocumentIds.length} selected
+                    </span>
+                  )}
+                </span>
+                {showDocumentSelector ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </button>
+              
+              {showDocumentSelector && (
+                <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <p className="text-sm text-gray-600 mb-3">
+                    Select documents to include their content when generating the demand letter. 
+                    The AI will extract facts, dates, and amounts from these documents.
+                  </p>
+                  {loadingDocuments ? (
+                    <div className="text-gray-500 text-sm">Loading documents...</div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {caseDocuments.map((doc) => (
+                        <label 
+                          key={doc.id}
+                          className="flex items-center space-x-3 p-2 hover:bg-white rounded-lg cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedDocumentIds.includes(doc.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDocumentIds([...selectedDocumentIds, doc.id]);
+                              } else {
+                                setSelectedDocumentIds(selectedDocumentIds.filter(id => id !== doc.id));
+                              }
+                            }}
+                            className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{doc.fileName}</p>
+                            <p className="text-xs text-gray-500">
+                              {DOCUMENT_CATEGORIES[doc.category]}
+                            </p>
+                          </div>
+                          {selectedDocumentIds.includes(doc.id) && (
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          )}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {caseDocuments.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between items-center">
+                      <button
+                        onClick={() => setSelectedDocumentIds(caseDocuments.map(d => d.id))}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Select All
+                      </button>
+                      <button
+                        onClick={() => setSelectedDocumentIds([])}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* AI Generation Button - Show after Case Summary for both trial mode and logged-in users */}
           {caseDescription && (
             <button
@@ -1096,7 +1238,7 @@ function DemandLetterPageContent() {
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
-                  <span>Generate AI-Powered Demand Letter</span>
+                  <span>Generate AI-Powered Demand Letter{selectedDocumentIds.length > 0 ? ` (with ${selectedDocumentIds.length} docs)` : ''}</span>
                 </>
               )}
             </button>

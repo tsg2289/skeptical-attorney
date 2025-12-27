@@ -159,7 +159,7 @@ export default function PreviewModal({ isOpen, onClose, sections, reportInfo, us
                       <h3 className="text-lg font-bold text-gray-900 mb-3 uppercase tracking-wide border-b border-gray-200 pb-2">
                         {index + 1}. {section.title}
                       </h3>
-                      <div className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm">
+                      <div className="text-gray-800 whitespace-pre-wrap leading-relaxed text-sm text-justify">
                         {section.content}
                       </div>
                     </div>
