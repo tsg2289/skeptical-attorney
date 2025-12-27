@@ -223,13 +223,13 @@ export default function DocumentRepository({
   // Get extraction status icon
   const getExtractionIcon = (status: string, hasText: boolean) => {
     if (status === 'completed' && hasText) {
-      return <CheckCircle className="h-4 w-4 text-green-500" title="Text extracted" />
+      return <span title="Text extracted"><CheckCircle className="h-4 w-4 text-green-500" /></span>
     }
     if (status === 'pending') {
-      return <Clock className="h-4 w-4 text-yellow-500" title="Extraction pending" />
+      return <span title="Extraction pending"><Clock className="h-4 w-4 text-yellow-500" /></span>
     }
     if (status === 'failed') {
-      return <AlertCircle className="h-4 w-4 text-red-500" title="Extraction failed" />
+      return <span title="Extraction failed"><AlertCircle className="h-4 w-4 text-red-500" /></span>
     }
     return null
   }
