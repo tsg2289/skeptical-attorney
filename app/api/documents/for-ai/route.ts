@@ -50,7 +50,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Map to AI-friendly format
-    const documents = (data || []).map(doc => ({
+    const documents = (data || []).map((doc: {
+      id: string
+      file_name: string
+      category: string | null
+      extracted_text: string
+    }) => ({
       id: doc.id,
       fileName: doc.file_name,
       category: doc.category,
