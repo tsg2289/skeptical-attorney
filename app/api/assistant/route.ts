@@ -45,7 +45,16 @@ interface AlertAction {
   }
 }
 
-type AssistantAction = DeadlineAction | NavigationAction | BillingAction | AlertAction
+interface RepositoryNavigationAction {
+  type: 'navigate_to_repository'
+  data: {
+    caseId: string
+    category: string | null
+    caseName?: string
+  }
+}
+
+type AssistantAction = DeadlineAction | NavigationAction | BillingAction | AlertAction | RepositoryNavigationAction
 
 // California Statute of Limitations by case type (in years, from date of loss/incident)
 const STATUTE_OF_LIMITATIONS: Record<string, { years: number; description: string }> = {
