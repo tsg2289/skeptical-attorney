@@ -111,9 +111,9 @@ export default function DocumentRepository({
       }
     }
     
-    window.addEventListener('assistantOpenDocument', handleOpenDocument as EventListener)
+    window.addEventListener('assistantOpenDocument', handleOpenDocument as unknown as EventListener)
     return () => {
-      window.removeEventListener('assistantOpenDocument', handleOpenDocument as EventListener)
+      window.removeEventListener('assistantOpenDocument', handleOpenDocument as unknown as EventListener)
     }
   }, [documents])
 
