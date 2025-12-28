@@ -198,7 +198,7 @@ export async function syncAutoDeadlines(
   }
   
   // Create a map of existing deadlines by rule_id
-  const existingByRuleId = new Map(
+  const existingByRuleId = new Map<string | null | undefined, LitigationPlanningDeadline>(
     (existingDeadlines || []).map((d: LitigationPlanningDeadline) => [d.rule_id, d])
   )
   
