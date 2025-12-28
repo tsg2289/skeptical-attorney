@@ -199,7 +199,7 @@ export async function syncAutoDeadlines(
   
   // Create a map of existing deadlines by rule_id
   const existingByRuleId = new Map(
-    (existingDeadlines || []).map(d => [d.rule_id, d])
+    (existingDeadlines || []).map((d: LitigationPlanningDeadline) => [d.rule_id, d])
   )
   
   // Prepare deadlines to upsert (preserve completed status)
