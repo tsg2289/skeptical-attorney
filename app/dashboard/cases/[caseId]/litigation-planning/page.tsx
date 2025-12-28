@@ -389,7 +389,7 @@ export default function LitigationPlanningPage() {
           source: 'auto-deadline' as const
         }
       })
-      .filter((d): d is ComputedDeadline => d !== null) : []
+      .filter(d => d !== null) as ComputedDeadline[] : []
     
     // Combine and filter
     return [...autoDeadlines, ...manualDeadlines]
