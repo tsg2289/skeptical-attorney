@@ -224,8 +224,8 @@ export async function syncAutoDeadlines(
   
   // Delete auto deadlines that no longer apply (e.g., OCSC disabled)
   const toDelete = (existingDeadlines || [])
-    .filter(d => d.rule_id && !validRuleIds.has(d.rule_id))
-    .map(d => d.id)
+    .filter((d: LitigationPlanningDeadline) => d.rule_id && !validRuleIds.has(d.rule_id))
+    .map((d: LitigationPlanningDeadline) => d.id)
   
   if (toDelete.length > 0) {
     const { error: deleteError } = await supabase
