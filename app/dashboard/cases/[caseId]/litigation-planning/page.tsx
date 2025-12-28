@@ -353,7 +353,7 @@ export default function LitigationPlanningPage() {
       })
     
     // Compute auto deadlines from rules
-    const autoDeadlines: ComputedDeadline[] = trialDate ? DEADLINE_RULES
+    const autoDeadlines = trialDate ? DEADLINE_RULES
       .filter(rule => {
         if (rule.visibleIf === 'ocsc' && !ocscEnabled) return false
         return true
