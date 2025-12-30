@@ -316,7 +316,7 @@ export default function DiscoveryLandingPage() {
       color: 'from-amber-500 to-amber-600',
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-200',
-      count: currentCase.discoveryDocuments?.rfa?.items?.length || 0
+      count: currentCase.discoveryDocuments?.rfa?.categories?.reduce((sum, cat) => sum + cat.items.length, 0) || 0
     }
   ]
 
