@@ -554,7 +554,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // Return document as download
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'Content-Disposition': `attachment; filename="discovery_responses_${discoveryType}_${Date.now()}.docx"`,
