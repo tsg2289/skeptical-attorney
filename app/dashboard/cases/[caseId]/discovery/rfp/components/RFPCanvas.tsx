@@ -349,9 +349,9 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
           jurisdiction: 'california'
         },
         definitions: DEFAULT_RFP_DEFINITIONS,
-        categories: DEFAULT_RFP_CATEGORIES
+        categories: defaultCategories
       })
-      setExpandedCategories(new Set(DEFAULT_RFP_CATEGORIES.map(c => c.id)))
+      setExpandedCategories(new Set(defaultCategories.map(c => c.id)))
     }
   }
 
