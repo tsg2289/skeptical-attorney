@@ -189,7 +189,7 @@ function categorizeRequest(text: string): string {
  * Log audit event for SOC2 compliance
  */
 async function logAuditEvent(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   caseId: string,
   userId: string,
   action: string,
