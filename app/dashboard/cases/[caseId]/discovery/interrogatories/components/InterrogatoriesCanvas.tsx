@@ -410,7 +410,7 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
           jurisdiction: 'california'
         },
         definitions: DEFAULT_CALIFORNIA_DEFINITIONS,
-        categories: DEFAULT_CATEGORIES
+        categories: defaultCategories
       })
     }
   }
