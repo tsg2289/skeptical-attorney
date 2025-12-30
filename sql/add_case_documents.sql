@@ -108,3 +108,10 @@ GRANT USAGE ON TYPE document_category TO authenticated;
 --    DELETE policy: (bucket_id = 'case-files' AND auth.uid()::text = (storage.foldername(name))[1])
 
 
+
+
+
+
+
+
+

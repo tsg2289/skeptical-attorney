@@ -1,37 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, FileDown, Save, Check, Sparkles, ChevronDown, ChevronUp, Trash2, GripVertical, Eye, FolderPlus } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, Save, Check, Sparkles, ChevronDown, ChevronUp, X, FolderPlus, RotateCcw } from 'lucide-react'
 import { 
   CaseFrontend, 
   supabaseCaseStorage, 
   RFPDocument,
-  DiscoveryCategory,
-  DiscoveryItem
+  DiscoveryCategory
 } from '@/lib/supabase/caseStorage'
 import { aiDocumentStorage } from '@/lib/supabase/aiDocumentStorage'
 import RFPAIPanel from './RFPAIPanel'
 import DiscoveryPreviewModal from '../../components/DiscoveryPreviewModal'
-
-// Default California definitions for RFP
-const DEFAULT_RFP_DEFINITIONS = [
-  'As used herein, "DOCUMENT" and "DOCUMENTS" shall mean and include all writings, as that term is defined by California Evidence Code section 250, and shall include, but not be limited to, the original or any copy of handwriting, typewriting, printing, electronically stored information, photocopying, photographing, and every other means of recording any form of communication or representation, including letters, words, pictures, sounds, or symbols, or combinations thereof.',
-  '"IDENTIFY" with respect to a document means to state the nature of the document, its date, author, addressee, present location and custodian.',
-  '"RELATING TO" or "CONCERNING" means referring to, constituting, evidencing, describing, mentioning, embodying, or supporting.',
-  '"YOU" and "YOUR" refers to the responding party and any persons acting on their behalf.',
-  '"INCIDENT" refers to the circumstances and events that are the subject of this litigation.',
-  '"COMMUNICATION" means any transmission of information, whether oral, written, or electronic.',
-]
-
-// Default categories for RFP
-const DEFAULT_RFP_CATEGORIES: DiscoveryCategory[] = [
-  { id: 'incident', title: 'Incident Documentation', items: [] },
-  { id: 'medical', title: 'Medical Records', items: [] },
-  { id: 'employment', title: 'Employment Records', items: [] },
-  { id: 'financial', title: 'Financial Documents', items: [] },
-  { id: 'communications', title: 'Communications', items: [] },
-  { id: 'insurance', title: 'Insurance Documents', items: [] },
-]
+import { DEFAULT_RFP_DEFINITIONS } from '@/lib/data/rfpTemplateQuestions'
+import { getCategoriesForCaseType } from '@/lib/data/discoveryCategories'
 
 interface Props {
   caseData: CaseFrontend
@@ -39,6 +20,11 @@ interface Props {
 }
 
 export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
+  // Get dynamic categories based on case type - SECURITY: uses verified caseType from caseData
+  const defaultCategories = useMemo(() => {
+    return getCategoriesForCaseType(caseData.caseType)
+  }, [caseData.caseType])
+
   const [document, setDocument] = useState<RFPDocument>(() => {
     if (caseData.discoveryDocuments?.rfp) {
       return caseData.discoveryDocuments.rfp
@@ -51,13 +37,17 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
         jurisdiction: 'california'
       },
       definitions: DEFAULT_RFP_DEFINITIONS,
-      categories: DEFAULT_RFP_CATEGORIES
+      categories: defaultCategories
     }
   })
   
-  // Drag and drop state
-  const [draggedItem, setDraggedItem] = useState<{ categoryId: string; index: number } | null>(null)
-  const [dragOverItem, setDragOverItem] = useState<{ categoryId: string; index: number } | null>(null)
+  // Drag and drop state for items
+  const [draggedItem, setDraggedItem] = useState<{ categoryId: string; itemId: string } | null>(null)
+  const [dragOverItem, setDragOverItem] = useState<{ categoryId: string; itemId: string } | null>(null)
+  
+  // Drag and drop state for categories
+  const [draggedCategory, setDraggedCategory] = useState<string | null>(null)
+  const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
   
   // AI Panel state
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false)
@@ -71,7 +61,7 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
   
   // Collapsed sections
   const [definitionsExpanded, setDefinitionsExpanded] = useState(false)
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(DEFAULT_RFP_CATEGORIES.map(c => c.id)))
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(defaultCategories.map(c => c.id)))
   
   // Preview modal
   const [showPreview, setShowPreview] = useState(false)
@@ -145,30 +135,45 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
     }))
   }
 
-  // Drag handlers
-  const handleDragStart = (categoryId: string, index: number) => {
-    setDraggedItem({ categoryId, index })
+  // Drag handlers - simple ID-based approach like category drag
+  const handleDragStart = (categoryId: string, itemId: string) => {
+    setDraggedItem({ categoryId, itemId })
   }
 
-  const handleDragOver = (e: React.DragEvent, categoryId: string, index: number) => {
+  const handleDragOver = (e: React.DragEvent, categoryId: string, itemId: string) => {
     e.preventDefault()
-    setDragOverItem({ categoryId, index })
+    if (draggedItem && draggedItem.itemId !== itemId) {
+      setDragOverItem({ categoryId, itemId })
+    }
   }
 
-  const handleDrop = (e: React.DragEvent, dropCategoryId: string, dropIndex: number) => {
+  const handleDrop = (e: React.DragEvent, targetCategoryId: string, targetItemId: string) => {
     e.preventDefault()
-    if (!draggedItem) return
+    if (!draggedItem || draggedItem.itemId === targetItemId) {
+      setDraggedItem(null)
+      setDragOverItem(null)
+      return
+    }
 
     setDocument(prev => {
       const newCategories = [...prev.categories]
+      
+      // Find source category and item index
       const sourceCategory = newCategories.find(c => c.id === draggedItem.categoryId)
       if (!sourceCategory) return prev
+      const sourceIndex = sourceCategory.items.findIndex(item => item.id === draggedItem.itemId)
+      if (sourceIndex === -1) return prev
       
-      const [draggedItemData] = sourceCategory.items.splice(draggedItem.index, 1)
-      const targetCategory = newCategories.find(c => c.id === dropCategoryId)
+      // Find target category and item index
+      const targetCategory = newCategories.find(c => c.id === targetCategoryId)
       if (!targetCategory) return prev
+      const targetIndex = targetCategory.items.findIndex(item => item.id === targetItemId)
+      if (targetIndex === -1) return prev
       
-      targetCategory.items.splice(dropIndex, 0, draggedItemData)
+      // Remove from source and insert at target
+      const [removed] = sourceCategory.items.splice(sourceIndex, 1)
+      targetCategory.items.splice(targetIndex, 0, removed)
+      
       return { ...prev, categories: renumberAllItems(newCategories) }
     })
 
@@ -179,6 +184,48 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
   const handleDragEnd = () => {
     setDraggedItem(null)
     setDragOverItem(null)
+  }
+
+  // Category drag handlers
+  const handleCategoryDragStart = (categoryId: string) => {
+    setDraggedCategory(categoryId)
+  }
+
+  const handleCategoryDragOver = (e: React.DragEvent, categoryId: string) => {
+    e.preventDefault()
+    if (draggedCategory && draggedCategory !== categoryId) {
+      setDragOverCategory(categoryId)
+    }
+  }
+
+  const handleCategoryDrop = (e: React.DragEvent, targetCategoryId: string) => {
+    e.preventDefault()
+    if (!draggedCategory || draggedCategory === targetCategoryId) {
+      setDraggedCategory(null)
+      setDragOverCategory(null)
+      return
+    }
+
+    setDocument(prev => {
+      const newCategories = [...prev.categories]
+      const draggedIndex = newCategories.findIndex(c => c.id === draggedCategory)
+      const targetIndex = newCategories.findIndex(c => c.id === targetCategoryId)
+      
+      if (draggedIndex === -1 || targetIndex === -1) return prev
+      
+      const [removed] = newCategories.splice(draggedIndex, 1)
+      newCategories.splice(targetIndex, 0, removed)
+      
+      return { ...prev, categories: renumberAllItems(newCategories) }
+    })
+
+    setDraggedCategory(null)
+    setDragOverCategory(null)
+  }
+
+  const handleCategoryDragEnd = () => {
+    setDraggedCategory(null)
+    setDragOverCategory(null)
   }
 
   const handleAddCategory = () => {
@@ -291,6 +338,23 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
     }
   }
 
+  // Reset to start a new document
+  const handleNew = () => {
+    if (window.confirm('Are you sure you want to start a new document? Any unsaved changes will be lost.')) {
+      setDocument({
+        metadata: {
+          propoundingParty: 'defendant',
+          respondingParty: 'plaintiff',
+          setNumber: 1,
+          jurisdiction: 'california'
+        },
+        definitions: DEFAULT_RFP_DEFINITIONS,
+        categories: DEFAULT_RFP_CATEGORIES
+      })
+      setExpandedCategories(new Set(DEFAULT_RFP_CATEGORIES.map(c => c.id)))
+    }
+  }
+
   const handleAISuggestions = (categoryId: string, suggestions: string[]) => {
     setDocument(prev => {
       const newCategories = prev.categories.map(cat => {
@@ -318,7 +382,7 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
 
   const autoResize = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto'
-    textarea.style.height = `${Math.max(100, textarea.scrollHeight)}px`
+    textarea.style.height = `${Math.max(60, textarea.scrollHeight)}px`
   }
 
   return (
@@ -329,69 +393,11 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
           
           {/* Header Card */}
           <div className="glass p-6 rounded-2xl mb-8">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Requests for Production</h1>
-                <p className="text-gray-600 mt-1">
-                  {getTotalItemCount()} requests • Drag to reorder • Click <Sparkles className="w-4 h-4 inline text-emerald-500" /> to generate with AI
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {saveSuccess && (
-                  <span className="text-green-600 text-sm font-medium flex items-center gap-1">
-                    <Check className="w-4 h-4" />
-                    Saved!
-                  </span>
-                )}
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-full font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save Draft'}
-                </button>
-                <button
-                  onClick={handleSaveToRepository}
-                  disabled={savingToRepo}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors ${
-                    repoSaveSuccess 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-purple-600 text-white hover:bg-purple-700'
-                  } disabled:opacity-50`}
-                >
-                  {savingToRepo ? (
-                    <>
-                      <Save className="w-4 h-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : repoSaveSuccess ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Saved!
-                    </>
-                  ) : (
-                    <>
-                      <FolderPlus className="w-4 h-4" />
-                      Save to Repository
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowPreview(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-full font-medium hover:bg-gray-50 transition-colors"
-                >
-                  <Eye className="w-4 h-4" />
-                  Preview
-                </button>
-                <button 
-                  onClick={() => setShowPreview(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-full font-medium hover:from-emerald-700 hover:to-emerald-800 transition-colors"
-                >
-                  <FileDown className="w-4 h-4" />
-                  Export Word
-                </button>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Requests for Production</h1>
+              <p className="text-gray-600 mt-1">
+                {getTotalItemCount()} requests • Drag to reorder • Click <Sparkles className="w-4 h-4 inline text-emerald-500" /> to generate with AI
+              </p>
             </div>
           </div>
 
@@ -431,7 +437,7 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
                 />
               </div>
             </div>
-            <div className="bg-emerald-50 rounded-xl p-4 text-sm font-mono border border-emerald-200">
+            <div className="bg-emerald-50 rounded-xl p-4 text-sm font-mono border border-emerald-200 text-gray-800">
               <p><strong>PROPOUNDING PARTY:</strong> {document.metadata.propoundingParty.toUpperCase()}</p>
               <p><strong>RESPONDING PARTY:</strong> {document.metadata.respondingParty.toUpperCase()}</p>
               <p><strong>SET NO.:</strong> {setNumberWords[document.metadata.setNumber - 1] || document.metadata.setNumber}</p>
@@ -471,10 +477,26 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
             const isExpanded = expandedCategories.has(category.id)
             
             return (
-              <div key={category.id} className="glass-strong rounded-2xl mb-6 overflow-hidden border border-emerald-200">
+              <div 
+                key={category.id} 
+                draggable
+                onDragStart={() => handleCategoryDragStart(category.id)}
+                onDragOver={(e) => handleCategoryDragOver(e, category.id)}
+                onDrop={(e) => handleCategoryDrop(e, category.id)}
+                onDragEnd={handleCategoryDragEnd}
+                className={`glass-strong rounded-2xl mb-6 overflow-hidden border transition-all duration-200 ${
+                  draggedCategory === category.id ? 'opacity-50 scale-[0.98]' : ''
+                } ${dragOverCategory === category.id ? 'border-2 border-emerald-500 border-dashed scale-[1.02]' : 'border-emerald-200'}`}
+              >
                 {/* Category Header */}
                 <div className="bg-gradient-to-r from-emerald-50 to-emerald-100 px-6 py-4 flex items-center justify-between border-b border-emerald-200">
                   <div className="flex items-center gap-3 flex-1">
+                    {/* Drag Handle - two horizontal lines */}
+                    <div className="text-gray-400 hover:text-gray-600 transition-colors cursor-grab active:cursor-grabbing">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                      </svg>
+                    </div>
                     <button onClick={() => toggleCategory(category.id)} className="text-gray-500 hover:text-gray-700">
                       {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                     </button>
@@ -488,51 +510,67 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
                       {category.items.length} requests
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleOpenAIForCategory(category.id)}
-                      className="p-2 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:opacity-90 shadow-md"
-                      title="Generate with AI"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleRemoveCategory(category.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleRemoveCategory(category.id)}
+                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                    title="Remove category"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
                 {/* Items */}
                 {isExpanded && (
-                  <div className="p-4 space-y-3 bg-emerald-50/30">
-                    {category.items.map((item, index) => {
-                      const isDragging = draggedItem?.categoryId === category.id && draggedItem?.index === index
-                      const isDragOver = dragOverItem?.categoryId === category.id && dragOverItem?.index === index
+                  <div className="p-4 bg-emerald-50/30 space-y-4">
+                    {category.items.map((item) => {
+                      const isItemDragging = draggedItem?.itemId === item.id
+                      const isDragOver = dragOverItem?.itemId === item.id
 
                       return (
                         <div
                           key={item.id}
                           draggable
-                          onDragStart={() => handleDragStart(category.id, index)}
-                          onDragOver={(e) => handleDragOver(e, category.id, index)}
-                          onDrop={(e) => handleDrop(e, category.id, index)}
+                          onDragStart={() => handleDragStart(category.id, item.id)}
+                          onDragOver={(e) => handleDragOver(e, category.id, item.id)}
+                          onDrop={(e) => handleDrop(e, category.id, item.id)}
                           onDragEnd={handleDragEnd}
-                          className={`group relative bg-white border rounded-xl transition-all duration-200 ${
-                            isDragging ? 'opacity-50 scale-95' : 'shadow-sm hover:shadow-md'
-                          } ${isDragOver ? 'border-2 border-emerald-500 border-dashed' : 'border-gray-200'} ${
-                            item.isAiGenerated ? 'border-l-4 border-l-emerald-400' : ''
-                          }`}
+                          className={`glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-200 relative ${
+                            isItemDragging ? 'opacity-50 scale-[0.98]' : 'cursor-move'
+                          } ${isDragOver && !isItemDragging ? 'ring-2 ring-emerald-500 ring-offset-2 scale-[1.02]' : ''}`}
                         >
-                          <div className="flex items-start gap-3 p-4">
-                            <div className="cursor-move text-gray-400 hover:text-gray-600 pt-1">
-                              <GripVertical className="w-5 h-5" />
+                          {/* Header */}
+                          <div className="flex justify-between items-start mb-4 gap-3">
+                            {/* Drag Handle - two horizontal lines */}
+                            <div className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all p-2 -m-2 rounded-lg flex items-center cursor-grab active:cursor-grabbing active:scale-95">
+                              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                              </svg>
                             </div>
-                            <div className="flex-shrink-0 w-10 h-10 bg-emerald-100 text-emerald-700 rounded-lg flex items-center justify-center text-sm font-bold">
-                              {item.number}
+                            
+                            {/* Title/Number */}
+                            <div className="flex-1 flex items-center gap-3">
+                              <span className="text-xl font-bold text-emerald-700">
+                                REQUEST NO. {item.number}
+                              </span>
+                              {item.isAiGenerated && (
+                                <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full flex items-center gap-1 font-medium">
+                                  <Sparkles className="w-3 h-3" /> AI
+                                </span>
+                              )}
                             </div>
+                            
+                            {/* X Delete Button */}
+                            <button
+                              onClick={() => handleRemoveItem(category.id, item.id)}
+                              className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                              aria-label="Remove request"
+                            >
+                              <X className="w-5 h-5" />
+                            </button>
+                          </div>
+
+                          {/* Content with AI button */}
+                          <div className="relative">
                             <textarea
                               value={item.content}
                               onChange={(e) => {
@@ -541,32 +579,58 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
                               }}
                               onFocus={(e) => autoResize(e.target)}
                               ref={(textarea) => { if (textarea) autoResize(textarea) }}
-                              className="flex-1 min-h-[100px] p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 resize-none focus:ring-2 focus:ring-emerald-500"
-                              placeholder="REQUEST FOR PRODUCTION NO. X:&#10;All DOCUMENTS..."
+                              className="w-full min-h-20 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 overflow-hidden"
+                              placeholder="Enter request content here..."
                             />
+                            {/* AI Sparkle Button - bottom right */}
                             <button
-                              onClick={() => handleRemoveItem(category.id, item.id)}
-                              className="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                              onClick={() => handleOpenAIForCategory(category.id)}
+                              className="absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+                              aria-label="AI Edit Assistant"
+                              title="Generate with AI"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <svg 
+                                className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
+                                fill="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                                <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+                                <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
+                              </svg>
                             </button>
                           </div>
-                          {item.isAiGenerated && (
-                            <div className="absolute top-2 right-14 px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full flex items-center gap-1 font-medium">
-                              <Sparkles className="w-3 h-3" /> AI Generated
-                            </div>
-                          )}
                         </div>
                       )
                     })}
 
                     {category.items.length === 0 && (
-                      <div className="text-center py-8 text-gray-400">
+                      <div className="relative text-center py-8 text-gray-400 min-h-[200px]">
                         <Plus className="w-12 h-12 mx-auto mb-3 opacity-50" />
                         <p>No requests in this category</p>
+                        <p className="text-sm mt-1">Click "Add Request" or use AI to generate</p>
+                        
+                        {/* AI Sparkle Button - bottom right of empty state */}
+                        <button
+                          onClick={() => handleOpenAIForCategory(category.id)}
+                          className="absolute bottom-2 right-2 p-2.5 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+                          aria-label="AI Edit Assistant"
+                          title="Generate with AI"
+                        >
+                          <svg 
+                            className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
+                            fill="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                            <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+                            <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
+                          </svg>
+                        </button>
                       </div>
                     )}
 
+                    {/* Add Request Button - kept from original */}
                     <button
                       onClick={() => handleAddItem(category.id)}
                       className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-emerald-400 hover:text-emerald-600 flex items-center justify-center gap-2 transition-all"
@@ -580,13 +644,93 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
           })}
 
           {/* Add Category Button */}
-          <div className="flex justify-center mt-6 mb-12">
+          <div className="flex justify-center mt-6 mb-8">
             <button
               onClick={handleAddCategory}
               className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-full font-semibold hover:from-emerald-700 hover:to-emerald-800 shadow-lg"
             >
               + Add Category
             </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="glass p-6 rounded-2xl flex flex-col gap-4 mb-12">
+            <div className="flex gap-4 justify-end items-center flex-wrap">
+              {/* Save Draft Button */}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                  saving ? 'opacity-50 cursor-not-allowed' : ''
+                } ${saveSuccess 
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {saving ? (
+                  <>
+                    <Save className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Draft</span>
+                  </>
+                )}
+              </button>
+
+              {/* Save to Repository Button */}
+              <button
+                onClick={handleSaveToRepository}
+                disabled={savingToRepo}
+                className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                  savingToRepo ? 'opacity-50 cursor-not-allowed' : ''
+                } ${repoSaveSuccess 
+                  ? 'bg-green-600 text-white'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+              >
+                {savingToRepo ? (
+                  <>
+                    <Save className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : repoSaveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <FolderPlus className="w-4 h-4" />
+                    <span>Save to Repository</span>
+                  </>
+                )}
+              </button>
+
+              {/* New Document Button */}
+              <button
+                onClick={handleNew}
+                className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>New</span>
+              </button>
+
+              {/* Preview Button */}
+              <button 
+                onClick={() => setShowPreview(true)}
+                className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Preview
+              </button>
+            </div>
           </div>
 
         </div>
@@ -633,6 +777,37 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
           title: cat.title,
           items: cat.items.map(item => ({ number: item.number, content: item.content }))
         }))}
+        // Attorney info from propounding party
+        attorneyName={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.name
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.name
+        }
+        stateBarNumber={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.barNumber
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.barNumber
+        }
+        lawFirmName={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.firm
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.firm
+        }
+        address={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.address
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.address
+        }
+        phone={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.phone
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.phone
+        }
+        email={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.email
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.email
+        }
       />
     </div>
   )

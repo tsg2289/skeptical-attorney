@@ -1,23 +1,31 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
-import { Plus, Trash2, Sparkles, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
+import { Plus, Sparkles, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { useState } from 'react'
 import { CaseFrontend, DiscoveryCategory, DiscoveryItem } from '@/lib/supabase/caseStorage'
 
 interface Props {
   category: DiscoveryCategory
   caseData: CaseFrontend
-  draggedItem: { categoryId: string; index: number } | null
-  dragOverItem: { categoryId: string; index: number } | null
+  draggedItem: { categoryId: string; itemId: string } | null
+  dragOverItem: { categoryId: string; itemId: string } | null
+  // Category drag props
+  isDragging?: boolean
+  isDragOver?: boolean
+  onCategoryDragStart: () => void
+  onCategoryDragOver: (e: React.DragEvent) => void
+  onCategoryDrop: (e: React.DragEvent) => void
+  onCategoryDragEnd: () => void
+  // Other props
   onUpdateTitle: (title: string) => void
   onRemoveCategory: () => void
   onAddItem: (content?: string) => void
   onUpdateItem: (itemId: string, content: string) => void
   onRemoveItem: (itemId: string) => void
-  onDragStart: (index: number) => void
-  onDragOver: (e: React.DragEvent, index: number) => void
-  onDrop: (e: React.DragEvent, index: number) => void
+  onDragStart: (itemId: string) => void
+  onDragOver: (e: React.DragEvent, itemId: string) => void
+  onDrop: (e: React.DragEvent, itemId: string) => void
   onDragEnd: () => void
   onOpenAI: () => void
 }
@@ -27,6 +35,12 @@ export default function CategorySection({
   caseData,
   draggedItem,
   dragOverItem,
+  isDragging,
+  isDragOver,
+  onCategoryDragStart,
+  onCategoryDragOver,
+  onCategoryDrop,
+  onCategoryDragEnd,
   onUpdateTitle,
   onRemoveCategory,
   onAddItem,
@@ -43,7 +57,7 @@ export default function CategorySection({
   // Auto-resize textareas
   const autoResize = (textarea: HTMLTextAreaElement) => {
     textarea.style.height = 'auto'
-    textarea.style.height = `${Math.max(100, textarea.scrollHeight)}px`
+    textarea.style.height = `${Math.max(60, textarea.scrollHeight)}px`
   }
 
   // Get category color based on title
@@ -61,10 +75,25 @@ export default function CategorySection({
   const colors = getCategoryColor()
 
   return (
-    <div className={`glass-strong rounded-2xl mb-6 overflow-hidden border ${colors.border}`}>
+    <div 
+      draggable
+      onDragStart={onCategoryDragStart}
+      onDragOver={onCategoryDragOver}
+      onDrop={onCategoryDrop}
+      onDragEnd={onCategoryDragEnd}
+      className={`glass-strong rounded-2xl mb-6 overflow-hidden border transition-all duration-200 ${
+        isDragging ? 'opacity-50 scale-[0.98]' : ''
+      } ${isDragOver ? 'border-2 border-blue-500 border-dashed scale-[1.02]' : colors.border}`}
+    >
       {/* Category Header */}
       <div className={`bg-gradient-to-r ${colors.header} px-6 py-4 flex items-center justify-between border-b ${colors.border}`}>
         <div className="flex items-center gap-3 flex-1">
+          {/* Drag Handle - two horizontal lines */}
+          <div className="text-gray-400 hover:text-gray-600 transition-colors cursor-grab active:cursor-grabbing">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+            </svg>
+          </div>
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -82,57 +111,73 @@ export default function CategorySection({
             {category.items.length} item{category.items.length !== 1 ? 's' : ''}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onOpenAI}
-            className="p-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:opacity-90 transition-opacity shadow-md"
-            title="Generate with AI"
-          >
-            <Sparkles className="w-4 h-4" />
-          </button>
-          <button
-            onClick={onRemoveCategory}
-            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-            title="Remove category"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
+        <button
+          onClick={onRemoveCategory}
+          className="text-gray-400 hover:text-red-600 transition-colors p-1"
+          title="Remove category"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Items */}
       {isExpanded && (
-        <div className={`p-4 space-y-3 ${colors.bg}`}>
-          {category.items.map((item, index) => {
-            const isDragging = draggedItem?.categoryId === category.id && draggedItem?.index === index
-            const isDragOver = dragOverItem?.categoryId === category.id && dragOverItem?.index === index
+        <div className={`p-4 space-y-4 ${colors.bg}`}>
+          {category.items.map((item) => {
+            const isItemDragging = draggedItem?.itemId === item.id
+            const isDragOver = dragOverItem?.itemId === item.id
 
             return (
               <div
                 key={item.id}
                 draggable
-                onDragStart={() => onDragStart(index)}
-                onDragOver={(e) => onDragOver(e, index)}
-                onDrop={(e) => onDrop(e, index)}
+                onDragStart={() => onDragStart(item.id)}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  onDragOver(e, item.id)
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  onDrop(e, item.id)
+                }}
                 onDragEnd={onDragEnd}
-                className={`group relative bg-white border rounded-xl transition-all duration-200 ${
-                  isDragging ? 'opacity-50 scale-95 shadow-lg' : 'shadow-sm hover:shadow-md'
-                } ${
-                  isDragOver ? 'border-2 border-blue-500 border-dashed scale-[1.02]' : 'border-gray-200'
-                } ${item.isAiGenerated ? 'border-l-4 border-l-purple-400' : ''}`}
+                className={`glass-strong p-6 rounded-2xl hover:shadow-2xl transition-all duration-200 relative ${
+                  isItemDragging ? 'opacity-50 scale-[0.98]' : 'cursor-move'
+                } ${isDragOver && !isItemDragging ? 'ring-2 ring-blue-500 ring-offset-2 scale-[1.02]' : ''}`}
               >
-                <div className="flex items-start gap-3 p-4">
-                  {/* Drag Handle */}
-                  <div className="cursor-move text-gray-400 hover:text-gray-600 pt-1 transition-colors">
-                    <GripVertical className="w-5 h-5" />
+                {/* Header */}
+                <div className="flex justify-between items-start mb-4 gap-3">
+                  {/* Drag Handle - two horizontal lines */}
+                  <div className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all p-2 -m-2 rounded-lg flex items-center cursor-grab active:cursor-grabbing active:scale-95">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                    </svg>
                   </div>
-
-                  {/* Item Number Badge */}
-                  <div className={`flex-shrink-0 w-10 h-10 ${colors.bg} ${colors.accent} rounded-lg flex items-center justify-center text-sm font-bold border ${colors.border}`}>
-                    {item.number}
+                  
+                  {/* Title/Number */}
+                  <div className="flex-1 flex items-center gap-3">
+                    <span className={`text-xl font-bold ${colors.accent}`}>
+                      INTERROGATORY NO. {item.number}
+                    </span>
+                    {item.isAiGenerated && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full flex items-center gap-1 font-medium">
+                        <Sparkles className="w-3 h-3" /> AI
+                      </span>
+                    )}
                   </div>
+                  
+                  {/* X Delete Button */}
+                  <button
+                    onClick={() => onRemoveItem(item.id)}
+                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                    aria-label="Remove interrogatory"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-                  {/* Content Textarea */}
+                {/* Content with AI button */}
+                <div className="relative">
                   <textarea
                     value={item.content}
                     onChange={(e) => {
@@ -145,43 +190,61 @@ export default function CategorySection({
                         autoResize(textarea)
                       }
                     }}
-                    className="flex-1 min-h-[100px] p-3 bg-gray-50 border border-gray-200 rounded-lg text-gray-900 resize-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:bg-white transition-colors"
+                    className="w-full min-h-20 p-4 pr-14 bg-white border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 overflow-hidden"
                     placeholder="Enter interrogatory text..."
                   />
-
-                  {/* Remove Button */}
+                  {/* AI Sparkle Button - bottom right */}
                   <button
-                    onClick={() => onRemoveItem(item.id)}
-                    className="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                    title="Remove item"
+                    onClick={onOpenAI}
+                    className="absolute bottom-3 right-3 p-2.5 bg-gradient-to-br from-purple-600 to-blue-700 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+                    aria-label="AI Edit Assistant"
+                    title="Generate with AI"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <svg 
+                      className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
+                      fill="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                      <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+                      <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
+                    </svg>
                   </button>
                 </div>
-
-                {/* AI Generated Badge */}
-                {item.isAiGenerated && (
-                  <div className="absolute top-2 right-14 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full flex items-center gap-1 font-medium">
-                    <Sparkles className="w-3 h-3" />
-                    AI Generated
-                  </div>
-                )}
               </div>
             )
           })}
 
           {/* Empty State */}
           {category.items.length === 0 && (
-            <div className="text-center py-8 text-gray-400">
+            <div className="relative text-center py-8 text-gray-400 min-h-[200px]">
               <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
                 <Plus className="w-6 h-6 text-gray-400" />
               </div>
               <p className="font-medium">No interrogatories in this category</p>
               <p className="text-sm mt-1">Click "Add Interrogatory" or use AI to generate</p>
+              
+              {/* AI Sparkle Button - bottom right of empty state */}
+              <button
+                onClick={onOpenAI}
+                className="absolute bottom-2 right-2 p-2.5 bg-gradient-to-br from-purple-600 to-blue-700 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group"
+                aria-label="AI Edit Assistant"
+                title="Generate with AI"
+              >
+                <svg 
+                  className="w-4 h-4 text-white group-hover:rotate-12 transition-transform duration-300" 
+                  fill="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 0L13.5 8.5L22 10L13.5 11.5L12 20L10.5 11.5L2 10L10.5 8.5L12 0Z" />
+                  <path d="M6 4L6.5 6.5L9 7L6.5 7.5L6 10L5.5 7.5L3 7L5.5 6.5L6 4Z" />
+                  <path d="M18 14L18.5 16.5L21 17L18.5 17.5L18 20L17.5 17.5L15 17L17.5 16.5L18 14Z" />
+                </svg>
+              </button>
             </div>
           )}
 
-          {/* Add Button */}
+          {/* Add Button - kept from original */}
           <button
             onClick={() => onAddItem()}
             className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 flex items-center justify-center gap-2 transition-all"
@@ -194,6 +257,12 @@ export default function CategorySection({
     </div>
   )
 }
+
+
+
+
+
+
 
 
 

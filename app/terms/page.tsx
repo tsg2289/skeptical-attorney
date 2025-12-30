@@ -89,3 +89,10 @@ export default function TermsPage() {
 
 
 
+
+
+
+
+
+
+

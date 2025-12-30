@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { X, Send, Sparkles, AlertCircle, Check, Trash2 } from 'lucide-react'
 import { CaseFrontend, DiscoveryCategory } from '@/lib/supabase/caseStorage'
+import { getRFPQuickActionsForCaseType } from '@/lib/data/discoveryCategories'
 
 interface Props {
   isOpen: boolean
@@ -54,13 +55,14 @@ export default function RFPAIPanel({
           `• Plaintiff: ${plaintiffName}\n` +
           `• Defendant: ${defendantName}\n\n` +
           (caseData.facts ? `**Case Facts Summary:**\n${caseData.facts.substring(0, 200)}${caseData.facts.length > 200 ? '...' : ''}\n\n` : '') +
-          `I'll generate California-formatted document requests for the **${categoryName}** category.\n\n` +
+          `I'll generate California-formatted document requests for the **${categoryName}** category using your firm's template patterns.\n\n` +
           `**Try asking:**\n` +
           `• "Generate requests for all incident-related documents"\n` +
-          `• "Draft requests for medical records and bills"\n` +
-          `• "Create requests for employment and wage documents"\n` +
-          `• "Add requests for insurance policy documents"\n\n` +
-          `🔒 **Security:** I only have access to this case's facts. No cross-case data.`
+          `• "Draft requests for medical records and treatment documentation"\n` +
+          `• "Create requests for photos, videos, and media"\n` +
+          `• "Add requests for prior accident history"\n` +
+          `• "Generate requests for W2s and lost wage documents"\n\n` +
+          `🔒 **Security:** I only have access to this case's facts. No cross-case data. Templates are generic legal patterns.`
       }])
     }
   }, [isOpen, selectedCategory, caseData, plaintiffName, defendantName, categories, messages.length])
@@ -179,12 +181,10 @@ export default function RFPAIPanel({
     setPendingSuggestions(null)
   }
 
-  const quickActions = [
-    { label: 'Incident Docs', prompt: 'Generate requests for all documents relating to the incident, including photos, videos, and reports' },
-    { label: 'Medical Records', prompt: 'Draft requests for all medical records, bills, and treatment documentation' },
-    { label: 'Employment', prompt: 'Create requests for employment records, pay stubs, and tax returns' },
-    { label: 'Insurance', prompt: 'Generate requests for all insurance policies, claims, and correspondence' },
-  ]
+  // Dynamic quick actions based on case type - SECURITY: uses verified caseType from caseData
+  const quickActions = useMemo(() => {
+    return getRFPQuickActionsForCaseType(caseData.caseType)
+  }, [caseData.caseType])
 
   if (!isOpen) return null
 
@@ -378,3 +378,6 @@ export default function RFPAIPanel({
 
 
 
+
+
+ 

@@ -1599,145 +1599,278 @@ export function generateDiscoveryDocument(data: DiscoveryDocumentData): Document
     department = '',
   } = data
 
-  const children: Paragraph[] = []
+  const children: (Paragraph | Table)[] = []
+
+  // California pleading line spacing - 24pt exactly
+  const PLEADING_LINE_HEIGHT = 480
+
+  // Create header with fixed line numbers 1-28 in a floating table (same as complaint)
+  const createLineNumberHeader = () => {
+    const lineNumberText: TextRun[] = []
+    
+    // Add 3 blank lines at top
+    for (let i = 0; i < 3; i++) {
+      lineNumberText.push(new TextRun({ text: ' ', size: 24, font: 'Times New Roman' }))
+      lineNumberText.push(new TextRun({ text: '', break: 1, size: 24, font: 'Times New Roman' }))
+    }
+    
+    // Add numbered lines 1-28
+    for (let i = 1; i <= 28; i++) {
+      lineNumberText.push(new TextRun({ text: String(i), size: 24, font: 'Times New Roman' }))
+      lineNumberText.push(new TextRun({ text: '', break: 1, size: 24, font: 'Times New Roman' }))
+    }
+    
+    // Add 4 blank lines at bottom
+    for (let i = 0; i < 4; i++) {
+      lineNumberText.push(new TextRun({ text: ' ', size: 24, font: 'Times New Roman' }))
+      if (i < 3) {
+        lineNumberText.push(new TextRun({ text: '', break: 1, size: 24, font: 'Times New Roman' }))
+      }
+    }
+    
+    const lineNumberParagraph = new Paragraph({
+      children: lineNumberText,
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any, before: 0, after: 0 },
+      alignment: AlignmentType.RIGHT,
+    })
+    
+    const lineNumberTable = new Table({
+      width: { size: 900, type: WidthType.DXA },
+      float: {
+        horizontalAnchor: 'page' as any,
+        verticalAnchor: 'page' as any,
+        absoluteHorizontalPosition: 360,
+        absoluteVerticalPosition: 0,
+      },
+      borders: {
+        top: { style: TableBorderStyle.NONE, size: 0 },
+        bottom: { style: TableBorderStyle.NONE, size: 0 },
+        left: { style: TableBorderStyle.NONE, size: 0 },
+        right: { style: TableBorderStyle.DOUBLE, size: 6, color: "000000" },
+        insideHorizontal: { style: TableBorderStyle.NONE, size: 0 },
+        insideVertical: { style: TableBorderStyle.NONE, size: 0 },
+      },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 900, type: WidthType.DXA },
+              children: [lineNumberParagraph],
+              margins: { right: 100 },
+              borders: {
+                top: { style: TableBorderStyle.NONE, size: 0 },
+                bottom: { style: TableBorderStyle.NONE, size: 0 },
+                left: { style: TableBorderStyle.NONE, size: 0 },
+                right: { style: TableBorderStyle.DOUBLE, size: 6, color: "000000" },
+              },
+            }),
+          ],
+        }),
+      ],
+    })
+    
+    // Right border table
+    const rightBorderText: TextRun[] = []
+    for (let i = 1; i <= 35; i++) {
+      rightBorderText.push(new TextRun({ text: ' ', size: 24, font: 'Times New Roman' }))
+      if (i < 35) {
+        rightBorderText.push(new TextRun({ text: '', break: 1, size: 24, font: 'Times New Roman' }))
+      }
+    }
+    
+    const rightBorderParagraph = new Paragraph({
+      children: rightBorderText,
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any, before: 0, after: 0 },
+    })
+    
+    const rightBorderTable = new Table({
+      width: { size: 100, type: WidthType.DXA },
+      float: {
+        horizontalAnchor: 'page' as any,
+        verticalAnchor: 'page' as any,
+        absoluteHorizontalPosition: 10800,
+        absoluteVerticalPosition: 0,
+      },
+      borders: {
+        top: { style: TableBorderStyle.NONE, size: 0 },
+        bottom: { style: TableBorderStyle.NONE, size: 0 },
+        left: { style: TableBorderStyle.SINGLE, size: 6, color: "000000" },
+        right: { style: TableBorderStyle.NONE, size: 0 },
+        insideHorizontal: { style: TableBorderStyle.NONE, size: 0 },
+        insideVertical: { style: TableBorderStyle.NONE, size: 0 },
+      },
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              width: { size: 100, type: WidthType.DXA },
+              children: [rightBorderParagraph],
+              borders: {
+                top: { style: TableBorderStyle.NONE, size: 0 },
+                bottom: { style: TableBorderStyle.NONE, size: 0 },
+                left: { style: TableBorderStyle.SINGLE, size: 6, color: "000000" },
+                right: { style: TableBorderStyle.NONE, size: 0 },
+              },
+            }),
+          ],
+        }),
+      ],
+    })
+    
+    return new Header({ children: [lineNumberTable, rightBorderTable] })
+  }
+
+  // Create footer with page numbers and document title
+  const createFooter = () => {
+    return new Footer({
+      children: [
+        new Paragraph({
+          children: [
+            new TextRun({ text: "-", size: 24, font: 'Times New Roman' }),
+            new TextRun({ children: [PageNumber.CURRENT], size: 24, font: 'Times New Roman' }),
+            new TextRun({ text: "-", size: 24, font: 'Times New Roman' }),
+          ],
+          alignment: AlignmentType.CENTER,
+          border: {
+            bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000" },
+          },
+          spacing: { after: 120 },
+        }),
+        new Paragraph({
+          children: [
+            new TextRun({ text: getDiscoveryTypeTitle(discoveryType), size: 24, font: 'Times New Roman' }),
+          ],
+          alignment: AlignmentType.CENTER,
+        }),
+      ],
+    })
+  }
+
+  // Helper for single-spaced header paragraphs
+  const createHeaderParagraph = (text: string, options: any = {}) => {
+    return new Paragraph({
+      children: [
+        new TextRun({
+          text: text,
+          size: 24,
+          font: 'Times New Roman',
+          ...options.textOptions
+        }),
+      ],
+      spacing: { line: 240, lineRule: 'auto' as any, before: 0, after: 0, ...options.spacing },
+      ...options
+    })
+  }
+
+  // Helper for body paragraphs with pleading spacing
+  const createParagraph = (text: string, options: any = {}) => {
+    return new Paragraph({
+      children: [
+        new TextRun({
+          text: text,
+          size: 24,
+          font: 'Times New Roman',
+          ...options.textOptions
+        }),
+      ],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any, before: 0, after: 0, ...options.spacing },
+      ...options
+    })
+  }
 
   // Get party names based on propounding/responding
   const propoundingPartyName = propoundingParty === 'plaintiff' ? plaintiffName : defendantName
   const respondingPartyName = respondingParty === 'plaintiff' ? plaintiffName : defendantName
 
-  // Attorney Header
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: `${attorneyName}, State Bar No. ${stateBarNumber}`, size: 24 }),
-      ],
-      spacing: { after: 0 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: lawFirmName, size: 24 })],
-      spacing: { after: 0 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: address, size: 24 })],
-      spacing: { after: 0 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `Telephone: ${phone}${fax ? ` | Fax: ${fax}` : ''}`, size: 24 })],
-      spacing: { after: 0 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `Email: ${email}`, size: 24 })],
-      spacing: { after: 200 },
-    })
-  )
-
-  // Attorney for line
-  children.push(
-    new Paragraph({
-      children: [
-        new TextRun({ text: `Attorney for ${propoundingParty.toUpperCase()} ${propoundingPartyName.toUpperCase()}`, size: 24 }),
-      ],
-      spacing: { after: 400 },
-    })
-  )
+  // Attorney Header (single-spaced)
+  children.push(createHeaderParagraph(`${attorneyName}, State Bar No. ${stateBarNumber}`))
+  children.push(createHeaderParagraph(lawFirmName))
+  children.push(createHeaderParagraph(address))
+  children.push(createHeaderParagraph(`Telephone: ${phone}`))
+  if (fax) {
+    children.push(createHeaderParagraph(`Facsimile: ${fax}`))
+  }
+  children.push(createHeaderParagraph(email))
+  children.push(createHeaderParagraph(''))
+  children.push(createHeaderParagraph(`Attorney for ${propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'} ${propoundingPartyName}`))
+  children.push(createHeaderParagraph(''))
+  children.push(createHeaderParagraph(''))
 
   // Court Header
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `SUPERIOR COURT OF THE STATE OF CALIFORNIA`, size: 24, bold: true })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 100 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `COUNTY OF ${county.toUpperCase()}`, size: 24, bold: true })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 300 },
-    })
-  )
+  children.push(createHeaderParagraph('SUPERIOR COURT OF THE STATE OF CALIFORNIA', { alignment: AlignmentType.CENTER }))
+  children.push(createHeaderParagraph(`COUNTY OF ${county.toUpperCase()}`, { alignment: AlignmentType.CENTER }))
+  children.push(createHeaderParagraph(''))
 
-  // Case Caption
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `${plaintiffName},`, size: 24 })],
-      spacing: { after: 0 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `          Plaintiff,`, size: 24 })],
-      spacing: { after: 100 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `     vs.`, size: 24 })],
-      spacing: { after: 100 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `${defendantName},`, size: 24 })],
-      spacing: { after: 0 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `          Defendant.`, size: 24 })],
-      spacing: { after: 200 },
-    })
-  )
-
-  // Case Number and Document Title
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `Case No.: ${caseNumber}`, size: 24, bold: true })],
-      spacing: { after: 200 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: getDiscoveryTypeTitle(discoveryType), size: 28, bold: true })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 100 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `SET ${SET_NUMBER_WORDS[setNumber - 1] || setNumber}`, size: 24, bold: true })],
-      alignment: AlignmentType.CENTER,
-      spacing: { after: 400 },
-    })
-  )
-
-  // Propounding/Responding Party Header
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `PROPOUNDING PARTY: ${propoundingParty.toUpperCase()}`, size: 24 })],
-      spacing: { after: 50 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `RESPONDING PARTY: ${respondingParty.toUpperCase()}`, size: 24 })],
-      spacing: { after: 50 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `SET NO.: ${SET_NUMBER_WORDS[setNumber - 1] || setNumber}`, size: 24 })],
-      spacing: { after: 300 },
-    })
-  )
+  // Case Caption Table with borders
+  const captionTable = new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: {
+      top: { style: TableBorderStyle.NONE, size: 0 },
+      bottom: { style: TableBorderStyle.NONE, size: 0 },
+      left: { style: TableBorderStyle.NONE, size: 0 },
+      right: { style: TableBorderStyle.NONE, size: 0 },
+      insideHorizontal: { style: TableBorderStyle.NONE, size: 0 },
+      insideVertical: { style: TableBorderStyle.NONE, size: 0 },
+    },
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: {
+              bottom: { style: TableBorderStyle.SINGLE, size: 4, color: "000000" },
+              right: { style: TableBorderStyle.SINGLE, size: 4, color: "000000" },
+              top: { style: TableBorderStyle.NONE, size: 0 },
+              left: { style: TableBorderStyle.NONE, size: 0 },
+            },
+            children: [
+              createHeaderParagraph(`${plaintiffName.toUpperCase()},`),
+              createHeaderParagraph(''),
+              createHeaderParagraph('          Plaintiff,'),
+              createHeaderParagraph(''),
+              createHeaderParagraph('     vs.'),
+              createHeaderParagraph(''),
+              createHeaderParagraph(`${defendantName.toUpperCase()},`),
+              createHeaderParagraph(''),
+              createHeaderParagraph('          Defendant.'),
+            ],
+          }),
+          new TableCell({
+            width: { size: 50, type: WidthType.PERCENTAGE },
+            borders: {
+              bottom: { style: TableBorderStyle.NONE, size: 0 },
+              right: { style: TableBorderStyle.NONE, size: 0 },
+              top: { style: TableBorderStyle.NONE, size: 0 },
+              left: { style: TableBorderStyle.NONE, size: 0 },
+            },
+            margins: { left: 200 },
+            children: [
+              createHeaderParagraph(`Case No. ${caseNumber}`),
+              ...(department ? [createHeaderParagraph(`Dept. ${department}`)] : []),
+              createHeaderParagraph(''),
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: getDiscoveryTypeTitle(discoveryType),
+                    size: 24,
+                    font: 'Times New Roman',
+                    bold: true,
+                  }),
+                ],
+                spacing: { line: 240, lineRule: 'auto' as any },
+              }),
+              createHeaderParagraph(`SET ${SET_NUMBER_WORDS[setNumber - 1] || setNumber}`),
+              createHeaderParagraph(''),
+              createHeaderParagraph(`Propounding Party: ${propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'}`),
+              createHeaderParagraph(`Responding Party: ${respondingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'}`),
+            ],
+          }),
+        ],
+      }),
+    ],
+  })
+  children.push(captionTable)
+  children.push(createHeaderParagraph(''))
 
   // Introduction paragraph based on type
   const introText = discoveryType === 'interrogatories'
@@ -1746,62 +1879,54 @@ export function generateDiscoveryDocument(data: DiscoveryDocumentData): Document
     ? `${propoundingPartyName} ("${propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'}") requests, pursuant to California Code of Civil Procedure section 2031.010, that ${respondingPartyName} ("${respondingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'}" or "Responding Party") produce, within the time provided by law, the following documents and things:`
     : `${propoundingPartyName} ("${propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'}") requests that ${respondingPartyName} ("${respondingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'}" or "Responding Party") admit the truth of the following matters pursuant to California Code of Civil Procedure section 2033.010:`
 
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: introText, size: 24 })],
-      alignment: AlignmentType.JUSTIFIED,
-      spacing: { after: 400 },
-    })
-  )
+  children.push(createParagraph(introText, { alignment: AlignmentType.JUSTIFIED, indent: { firstLine: 720 } }))
+  children.push(createParagraph(''))
 
   // Definitions Section (for interrogatories and RFP)
   if ((discoveryType === 'interrogatories' || discoveryType === 'rfp') && definitions.length > 0) {
-    children.push(
-      new Paragraph({
-        children: [new TextRun({ text: 'DEFINITIONS', size: 24, bold: true, underline: {} })],
-        spacing: { before: 200, after: 200 },
-      })
-    )
+    children.push(new Paragraph({
+      children: [new TextRun({ text: 'DEFINITIONS', size: 24, bold: true, underline: {}, font: 'Times New Roman' })],
+      spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+      alignment: AlignmentType.CENTER,
+    }))
+    children.push(createParagraph(''))
 
     definitions.forEach((def, index) => {
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: `${index + 1}. ${def}`, size: 24 })],
-          alignment: AlignmentType.JUSTIFIED,
-          spacing: { after: 150 },
-        })
-      )
+      children.push(new Paragraph({
+        children: [new TextRun({ text: `${index + 1}. ${def}`, size: 24, font: 'Times New Roman' })],
+        alignment: AlignmentType.JUSTIFIED,
+        spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        indent: { firstLine: 720 },
+      }))
+      children.push(createParagraph(''))
     })
-
-    // Add spacer after definitions
-    children.push(new Paragraph({ children: [], spacing: { after: 300 } }))
   }
 
-  // Discovery Items
+  // Discovery Items Header
   const typeLabel = discoveryType === 'interrogatories' 
     ? 'SPECIAL INTERROGATORIES' 
     : discoveryType === 'rfp' 
     ? 'REQUESTS FOR PRODUCTION' 
     : 'REQUESTS FOR ADMISSION'
 
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: typeLabel, size: 24, bold: true, underline: {} })],
-      spacing: { before: 200, after: 200 },
-    })
-  )
+  children.push(new Paragraph({
+    children: [new TextRun({ text: typeLabel, size: 24, bold: true, underline: {}, font: 'Times New Roman' })],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+    alignment: AlignmentType.CENTER,
+  }))
+  children.push(createParagraph(''))
 
   // Handle categorized items (interrogatories and RFP)
   if (categories && categories.length > 0) {
     categories.forEach(category => {
       if (category.items.length > 0) {
-        // Category title
-        children.push(
-          new Paragraph({
-            children: [new TextRun({ text: category.title.toUpperCase(), size: 24, bold: true, italics: true })],
-            spacing: { before: 200, after: 150 },
-          })
-        )
+        // Category title - centered, bold, italics
+        children.push(new Paragraph({
+          children: [new TextRun({ text: category.title.toUpperCase(), size: 24, bold: true, italics: true, font: 'Times New Roman' })],
+          spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+          alignment: AlignmentType.CENTER,
+        }))
+        children.push(createParagraph(''))
 
         // Category items
         category.items.forEach(item => {
@@ -1810,27 +1935,22 @@ export function generateDiscoveryDocument(data: DiscoveryDocumentData): Document
           const headerRegex = /^(SPECIAL INTERROGATORY NO\.|REQUEST FOR PRODUCTION NO\.|REQUEST FOR ADMISSION NO\.)\s*\[?X?\]?:?\s*/i
           content = content.replace(headerRegex, '').trim()
 
-          children.push(
-            new Paragraph({
-              children: [
-                new TextRun({ 
-                  text: discoveryType === 'interrogatories' 
-                    ? `SPECIAL INTERROGATORY NO. ${item.number}: ` 
-                    : `REQUEST FOR PRODUCTION NO. ${item.number}: `, 
-                  size: 24, 
-                  bold: true 
-                }),
-              ],
-              spacing: { before: 150, after: 50 },
-            })
-          )
-          children.push(
-            new Paragraph({
-              children: [new TextRun({ text: content, size: 24 })],
-              alignment: AlignmentType.JUSTIFIED,
-              spacing: { after: 200 },
-            })
-          )
+          const itemLabel = discoveryType === 'interrogatories' 
+            ? `SPECIAL INTERROGATORY NO. ${item.number}:` 
+            : `REQUEST FOR PRODUCTION NO. ${item.number}:`
+
+          children.push(new Paragraph({
+            children: [new TextRun({ text: itemLabel, size: 24, bold: true, font: 'Times New Roman' })],
+            spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+            indent: { firstLine: 720 },
+          }))
+          children.push(new Paragraph({
+            children: [new TextRun({ text: content, size: 24, font: 'Times New Roman' })],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+            indent: { firstLine: 720 },
+          }))
+          children.push(createParagraph(''))
         })
       }
     })
@@ -1844,61 +1964,36 @@ export function generateDiscoveryDocument(data: DiscoveryDocumentData): Document
       const headerRegex = /^REQUEST FOR ADMISSION NO\.\s*\[?X?\]?:?\s*/i
       content = content.replace(headerRegex, '').trim()
 
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({ text: `REQUEST FOR ADMISSION NO. ${item.number}: `, size: 24, bold: true }),
-          ],
-          spacing: { before: 150, after: 50 },
-        })
-      )
-      children.push(
-        new Paragraph({
-          children: [new TextRun({ text: content, size: 24 })],
-          alignment: AlignmentType.JUSTIFIED,
-          spacing: { after: 200 },
-        })
-      )
+      children.push(new Paragraph({
+        children: [new TextRun({ text: `REQUEST FOR ADMISSION NO. ${item.number}:`, size: 24, bold: true, font: 'Times New Roman' })],
+        spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        indent: { firstLine: 720 },
+      }))
+      children.push(new Paragraph({
+        children: [new TextRun({ text: content, size: 24, font: 'Times New Roman' })],
+        alignment: AlignmentType.JUSTIFIED,
+        spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+        indent: { firstLine: 720 },
+      }))
+      children.push(createParagraph(''))
     })
   }
 
   // Signature Block
-  children.push(new Paragraph({ children: [], spacing: { after: 400 } }))
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: 'Dated: ________________', size: 24 })],
-      spacing: { after: 400 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: 'Respectfully submitted,', size: 24 })],
-      spacing: { after: 300 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: lawFirmName.toUpperCase(), size: 24, bold: true })],
-      spacing: { after: 400 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: '_________________________________', size: 24 })],
-      spacing: { after: 50 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: attorneyName, size: 24 })],
-      spacing: { after: 50 },
-    })
-  )
-  children.push(
-    new Paragraph({
-      children: [new TextRun({ text: `Attorney for ${propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'} ${propoundingPartyName}`, size: 24 })],
-    })
-  )
+  children.push(createParagraph(''))
+  children.push(createParagraph('Dated: ________________'))
+  children.push(createParagraph(''))
+  children.push(createParagraph('Respectfully submitted,'))
+  children.push(createParagraph(''))
+  children.push(new Paragraph({
+    children: [new TextRun({ text: lawFirmName.toUpperCase(), size: 24, bold: true, font: 'Times New Roman' })],
+    spacing: { line: PLEADING_LINE_HEIGHT, lineRule: 'exact' as any },
+  }))
+  children.push(createParagraph(''))
+  children.push(createParagraph(''))
+  children.push(createParagraph('_________________________________'))
+  children.push(createParagraph(attorneyName))
+  children.push(createParagraph(`Attorney for ${propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'} ${propoundingPartyName}`))
 
   return new Document({
     sections: [
@@ -1906,13 +2001,17 @@ export function generateDiscoveryDocument(data: DiscoveryDocumentData): Document
         properties: {
           page: {
             margin: {
+              top: 1440,
+              bottom: 2880,
               left: 1440,
               right: 1440,
-              top: 1440,
-              bottom: 1440,
+              header: 0,
+              footer: 360,
             },
           },
         },
+        headers: { default: createLineNumberHeader() },
+        footers: { default: createFooter() },
         children: children,
       },
     ],

@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Plus, FileDown, Save, Check, Sparkles, ChevronDown, ChevronUp, Eye, FolderPlus } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { Plus, FileDown, Save, Check, Sparkles, ChevronDown, ChevronUp, Eye, FolderPlus, RotateCcw } from 'lucide-react'
 import { 
   CaseFrontend, 
   supabaseCaseStorage, 
@@ -14,6 +14,7 @@ import CategorySection from './CategorySection'
 import DefinitionsSection from './DefinitionsSection'
 import DiscoveryAIPanel from './DiscoveryAIPanel'
 import DiscoveryPreviewModal from '../../components/DiscoveryPreviewModal'
+import { getCategoriesForCaseType } from '@/lib/data/discoveryCategories'
 
 // Default California definitions
 const DEFAULT_CALIFORNIA_DEFINITIONS = [
@@ -26,24 +27,17 @@ const DEFAULT_CALIFORNIA_DEFINITIONS = [
   'As used in this document, the term "COMMUNICATIONS" means any and all written communications between two or more persons contained in any DOCUMENTS, or transcribed oral communication, including but not limited to email, telephone communications, personal conferences, meetings, or otherwise.',
 ]
 
-// Default categories for interrogatories
-const DEFAULT_CATEGORIES: DiscoveryCategory[] = [
-  { id: 'facts', title: 'Facts', items: [] },
-  { id: 'injuries', title: 'Injuries', items: [] },
-  { id: 'treatment', title: 'Treatment', items: [] },
-  { id: 'previous-treatment', title: 'Previous Treatment', items: [] },
-  { id: 'future-treatment', title: 'Future Treatment', items: [] },
-  { id: 'damages', title: 'Damages', items: [] },
-  { id: 'lost-wages', title: 'Lost Wages/Income', items: [] },
-  { id: 'activities', title: 'Activities', items: [] },
-]
-
 interface Props {
   caseData: CaseFrontend
   onCaseUpdate: (updatedCase: CaseFrontend) => void
 }
 
 export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props) {
+  // Get dynamic categories based on case type - SECURITY: uses verified caseType from caseData
+  const defaultCategories = useMemo(() => {
+    return getCategoriesForCaseType(caseData.caseType)
+  }, [caseData.caseType])
+
   const [document, setDocument] = useState<InterrogatoriesDocument>(() => {
     // Initialize from saved data or defaults
     if (caseData.discoveryDocuments?.interrogatories) {
@@ -57,13 +51,17 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
         jurisdiction: 'california'
       },
       definitions: DEFAULT_CALIFORNIA_DEFINITIONS,
-      categories: DEFAULT_CATEGORIES
+      categories: defaultCategories
     }
   })
   
-  // Drag and drop state
-  const [draggedItem, setDraggedItem] = useState<{ categoryId: string; index: number } | null>(null)
-  const [dragOverItem, setDragOverItem] = useState<{ categoryId: string; index: number } | null>(null)
+  // Drag and drop state for items
+  const [draggedItem, setDraggedItem] = useState<{ categoryId: string; itemId: string } | null>(null)
+  const [dragOverItem, setDragOverItem] = useState<{ categoryId: string; itemId: string } | null>(null)
+  
+  // Drag and drop state for categories
+  const [draggedCategory, setDraggedCategory] = useState<string | null>(null)
+  const [dragOverCategory, setDragOverCategory] = useState<string | null>(null)
   
   // AI Panel state
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false)
@@ -177,34 +175,44 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
     }))
   }
 
-  // Drag and drop handlers
-  const handleDragStart = (categoryId: string, index: number) => {
-    setDraggedItem({ categoryId, index })
+  // Drag and drop handlers - simple ID-based approach like category drag
+  const handleDragStart = (categoryId: string, itemId: string) => {
+    setDraggedItem({ categoryId, itemId })
   }
 
-  const handleDragOver = (e: React.DragEvent, categoryId: string, index: number) => {
+  const handleDragOver = (e: React.DragEvent, categoryId: string, itemId: string) => {
     e.preventDefault()
-    setDragOverItem({ categoryId, index })
+    if (draggedItem && draggedItem.itemId !== itemId) {
+      setDragOverItem({ categoryId, itemId })
+    }
   }
 
-  const handleDrop = (e: React.DragEvent, dropCategoryId: string, dropIndex: number) => {
+  const handleDrop = (e: React.DragEvent, targetCategoryId: string, targetItemId: string) => {
     e.preventDefault()
-    if (!draggedItem) return
+    if (!draggedItem || draggedItem.itemId === targetItemId) {
+      setDraggedItem(null)
+      setDragOverItem(null)
+      return
+    }
 
     setDocument(prev => {
       const newCategories = [...prev.categories]
       
-      // Find source category and item
+      // Find source category and item index
       const sourceCategory = newCategories.find(c => c.id === draggedItem.categoryId)
       if (!sourceCategory) return prev
+      const sourceIndex = sourceCategory.items.findIndex(item => item.id === draggedItem.itemId)
+      if (sourceIndex === -1) return prev
       
-      const [draggedItemData] = sourceCategory.items.splice(draggedItem.index, 1)
-      
-      // Find target category and insert
-      const targetCategory = newCategories.find(c => c.id === dropCategoryId)
+      // Find target category and item index
+      const targetCategory = newCategories.find(c => c.id === targetCategoryId)
       if (!targetCategory) return prev
+      const targetIndex = targetCategory.items.findIndex(item => item.id === targetItemId)
+      if (targetIndex === -1) return prev
       
-      targetCategory.items.splice(dropIndex, 0, draggedItemData)
+      // Remove from source and insert at target
+      const [removed] = sourceCategory.items.splice(sourceIndex, 1)
+      targetCategory.items.splice(targetIndex, 0, removed)
       
       return { ...prev, categories: renumberAllItems(newCategories) }
     })
@@ -216,6 +224,48 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
   const handleDragEnd = () => {
     setDraggedItem(null)
     setDragOverItem(null)
+  }
+
+  // Category drag handlers
+  const handleCategoryDragStart = (categoryId: string) => {
+    setDraggedCategory(categoryId)
+  }
+
+  const handleCategoryDragOver = (e: React.DragEvent, categoryId: string) => {
+    e.preventDefault()
+    if (draggedCategory && draggedCategory !== categoryId) {
+      setDragOverCategory(categoryId)
+    }
+  }
+
+  const handleCategoryDrop = (e: React.DragEvent, targetCategoryId: string) => {
+    e.preventDefault()
+    if (!draggedCategory || draggedCategory === targetCategoryId) {
+      setDraggedCategory(null)
+      setDragOverCategory(null)
+      return
+    }
+
+    setDocument(prev => {
+      const newCategories = [...prev.categories]
+      const draggedIndex = newCategories.findIndex(c => c.id === draggedCategory)
+      const targetIndex = newCategories.findIndex(c => c.id === targetCategoryId)
+      
+      if (draggedIndex === -1 || targetIndex === -1) return prev
+      
+      const [removed] = newCategories.splice(draggedIndex, 1)
+      newCategories.splice(targetIndex, 0, removed)
+      
+      return { ...prev, categories: renumberAllItems(newCategories) }
+    })
+
+    setDraggedCategory(null)
+    setDragOverCategory(null)
+  }
+
+  const handleCategoryDragEnd = () => {
+    setDraggedCategory(null)
+    setDragOverCategory(null)
   }
 
   // Add category
@@ -349,6 +399,22 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
     setIsAIPanelOpen(true)
   }
 
+  // Reset to start a new document
+  const handleNew = () => {
+    if (window.confirm('Are you sure you want to start a new document? Any unsaved changes will be lost.')) {
+      setDocument({
+        metadata: {
+          propoundingParty: 'defendant',
+          respondingParty: 'plaintiff',
+          setNumber: 1,
+          jurisdiction: 'california'
+        },
+        definitions: DEFAULT_CALIFORNIA_DEFINITIONS,
+        categories: DEFAULT_CATEGORIES
+      })
+    }
+  }
+
   // Get party names
   const getPropoundingPartyName = () => {
     if (document.metadata.propoundingParty === 'plaintiff') {
@@ -374,69 +440,11 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
           
           {/* Header Card */}
           <div className="glass p-6 rounded-2xl mb-8">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Special Interrogatories</h1>
-                <p className="text-gray-600 mt-1">
-                  {getTotalItemCount()} interrogatories • Drag to reorder • Click <Sparkles className="w-4 h-4 inline text-purple-500" /> to generate with AI
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                {saveSuccess && (
-                  <span className="text-green-600 text-sm font-medium flex items-center gap-1">
-                    <Check className="w-4 h-4" />
-                    Saved!
-                  </span>
-                )}
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-full font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
-                >
-                  <Save className="w-4 h-4" />
-                  {saving ? 'Saving...' : 'Save Draft'}
-                </button>
-                <button
-                  onClick={handleSaveToRepository}
-                  disabled={savingToRepo}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full font-medium transition-colors ${
-                    repoSaveSuccess 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-purple-600 text-white hover:bg-purple-700'
-                  } disabled:opacity-50`}
-                >
-                  {savingToRepo ? (
-                    <>
-                      <Save className="w-4 h-4 animate-spin" />
-                      Saving...
-                    </>
-                  ) : repoSaveSuccess ? (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Saved!
-                    </>
-                  ) : (
-                    <>
-                      <FolderPlus className="w-4 h-4" />
-                      Save to Repository
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={() => setShowPreview(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-full font-medium hover:bg-gray-50 transition-colors"
-                >
-                  <Eye className="w-4 h-4" />
-                  Preview
-                </button>
-                <button 
-                  onClick={() => setShowPreview(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full font-medium hover:from-blue-700 hover:to-blue-800 transition-colors"
-                >
-                  <FileDown className="w-4 h-4" />
-                  Export Word
-                </button>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Special Interrogatories</h1>
+              <p className="text-gray-600 mt-1">
+                {getTotalItemCount()} interrogatories • Drag to reorder • Click <Sparkles className="w-4 h-4 inline text-purple-500" /> to generate with AI
+              </p>
             </div>
           </div>
 
@@ -478,7 +486,7 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
             </div>
             
             {/* Formatted Header Preview */}
-            <div className="bg-gray-50 rounded-xl p-4 text-sm font-mono border border-gray-200">
+            <div className="bg-gray-50 rounded-xl p-4 text-sm font-mono border border-gray-200 text-gray-800">
               <p><strong>PROPOUNDING PARTY:</strong> {document.metadata.propoundingParty.toUpperCase()}</p>
               <p><strong>RESPONDING PARTY:</strong> {document.metadata.respondingParty.toUpperCase()}</p>
               <p><strong>SET NO.:</strong> {setNumberWords[document.metadata.setNumber - 1] || document.metadata.setNumber}</p>
@@ -526,27 +534,113 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
               caseData={caseData}
               draggedItem={draggedItem}
               dragOverItem={dragOverItem}
+              isDragging={draggedCategory === category.id}
+              isDragOver={dragOverCategory === category.id}
+              onCategoryDragStart={() => handleCategoryDragStart(category.id)}
+              onCategoryDragOver={(e) => handleCategoryDragOver(e, category.id)}
+              onCategoryDrop={(e) => handleCategoryDrop(e, category.id)}
+              onCategoryDragEnd={handleCategoryDragEnd}
               onUpdateTitle={(title) => handleUpdateCategoryTitle(category.id, title)}
               onRemoveCategory={() => handleRemoveCategory(category.id)}
               onAddItem={(content) => handleAddItem(category.id, content)}
               onUpdateItem={(itemId, content) => handleUpdateItem(category.id, itemId, content)}
               onRemoveItem={(itemId) => handleRemoveItem(category.id, itemId)}
-              onDragStart={(index) => handleDragStart(category.id, index)}
-              onDragOver={(e, index) => handleDragOver(e, category.id, index)}
-              onDrop={(e, index) => handleDrop(e, category.id, index)}
+              onDragStart={(itemId) => handleDragStart(category.id, itemId)}
+              onDragOver={(e, itemId) => handleDragOver(e, category.id, itemId)}
+              onDrop={(e, itemId) => handleDrop(e, category.id, itemId)}
               onDragEnd={handleDragEnd}
               onOpenAI={() => handleOpenAIForCategory(category.id)}
             />
           ))}
 
           {/* Add Category Button */}
-          <div className="flex justify-center mt-6 mb-12">
+          <div className="flex justify-center mt-6 mb-8">
             <button
               onClick={handleAddCategory}
               className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full font-semibold hover:from-blue-700 hover:to-blue-800 shadow-lg transition-all hover:shadow-xl"
             >
               + Add Category
             </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="glass p-6 rounded-2xl flex flex-col gap-4 mb-12">
+            <div className="flex gap-4 justify-end items-center flex-wrap">
+              {/* Save Draft Button */}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                  saving ? 'opacity-50 cursor-not-allowed' : ''
+                } ${saveSuccess
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {saving ? (
+                  <>
+                    <Save className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Draft</span>
+                  </>
+                )}
+              </button>
+
+              {/* Save to Repository Button */}
+              <button
+                onClick={handleSaveToRepository}
+                disabled={savingToRepo}
+                className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                  savingToRepo ? 'opacity-50 cursor-not-allowed' : ''
+                } ${repoSaveSuccess
+                  ? 'bg-green-600 text-white'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+              >
+                {savingToRepo ? (
+                  <>
+                    <Save className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : repoSaveSuccess ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <FolderPlus className="w-4 h-4" />
+                    <span>Save to Repository</span>
+                  </>
+                )}
+              </button>
+
+              {/* New Document Button */}
+              <button
+                onClick={handleNew}
+                className="px-6 py-3 bg-white border border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-50 transition-all duration-300 flex items-center gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>New</span>
+              </button>
+
+              {/* Preview Button */}
+              <button
+                onClick={() => setShowPreview(true)}
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full font-semibold transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                Preview
+              </button>
+            </div>
           </div>
 
         </div>
@@ -595,6 +689,37 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate }: Props)
           title: cat.title,
           items: cat.items.map(item => ({ number: item.number, content: item.content }))
         }))}
+        // Attorney info from propounding party
+        attorneyName={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.name
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.name
+        }
+        stateBarNumber={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.barNumber
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.barNumber
+        }
+        lawFirmName={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.firm
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.firm
+        }
+        address={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.address
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.address
+        }
+        phone={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.phone
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.phone
+        }
+        email={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.email
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.email
+        }
       />
     </div>
   )

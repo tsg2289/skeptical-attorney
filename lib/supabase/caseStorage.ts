@@ -110,13 +110,53 @@ export interface RFPDocument {
 
 export interface RFADocument {
   metadata: DiscoveryMetadata
-  items: DiscoveryItem[]
+  definitions?: string[]
+  categories: DiscoveryCategory[]
 }
 
 export interface DiscoveryDocuments {
   interrogatories?: InterrogatoriesDocument
   rfp?: RFPDocument
   rfa?: RFADocument
+}
+
+// Discovery Response Types (for responding to received discovery)
+export interface DiscoveryResponseItem {
+  id: string
+  requestNumber: number
+  originalRequest: string
+  objections: string[]
+  objectionTexts: string[]
+  answer: string
+  suggestedObjectionIds: string[]
+  status: 'draft' | 'reviewed' | 'final'
+}
+
+export interface DiscoveryResponseSet {
+  id: string
+  setNumber: number
+  receivedDate: string
+  dueDate?: string
+  propoundingParty: 'plaintiff' | 'defendant'
+  originalDocument: {
+    fileName: string
+    uploadedAt: string
+    extractedText?: string
+  }
+  responses: DiscoveryResponseItem[]
+  metadata: {
+    respondingParty: 'plaintiff' | 'defendant'
+    verificationRequired?: boolean
+    status: 'draft' | 'reviewed' | 'final'
+    createdAt: string
+    updatedAt: string
+  }
+}
+
+export interface DiscoveryResponses {
+  interrogatories_responses?: DiscoveryResponseSet[]
+  rfp_responses?: DiscoveryResponseSet[]
+  rfa_responses?: DiscoveryResponseSet[]
 }
 
 // Motion Types
@@ -255,8 +295,10 @@ export interface CaseFrontend {
   complaintSections?: ComplaintSection[]
   answerSections?: AnswerSections
   discoveryDocuments?: DiscoveryDocuments
+  discoveryResponses?: DiscoveryResponses
   motionDocuments?: MotionDocument[]
   notes?: CaseNote[]
+  discoveryNotes?: CaseNote[]
   createdAt: string
   userId: string
 }
@@ -289,8 +331,10 @@ function mapCaseFromDb(dbCase: any): CaseFrontend {
     complaintSections: dbCase.complaint_sections || undefined,
     answerSections: dbCase.answer_sections || undefined,
     discoveryDocuments: dbCase.discovery_documents || undefined,
+    discoveryResponses: dbCase.discovery_responses || undefined,
     motionDocuments: dbCase.motion_documents || undefined,
     notes: dbCase.notes || [],
+    discoveryNotes: dbCase.discovery_notes || [],
     createdAt: dbCase.created_at,
     userId: dbCase.user_id
   }
@@ -326,6 +370,7 @@ function mapCaseToDb(updates: Partial<Omit<CaseFrontend, 'id' | 'userId' | 'crea
   if (updates.discoveryDocuments !== undefined) dbUpdates.discovery_documents = updates.discoveryDocuments
   if (updates.motionDocuments !== undefined) dbUpdates.motion_documents = updates.motionDocuments
   if (updates.notes !== undefined) dbUpdates.notes = updates.notes
+  if (updates.discoveryNotes !== undefined) dbUpdates.discovery_notes = updates.discoveryNotes
   
   return dbUpdates
 }

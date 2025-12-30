@@ -261,3 +261,10 @@ ORDER BY d.deadline_date ASC;
 -- Run this entire script in your Supabase SQL Editor
 -- =====================================================
 
+
+
+
+
+
+
+

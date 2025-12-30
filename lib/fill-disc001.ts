@@ -1,7 +1,7 @@
-import { PDFDocument, PDFForm, PDFTextField, PDFCheckBox, StandardFonts, rgb } from 'pdf-lib'
-
-// Official DISC-001 Form URL from California Courts
-const DISC001_URL = 'https://courts.ca.gov/sites/default/files/courts/default/2024-11/disc001.pdf'
+import { spawn } from 'child_process'
+import * as fs from 'fs'
+import * as path from 'path'
+import * as os from 'os'
 
 export interface DISC001FormData {
   // Attorney/Party Info (top left block)
@@ -35,259 +35,155 @@ export interface DISC001FormData {
   setNumber: number
   
   // Which sections to check (interrogatory numbers)
-  // Section numbers from the form
   selectedSections: string[]
 }
 
-// Fetch the official DISC-001 PDF template
-async function fetchDISC001Template(): Promise<ArrayBuffer> {
-  const response = await fetch(DISC001_URL)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch DISC-001 form: ${response.status}`)
-  }
-  return await response.arrayBuffer()
+/**
+ * Execute a command with proper argument handling (no shell escaping issues)
+ */
+function execCommand(command: string, args: string[], cwd: string): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, args, {
+      cwd,
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
+    
+    let stdout = ''
+    let stderr = ''
+    
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString()
+    })
+    
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString()
+    })
+    
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr })
+      } else {
+        reject(new Error(`Process exited with code ${code}: ${stderr}`))
+      }
+    })
+    
+    proc.on('error', (err) => {
+      reject(err)
+    })
+    
+    // Timeout after 60 seconds
+    setTimeout(() => {
+      proc.kill()
+      reject(new Error('Process timed out'))
+    }, 60000)
+  })
 }
 
-// Helper to safely set a text field
-function setTextField(form: PDFForm, fieldName: string, value: string): boolean {
-  try {
-    const field = form.getTextField(fieldName)
-    field.setText(value)
-    return true
-  } catch (e) {
-    // Field doesn't exist or isn't a text field
-    return false
-  }
-}
-
-// Helper to safely check a checkbox
-function checkBox(form: PDFForm, fieldName: string): boolean {
-  try {
-    const field = form.getCheckBox(fieldName)
-    field.check()
-    return true
-  } catch (e) {
-    // Field doesn't exist or isn't a checkbox
-    return false
-  }
-}
-
-// Get all form field names from a PDF (for debugging/discovery)
-export async function getDISC001FieldNames(): Promise<{ name: string; type: string }[]> {
-  const templateBytes = await fetchDISC001Template()
-  const pdfDoc = await PDFDocument.load(templateBytes)
-  const form = pdfDoc.getForm()
-  const fields = form.getFields()
-  
-  return fields.map(field => ({
-    name: field.getName(),
-    type: field.constructor.name
-  }))
-}
-
-// Fill the official DISC-001 form with case data
+/**
+ * Fill the official California DISC-001 PDF using PyMuPDF
+ * This uses a Python script with PyMuPDF which can handle XFA forms
+ */
 export async function fillDISC001Form(data: DISC001FormData): Promise<Uint8Array> {
-  // Fetch the official form
-  const templateBytes = await fetchDISC001Template()
-  const pdfDoc = await PDFDocument.load(templateBytes)
-  const form = pdfDoc.getForm()
+  console.log('Filling official DISC-001 PDF using PyMuPDF...')
   
-  // Get all fields for debugging
-  const fields = form.getFields()
-  console.log('Available DISC-001 form fields:', fields.map(f => `${f.getName()} (${f.constructor.name})`))
+  // Create temp files for input JSON and output PDF
+  const tempDir = os.tmpdir()
+  const timestamp = Date.now()
+  const inputJsonPath = path.join(tempDir, `disc001-input-${timestamp}.json`)
+  const outputPdfPath = path.join(tempDir, `disc001-output-${timestamp}.pdf`)
   
-  // Common California Judicial Council form field naming patterns
-  // These are typical field names - the actual names may vary
-  const fieldMappings: Record<string, string> = {
-    // Attorney block - various possible field names
-    'AttyName': data.attorneyName,
-    'Attorney': data.attorneyName,
-    'FillText1': data.attorneyName,
-    'topmostSubform[0].Page1[0].Caption[0].AttyInfo[0].Name[0]': data.attorneyName,
-    
-    'SBN': data.barNumber,
-    'BarNo': data.barNumber,
-    'StateBarNo': data.barNumber,
-    'FillText2': data.barNumber,
-    
-    'FirmName': data.firmName || '',
-    'Firm': data.firmName || '',
-    'FillText3': data.firmName || '',
-    
-    'StreetAddress': data.streetAddress,
-    'Address': data.streetAddress,
-    'FillText4': data.streetAddress,
-    
-    'City': data.city,
-    'FillText5': `${data.city}, ${data.state} ${data.zip}`,
-    
-    'Telephone': data.phone,
-    'Phone': data.phone,
-    'FillText6': data.phone,
-    
-    'Fax': data.fax || '',
-    'FaxNo': data.fax || '',
-    'FillText7': data.fax || '',
-    
-    'Email': data.email || '',
-    'EmailAddress': data.email || '',
-    'FillText8': data.email || '',
-    
-    'AttyFor': data.attorneyFor,
-    'AttorneyFor': data.attorneyFor,
-    'FillText9': data.attorneyFor,
-    
-    // Court info
-    'County': data.county,
-    'CourtCounty': data.county,
-    'SuperiorCourt': `SUPERIOR COURT OF CALIFORNIA, COUNTY OF ${data.county.toUpperCase()}`,
-    'FillText10': data.county,
-    
-    'BranchName': data.branchName || '',
-    'StreetAddressCourt': data.streetAddressCourt || '',
-    'MailingAddress': data.mailingAddress || '',
-    'CityZip': data.cityZipCourt || '',
-    
-    // Case caption
-    'Plaintiff': data.plaintiffName,
-    'PlaintiffPetitioner': data.plaintiffName,
-    'FillText11': data.plaintiffName,
-    
-    'Defendant': data.defendantName,
-    'DefendantRespondent': data.defendantName,
-    'FillText12': data.defendantName,
-    
-    'CaseNo': data.caseNumber,
-    'CaseNumber': data.caseNumber,
-    'FillText13': data.caseNumber,
-    
-    // Discovery specific
-    'AskingParty': data.askingPartyName,
-    'PropoundingParty': data.askingPartyName,
-    'FillText14': data.askingPartyName,
-    
-    'AnsweringParty': data.answeringPartyName,
-    'RespondingParty': data.answeringPartyName,
-    'FillText15': data.answeringPartyName,
-    
-    'SetNo': data.setNumber.toString(),
-    'SetNumber': data.setNumber.toString(),
-    'FillText16': data.setNumber.toString(),
+  // Convert TypeScript interface to Python-friendly format
+  const pythonData = {
+    attorney_name: data.attorneyName,
+    bar_number: data.barNumber,
+    firm_name: data.firmName,
+    street_address: data.streetAddress,
+    city: data.city,
+    state: data.state,
+    zip: data.zip,
+    phone: data.phone,
+    fax: data.fax,
+    email: data.email,
+    attorney_for: data.attorneyFor,
+    county: data.county,
+    plaintiff_name: data.plaintiffName,
+    defendant_name: data.defendantName,
+    case_number: data.caseNumber,
+    asking_party_name: data.askingPartyName,
+    answering_party_name: data.answeringPartyName,
+    set_number: data.setNumber,
+    selected_sections: data.selectedSections
   }
-
-  // Try to fill all text fields
-  for (const [fieldName, value] of Object.entries(fieldMappings)) {
-    if (value) {
-      setTextField(form, fieldName, value)
-    }
-  }
-
-  // Try to check the selected interrogatory sections
-  // Common checkbox naming patterns for interrogatory sections
-  for (const sectionNum of data.selectedSections) {
-    // Try various checkbox naming patterns
-    const checkboxPatterns = [
-      `Sec${sectionNum}`,
-      `Section${sectionNum}`,
-      `Int${sectionNum}`,
-      `Interrogatory${sectionNum}`,
-      `Item${sectionNum}`,
-      `CB${sectionNum}`,
-      `CheckBox${sectionNum}`,
-      `${sectionNum}`,
-      `c${sectionNum}`,
-      `sec${sectionNum.replace('.', '_')}`,
-      // Decimal sections like 6.1
-      `Sec${sectionNum.replace('.', '')}`,
-      `Item${sectionNum.replace('.', '_')}`,
-    ]
+  
+  try {
+    // Write input JSON
+    fs.writeFileSync(inputJsonPath, JSON.stringify(pythonData, null, 2))
+    console.log('Wrote input JSON to:', inputJsonPath)
     
-    for (const pattern of checkboxPatterns) {
-      if (checkBox(form, pattern)) {
-        console.log(`Checked: ${pattern}`)
-        break
-      }
-    }
-  }
-
-  // Try to dynamically find and fill fields by iterating through all fields
-  for (const field of fields) {
-    const fieldName = field.getName().toLowerCase()
+    // Get the project root directory
+    const projectRoot = process.cwd()
+    const pythonScript = path.join(projectRoot, 'scripts', 'fill_disc001.py')
+    const venvPython = path.join(projectRoot, '.venv', 'bin', 'python3')
     
-    // Try to match attorney info
-    if (fieldName.includes('attorney') || fieldName.includes('atty') || fieldName.includes('name')) {
-      if (field instanceof PDFTextField && !field.getText()) {
-        // This might be the attorney name field
-      }
+    // Check if venv exists, otherwise use system python
+    const pythonPath = fs.existsSync(venvPython) ? venvPython : 'python3'
+    
+    console.log('Python path:', pythonPath)
+    console.log('Script path:', pythonScript)
+    
+    // Execute Python script using spawn (handles spaces in paths properly)
+    const { stdout, stderr } = await execCommand(
+      pythonPath,
+      [pythonScript, inputJsonPath, outputPdfPath],
+      projectRoot
+    )
+    
+    if (stdout) console.log('Python output:', stdout)
+    if (stderr) console.warn('Python stderr:', stderr)
+    
+    // Read the output PDF
+    if (!fs.existsSync(outputPdfPath)) {
+      throw new Error('Python script did not create output PDF')
     }
     
-    // Log all field names for debugging
-    console.log(`Field: ${field.getName()} = ${field.constructor.name}`)
+    const pdfBuffer = fs.readFileSync(outputPdfPath)
+    console.log('Generated PDF size:', pdfBuffer.length, 'bytes')
+    
+    // Clean up temp files
+    try {
+      fs.unlinkSync(inputJsonPath)
+      fs.unlinkSync(outputPdfPath)
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+    
+    return new Uint8Array(pdfBuffer)
+    
+  } catch (error) {
+    // Clean up on error
+    try {
+      if (fs.existsSync(inputJsonPath)) fs.unlinkSync(inputJsonPath)
+      if (fs.existsSync(outputPdfPath)) fs.unlinkSync(outputPdfPath)
+    } catch (e) {
+      // Ignore cleanup errors
+    }
+    
+    console.error('Error filling DISC-001:', error)
+    throw new Error(`Failed to fill DISC-001: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  // Flatten the form to prevent further editing (optional)
-  // form.flatten()
-
-  return await pdfDoc.save()
 }
 
-// Alternative: Create filled form by overlaying text on the PDF
-// This is useful if the PDF doesn't have proper form fields
+/**
+ * Legacy function for backwards compatibility
+ */
 export async function fillDISC001WithOverlay(data: DISC001FormData): Promise<Uint8Array> {
-  const templateBytes = await fetchDISC001Template()
-  const pdfDoc = await PDFDocument.load(templateBytes)
-  
-  // Get the first page
-  const pages = pdfDoc.getPages()
-  const firstPage = pages[0]
-  
-  // Get page dimensions
-  const { height } = firstPage.getSize()
-  
-  // Embed a font
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
-  
-  // Define text positions based on the DISC-001 form layout
-  // These coordinates are approximate and may need adjustment
-  const textPlacements = [
-    // Attorney block (top left) - approximate positions
-    { text: data.attorneyName, x: 45, y: height - 50, size: 10 },
-    { text: `SBN: ${data.barNumber}`, x: 45, y: height - 62, size: 9 },
-    { text: data.firmName || '', x: 45, y: height - 74, size: 9 },
-    { text: data.streetAddress, x: 45, y: height - 86, size: 9 },
-    { text: `${data.city}, ${data.state} ${data.zip}`, x: 45, y: height - 98, size: 9 },
-    { text: `Tel: ${data.phone}`, x: 45, y: height - 110, size: 9 },
-    { text: data.fax ? `Fax: ${data.fax}` : '', x: 45, y: height - 122, size: 9 },
-    { text: data.email || '', x: 45, y: height - 134, size: 9 },
-    { text: `Attorney for: ${data.attorneyFor}`, x: 45, y: height - 146, size: 9 },
-    
-    // Court name (center top)
-    { text: `SUPERIOR COURT OF CALIFORNIA, COUNTY OF ${data.county.toUpperCase()}`, x: 200, y: height - 80, size: 10 },
-    
-    // Case caption
-    { text: data.plaintiffName, x: 45, y: height - 220, size: 10 },
-    { text: data.defendantName, x: 45, y: height - 260, size: 10 },
-    { text: data.caseNumber, x: 420, y: height - 220, size: 10 },
-    
-    // Propounding/Responding parties
-    { text: data.askingPartyName, x: 200, y: height - 310, size: 10 },
-    { text: data.answeringPartyName, x: 200, y: height - 330, size: 10 },
-    { text: `Set No.: ${data.setNumber}`, x: 450, y: height - 310, size: 10 },
-  ]
-
-  // Draw text on the page
-  for (const placement of textPlacements) {
-    if (placement.text) {
-      firstPage.drawText(placement.text, {
-        x: placement.x,
-        y: placement.y,
-        size: placement.size,
-        font,
-        color: rgb(0, 0, 0),
-      })
-    }
-  }
-
-  return await pdfDoc.save()
+  return fillDISC001Form(data)
 }
 
+/**
+ * Get field names (not applicable for XFA forms)
+ */
+export async function getDISC001FieldNames(): Promise<{ name: string; type: string }[]> {
+  // XFA forms don't expose field names the same way
+  return []
+}

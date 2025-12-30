@@ -2,14 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { X, Send, Sparkles, AlertCircle, Check, Trash2 } from 'lucide-react'
-import { CaseFrontend, DiscoveryItem } from '@/lib/supabase/caseStorage'
+import { CaseFrontend, DiscoveryCategory } from '@/lib/supabase/caseStorage'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
   caseData: CaseFrontend
-  currentItems: DiscoveryItem[]
-  onSuggestionsGenerated: (suggestions: string[]) => void
+  selectedCategory: string | null
+  categories: DiscoveryCategory[]
+  onSuggestionsGenerated: (suggestions: string[], categoryId?: string) => void
+  onCategorySelect: (categoryId: string | null) => void
 }
 
 interface Message {
@@ -23,8 +25,10 @@ export default function RFAAIPanel({
   isOpen,
   onClose,
   caseData,
-  currentItems,
-  onSuggestionsGenerated
+  selectedCategory,
+  categories,
+  onSuggestionsGenerated,
+  onCategorySelect
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -35,6 +39,14 @@ export default function RFAAIPanel({
 
   const plaintiffName = caseData.plaintiffs?.[0]?.name || 'Plaintiff'
   const defendantName = caseData.defendants?.[0]?.name || 'Defendant'
+
+  // Get total items count
+  const totalItems = categories.reduce((sum, cat) => sum + cat.items.length, 0)
+
+  // Get selected category name
+  const selectedCategoryName = selectedCategory 
+    ? categories.find(c => c.id === selectedCategory)?.title || 'Selected Category'
+    : null
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
@@ -88,6 +100,11 @@ export default function RFAAIPanel({
     setInput('')
     setIsLoading(true)
 
+    // Get current items for the selected category (or all items if no category selected)
+    const currentItems = selectedCategory
+      ? categories.find(c => c.id === selectedCategory)?.items || []
+      : categories.flatMap(c => c.items)
+
     try {
       const response = await fetch('/api/ai/discovery', {
         method: 'POST',
@@ -100,8 +117,8 @@ export default function RFAAIPanel({
           plaintiffName,
           defendantName,
           caseDescription: caseData.description || '',
-          selectedCategory: 'admissions',
-          categoryName: 'Requests for Admission',
+          selectedCategory: selectedCategory || 'admissions',
+          categoryName: selectedCategoryName || 'Requests for Admission',
           currentItems: currentItems.map(i => i.content).join('\n---\n') || '',
           conversationHistory: messages.filter(m => m.id !== 'welcome').map(m => ({
             role: m.role,
@@ -150,13 +167,14 @@ export default function RFAAIPanel({
 
   const handleInsertSuggestions = () => {
     if (pendingSuggestions) {
-      onSuggestionsGenerated(pendingSuggestions)
+      onSuggestionsGenerated(pendingSuggestions, selectedCategory || undefined)
       setPendingSuggestions(null)
       
+      const categoryText = selectedCategoryName ? ` to "${selectedCategoryName}"` : ''
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
         role: 'assistant',
-        content: `✅ Added ${pendingSuggestions.length} requests for admission.\n\nWould you like me to generate more RFAs focusing on different aspects of the case?`
+        content: `✅ Added ${pendingSuggestions.length} requests for admission${categoryText}.\n\nWould you like me to generate more RFAs focusing on different aspects of the case?`
       }])
     }
   }
@@ -166,10 +184,14 @@ export default function RFAAIPanel({
   }
 
   const quickActions = [
-    { label: 'Liability Facts', prompt: 'Generate requests for admission about the defendant\'s liability and negligence' },
-    { label: 'Document Genuineness', prompt: 'Draft RFAs about the authenticity and genuineness of key documents' },
-    { label: 'Timeline & Events', prompt: 'Create requests establishing the timeline and sequence of events' },
-    { label: 'Damages', prompt: 'Generate RFAs about damages, injuries, and their causation' },
+    { label: 'Facts & Scene', prompt: 'Generate requests for admission about the facts of the INCIDENT, including what the responding party told first responders and firefighters at the scene' },
+    { label: 'Injuries', prompt: 'Draft RFAs about injuries, whether they were caused by the INCIDENT, and if they have fully resolved' },
+    { label: 'Prior Injuries', prompt: 'Create requests about prior injuries and treatment to the same body parts claimed as injured within ten years prior to the INCIDENT' },
+    { label: 'Treatment', prompt: 'Generate RFAs about medical treatment timing, costs, and whether providers attributed treatment to the INCIDENT' },
+    { label: 'Lost Wages', prompt: 'Draft admissions about lost earnings, income documentation, and future income loss claims' },
+    { label: 'Liability', prompt: 'Create RFAs about defendant liability and negligence as alleged in the complaint' },
+    { label: 'Damages', prompt: 'Generate requests about non-economic damages and property damage from the INCIDENT' },
+    { label: 'Subsequent Accidents', prompt: 'Draft RFAs about any accidents or injuries sustained after the INCIDENT' },
   ]
 
   if (!isOpen) return null
@@ -203,12 +225,24 @@ export default function RFAAIPanel({
           </div>
         </div>
 
-        {/* Current Count */}
+        {/* Category Selector */}
         <div className="px-4 py-3 bg-slate-800/50 border-b border-white/10 shrink-0">
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-white/60">Current RFAs</span>
-            <span className="text-sm font-medium text-amber-400">{currentItems.length} items</span>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-white/60">Target Category</span>
+            <span className="text-sm font-medium text-amber-400">{totalItems} total items</span>
           </div>
+          <select
+            value={selectedCategory || ''}
+            onChange={(e) => onCategorySelect(e.target.value || null)}
+            className="w-full px-3 py-2 bg-slate-700/50 border border-white/20 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500"
+          >
+            <option value="">All Categories</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>
+                {cat.title} ({cat.items.length} items)
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Quick Actions */}
@@ -277,6 +311,7 @@ export default function RFAAIPanel({
               <span className="text-sm font-medium text-amber-400 flex items-center gap-2">
                 <Sparkles className="w-4 h-4" />
                 {pendingSuggestions.length} RFAs Ready
+                {selectedCategoryName && <span className="text-white/60">→ {selectedCategoryName}</span>}
               </span>
               <div className="flex gap-2">
                 <button
@@ -339,20 +374,3 @@ export default function RFAAIPanel({
     </>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

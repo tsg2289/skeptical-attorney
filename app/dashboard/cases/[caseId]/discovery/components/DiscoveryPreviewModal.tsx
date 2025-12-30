@@ -206,7 +206,7 @@ export default function DiscoveryPreviewModal({
               </p>
 
               {/* Definitions (for interrogatories and RFP) */}
-              {(discoveryType === 'interrogatories' || discoveryType === 'rfp') && definitions.length > 0 && (
+              {(discoveryType === 'interrogatories' || discoveryType === 'rfp' || discoveryType === 'rfa') && definitions.length > 0 && (
                 <div className="mb-8">
                   <h3 className="text-sm font-bold text-gray-900 uppercase mb-4 border-b border-gray-200 pb-2">
                     Definitions
@@ -332,6 +332,12 @@ export default function DiscoveryPreviewModal({
     </div>
   )
 }
+
+
+
+
+
+
 
 
 

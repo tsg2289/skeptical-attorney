@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { X, Send, Sparkles, AlertCircle, Check, Trash2 } from 'lucide-react'
 import { CaseFrontend, DiscoveryCategory } from '@/lib/supabase/caseStorage'
+import { getInterrogatoryQuickActionsForCaseType } from '@/lib/data/discoveryCategories'
 
 interface Props {
   isOpen: boolean
@@ -188,13 +189,10 @@ export default function DiscoveryAIPanel({
     setPendingSuggestions(null)
   }
 
-  // Quick action prompts
-  const quickActions = [
-    { label: 'Facts & Incident', prompt: 'Generate 5 interrogatories about how the incident occurred and who witnessed it' },
-    { label: 'Medical Treatment', prompt: 'Draft interrogatories about medical treatment received after the incident' },
-    { label: 'Damages', prompt: 'Create interrogatories about economic and non-economic damages claimed' },
-    { label: 'Prior Injuries', prompt: 'Generate questions about prior injuries to the same body parts' },
-  ]
+  // Dynamic quick action prompts based on case type - SECURITY: uses verified caseType from caseData
+  const quickActions = useMemo(() => {
+    return getInterrogatoryQuickActionsForCaseType(caseData.caseType)
+  }, [caseData.caseType])
 
   if (!isOpen) return null
 
@@ -385,6 +383,12 @@ export default function DiscoveryAIPanel({
     </>
   )
 }
+
+
+
+
+
+
 
 
 

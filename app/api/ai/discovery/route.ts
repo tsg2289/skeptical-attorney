@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+import { getRFPTemplatesForAI } from '@/lib/data/rfpTemplateQuestions'
+import { getRFATemplatesForAI } from '@/lib/data/rfaTemplateQuestions'
+import { anonymizeDataWithMapping, reidentifyData, PIIMapping, ContextualMapping } from '@/lib/utils/anonymize'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -19,20 +22,18 @@ export async function POST(request: NextRequest) {
       caseId, 
       discoveryType, 
       userMessage, 
-      caseFacts, 
-      plaintiffName, 
-      defendantName,
-      caseDescription,
       selectedCategory,
       categoryName,
       currentItems,
       conversationHistory 
     } = body
 
-    // CRITICAL: Verify user owns this case
+    // CRITICAL: Verify user owns this case AND fetch ALL needed data from DB
+    // We fetch case_type, facts, plaintiffs, defendants from DB - NOT from client
+    // This prevents spoofing and ensures data isolation
     const { data: caseData, error } = await supabase
       .from('cases')
-      .select('id, case_name, facts, description')
+      .select('id, case_name, facts, description, case_type, plaintiffs, defendants')
       .eq('id', caseId)
       .eq('user_id', user.id) // USER ISOLATION - Critical for security
       .single()
@@ -41,6 +42,75 @@ export async function POST(request: NextRequest) {
       console.log(`[SECURITY] User ${user.id} attempted to access case ${caseId} they don't own`)
       return NextResponse.json({ error: 'Case not found' }, { status: 404 })
     }
+
+    // Extract party names from VERIFIED database data, not client
+    const plaintiffs = caseData.plaintiffs as Array<{ name: string }> | null
+    const defendants = caseData.defendants as Array<{ name: string }> | null
+    const trustedPlaintiffName = plaintiffs?.[0]?.name || 'Plaintiff'
+    const trustedDefendantName = defendants?.[0]?.name || 'Defendant'
+    const trustedCaseType = caseData.case_type || 'General Civil'
+    const trustedFacts = caseData.facts || caseData.description || ''
+
+    // SECURITY: Anonymize ALL PII before sending to OpenAI
+    // This prevents sensitive data from being stored/processed by third parties
+    const { 
+      anonymizedText: anonymizedFacts, 
+      mapping: factsMapping, 
+      contextualMappings: factsContextual 
+    } = anonymizeDataWithMapping(trustedFacts)
+
+    const { 
+      anonymizedText: anonymizedPlaintiff, 
+      mapping: plaintiffMapping,
+      contextualMappings: plaintiffContextual 
+    } = anonymizeDataWithMapping(trustedPlaintiffName)
+
+    const { 
+      anonymizedText: anonymizedDefendant, 
+      mapping: defendantMapping,
+      contextualMappings: defendantContextual 
+    } = anonymizeDataWithMapping(trustedDefendantName)
+
+    const { 
+      anonymizedText: anonymizedCaseName, 
+      mapping: caseNameMapping,
+      contextualMappings: caseNameContextual 
+    } = anonymizeDataWithMapping(caseData.case_name || '')
+
+    const { 
+      anonymizedText: anonymizedCurrentItems, 
+      mapping: itemsMapping,
+      contextualMappings: itemsContextual 
+    } = anonymizeDataWithMapping(currentItems || '')
+
+    const { 
+      anonymizedText: anonymizedUserMessage, 
+      mapping: userMessageMapping,
+      contextualMappings: userMessageContextual 
+    } = anonymizeDataWithMapping(userMessage || '')
+
+    // Merge all mappings for re-identification
+    const combinedMapping: PIIMapping = {}
+    const allMappings = [factsMapping, plaintiffMapping, defendantMapping, caseNameMapping, itemsMapping, userMessageMapping]
+    allMappings.forEach(mapping => {
+      Object.keys(mapping).forEach(key => {
+        combinedMapping[key] = [...(combinedMapping[key] || []), ...mapping[key]]
+      })
+    })
+
+    const combinedContextualMappings: ContextualMapping[] = [
+      ...factsContextual,
+      ...plaintiffContextual,
+      ...defendantContextual,
+      ...caseNameContextual,
+      ...itemsContextual,
+      ...userMessageContextual
+    ]
+
+    // Sanitize category name (don't trust client input for prompt injection)
+    const sanitizedCategoryName = (categoryName || 'General')
+      .replace(/[<>\"'`]/g, '')
+      .substring(0, 100)
 
     // Build discovery type labels
     const typeLabels: Record<string, string> = {
@@ -92,7 +162,8 @@ FORMATTING REQUIREMENTS FOR REQUESTS FOR ADMISSION:
       }
     }
 
-    // Build case-scoped system prompt
+    // Build case-scoped system prompt with ANONYMIZED data
+    // The AI sees placeholders like [PERSON_1], [ORGANIZATION_1], etc.
     const systemPrompt = `You are a legal discovery assistant helping draft ${typeLabels[discoveryType] || 'discovery documents'} for California civil litigation.
 
 CRITICAL SECURITY RULES:
@@ -102,24 +173,26 @@ CRITICAL SECURITY RULES:
 4. If asked about other cases, respond: "I can only assist with the current case."
 
 CASE CONTEXT:
-- Case Name: ${caseData.case_name}
-- Plaintiff: ${plaintiffName}
-- Defendant: ${defendantName}
+- Case Type: ${trustedCaseType}
+- Plaintiff: ${anonymizedPlaintiff}
+- Defendant: ${anonymizedDefendant}
 
 CASE FACTS:
-${caseFacts || caseDescription || 'No case facts have been entered yet. Generate general discovery appropriate for the category.'}
+${anonymizedFacts || 'No case facts have been entered yet. Generate general discovery appropriate for the category and case type.'}
 
-CURRENT CATEGORY: ${categoryName || 'General'}
+CURRENT CATEGORY: ${sanitizedCategoryName}
 
 EXISTING ITEMS IN THIS CATEGORY:
-${currentItems || 'No items drafted yet.'}
+${anonymizedCurrentItems || 'No items drafted yet.'}
 
 YOUR ROLE FOR ${typeLabels[discoveryType]?.toUpperCase() || 'DISCOVERY'}:
 1. Generate legally sound, California-compliant ${discoveryType}
 2. Use proper legal terminology
 3. Make items specific to the case facts when available
-4. Avoid duplicating existing items
+4. Tailor discovery to the case type: ${trustedCaseType}
+5. Avoid duplicating existing items
 ${getTypeSpecificInstructions(discoveryType)}
+${discoveryType === 'rfp' ? getRFPTemplatesForAI(sanitizedCategoryName) : discoveryType === 'rfa' ? getRFATemplatesForAI(sanitizedCategoryName) : ''}
 
 When generating discovery items, include them in a JSON block like this:
 \`\`\`suggestions
@@ -128,14 +201,19 @@ When generating discovery items, include them in a JSON block like this:
 
 The [X] will be replaced with actual numbers when inserted into the document.`
 
-    // Build messages array
+    // Build messages array with anonymized conversation history
+    const anonymizedHistory = (conversationHistory || []).map((m: { role: string; content: string }) => {
+      const { anonymizedText } = anonymizeDataWithMapping(m.content)
+      return {
+        role: m.role as 'user' | 'assistant',
+        content: anonymizedText
+      }
+    })
+
     const messages: OpenAI.ChatCompletionMessageParam[] = [
       { role: 'system', content: systemPrompt },
-      ...(conversationHistory || []).map((m: { role: string; content: string }) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content
-      })),
-      { role: 'user', content: userMessage }
+      ...anonymizedHistory,
+      { role: 'user', content: anonymizedUserMessage }
     ]
 
     const completion = await openai.chat.completions.create({
@@ -153,20 +231,38 @@ The [X] will be replaced with actual numbers when inserted into the document.`
     if (suggestionsMatch) {
       try {
         suggestions = JSON.parse(suggestionsMatch[1])
+        // Re-identify PII in suggestions
+        suggestions = suggestions.map(suggestion => 
+          reidentifyData(suggestion, combinedMapping, combinedContextualMappings)
+        )
       } catch (e) {
         console.error('Failed to parse suggestions:', e)
       }
     }
 
     // Clean response (remove the suggestions block from display text)
-    const cleanMessage = responseContent.replace(/```suggestions[\s\S]*?```/g, '').trim()
+    let cleanMessage = responseContent.replace(/```suggestions[\s\S]*?```/g, '').trim()
+    
+    // Re-identify PII in the response message
+    cleanMessage = reidentifyData(cleanMessage, combinedMapping, combinedContextualMappings)
 
-    // Log for audit trail
-    console.log(`[AUDIT] Discovery AI request for case ${caseId} by user ${user.id}: ${discoveryType}, category: ${categoryName}`)
+    // AUDIT LOG - Log request metadata (not content) for compliance
+    console.log(`[AUDIT] Discovery AI Request:
+  - Timestamp: ${new Date().toISOString()}
+  - User ID: ${user.id}
+  - Case ID: ${caseId}
+  - Case Type: ${trustedCaseType}
+  - Discovery Type: ${discoveryType}
+  - Category: ${sanitizedCategoryName}
+  - Data Anonymized: true
+  - PII Types Detected: ${Object.keys(combinedMapping).length > 0 ? Object.keys(combinedMapping).join(', ') : 'none'}
+`)
 
     return NextResponse.json({
-      message: cleanMessage || 'I\'ve prepared some interrogatories for you. Please review them below.',
-      suggestions
+      message: cleanMessage || 'I\'ve prepared some discovery items for you. Please review them below.',
+      suggestions,
+      // Return case type so UI can use it for dynamic categories
+      caseType: trustedCaseType
     })
 
   } catch (error) {
@@ -174,4 +270,3 @@ The [X] will be replaced with actual numbers when inserted into the document.`
     return NextResponse.json({ error: 'AI generation failed' }, { status: 500 })
   }
 }
-
