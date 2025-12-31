@@ -3,14 +3,17 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, ClipboardList, CheckSquare, Sparkles, MessageSquareReply, ListChecks, Layers, Upload, StickyNote, Plus, Edit2, Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, FileText, ClipboardList, CheckSquare, ListChecks, Layers, Upload, StickyNote, Plus, Edit2, Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
+import TrialModeBanner from '@/components/TrialModeBanner'
 import { supabaseCaseStorage, CaseFrontend, CaseNote } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
+import { useTrialMode } from '@/lib/contexts/TrialModeContext'
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import toast, { Toaster } from 'react-hot-toast'
 
 // Sortable Note Component
 interface SortableDiscoveryNoteProps {
@@ -132,9 +135,20 @@ function SortableDiscoveryNote({
 export default function DiscoveryLandingPage() {
   const params = useParams()
   const caseId = params?.caseId as string
+  const { isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId, loadFromTrial, saveToTrial } = useTrialMode()
   
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // Trial mode case editing state
+  const [isEditingTrialCase, setIsEditingTrialCase] = useState(false)
+  const [trialCaseForm, setTrialCaseForm] = useState({
+    caseName: '',
+    caseNumber: '',
+    court: '',
+    plaintiffName: '',
+    defendantName: '',
+  })
   
   // Discovery Notes state
   const [discoveryNotes, setDiscoveryNotes] = useState<CaseNote[]>([])
@@ -155,25 +169,94 @@ export default function DiscoveryLandingPage() {
 
   useEffect(() => {
     const loadCase = async () => {
-      if (!caseId) return
+      if (!caseId) {
+        setLoading(false)
+        return
+      }
       
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      // Check if this is a trial case ID when in trial mode
+      if (isTrialMode) {
+        if (!isTrialCaseId(caseId)) {
+          console.warn('[SECURITY] Attempted to access real case ID in trial mode - blocked')
+          setLoading(false)
+          return
+        }
+        
+        // Load from session storage for trial mode
+        const savedTrialCase = loadFromTrial<CaseFrontend | null>('trial-case-data', null)
+        if (savedTrialCase) {
+          setCurrentCase(savedTrialCase)
+          // Load discovery notes from trial storage
+          const savedNotes = loadFromTrial<CaseNote[]>('trial-discovery-notes', [])
+          setDiscoveryNotes(savedNotes)
+        }
+        setLoading(false)
+        return
+      }
       
-      if (user) {
-        const foundCase = await supabaseCaseStorage.getCase(caseId)
-        if (foundCase) {
-          setCurrentCase(foundCase)
-          // Load discovery notes from case
-          setDiscoveryNotes(foundCase.discoveryNotes || [])
-          console.log(`[AUDIT] Discovery landing accessed for case: ${caseId}`)
+      // Authenticated mode - load from database
+      if (canAccessDatabase()) {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (user) {
+          const foundCase = await supabaseCaseStorage.getCase(caseId)
+          if (foundCase) {
+            setCurrentCase(foundCase)
+            // Load discovery notes from case
+            setDiscoveryNotes(foundCase.discoveryNotes || [])
+            console.log(`[AUDIT] Discovery landing accessed for case: ${caseId}`)
+          }
         }
       }
       setLoading(false)
     }
     
     loadCase()
-  }, [caseId])
+  }, [caseId, isTrialMode, canAccessDatabase, isTrialCaseId, loadFromTrial])
+
+  // Save trial case data to session storage
+  const handleSaveTrialCase = () => {
+    if (!trialCaseForm.caseName.trim()) {
+      toast.error('Please enter a case name')
+      return
+    }
+    
+    const newCase: CaseFrontend = {
+      id: trialCaseId,
+      caseName: trialCaseForm.caseName.trim(),
+      caseNumber: trialCaseForm.caseNumber.trim() || undefined,
+      court: trialCaseForm.court.trim() || undefined,
+      plaintiffs: trialCaseForm.plaintiffName.trim() 
+        ? [{ id: 'trial-p-1', name: trialCaseForm.plaintiffName.trim(), type: 'individual' as const }] 
+        : [],
+      defendants: trialCaseForm.defendantName.trim() 
+        ? [{ id: 'trial-d-1', name: trialCaseForm.defendantName.trim(), type: 'individual' as const }] 
+        : [],
+      deadlines: [],
+      createdAt: new Date().toISOString(),
+      userId: 'trial-user',
+    }
+    
+    saveToTrial('trial-case-data', newCase)
+    setCurrentCase(newCase)
+    setIsEditingTrialCase(false)
+    toast.success('Case information saved!')
+  }
+
+  // Start editing trial case
+  const handleEditTrialCase = () => {
+    if (currentCase) {
+      setTrialCaseForm({
+        caseName: currentCase.caseName || '',
+        caseNumber: currentCase.caseNumber || '',
+        court: currentCase.court || '',
+        plaintiffName: currentCase.plaintiffs?.[0]?.name || '',
+        defendantName: currentCase.defendants?.[0]?.name || '',
+      })
+    }
+    setIsEditingTrialCase(true)
+  }
 
   // Add new note
   const handleAddNote = async () => {
@@ -187,12 +270,22 @@ export default function DiscoveryLandingPage() {
     }
     
     const updatedNotes = [newNote, ...discoveryNotes]
-    const updated = await supabaseCaseStorage.updateCase(currentCase.id, { discoveryNotes: updatedNotes })
     
-    if (updated) {
+    if (isTrialMode) {
+      // Save to session storage for trial mode
+      saveToTrial('trial-discovery-notes', updatedNotes)
       setDiscoveryNotes(updatedNotes)
       setNewNoteContent('')
       setShowNoteForm(false)
+    } else {
+      // Save to database for authenticated users
+      const updated = await supabaseCaseStorage.updateCase(currentCase.id, { discoveryNotes: updatedNotes })
+      
+      if (updated) {
+        setDiscoveryNotes(updatedNotes)
+        setNewNoteContent('')
+        setShowNoteForm(false)
+      }
     }
     setIsSavingNote(false)
   }
@@ -208,12 +301,21 @@ export default function DiscoveryLandingPage() {
         : n
     )
     
-    const updated = await supabaseCaseStorage.updateCase(currentCase.id, { discoveryNotes: updatedNotes })
-    
-    if (updated) {
+    if (isTrialMode) {
+      // Save to session storage for trial mode
+      saveToTrial('trial-discovery-notes', updatedNotes)
       setDiscoveryNotes(updatedNotes)
       setEditingNoteId(null)
       setEditNoteContent('')
+    } else {
+      // Save to database for authenticated users
+      const updated = await supabaseCaseStorage.updateCase(currentCase.id, { discoveryNotes: updatedNotes })
+      
+      if (updated) {
+        setDiscoveryNotes(updatedNotes)
+        setEditingNoteId(null)
+        setEditNoteContent('')
+      }
     }
     setIsSavingNote(false)
   }
@@ -224,10 +326,18 @@ export default function DiscoveryLandingPage() {
     if (!confirm('Are you sure you want to delete this note?')) return
     
     const updatedNotes = discoveryNotes.filter(n => n.id !== noteId)
-    const updated = await supabaseCaseStorage.updateCase(currentCase.id, { discoveryNotes: updatedNotes })
     
-    if (updated) {
+    if (isTrialMode) {
+      // Save to session storage for trial mode
+      saveToTrial('trial-discovery-notes', updatedNotes)
       setDiscoveryNotes(updatedNotes)
+    } else {
+      // Save to database for authenticated users
+      const updated = await supabaseCaseStorage.updateCase(currentCase.id, { discoveryNotes: updatedNotes })
+      
+      if (updated) {
+        setDiscoveryNotes(updatedNotes)
+      }
     }
   }
 
@@ -242,20 +352,135 @@ export default function DiscoveryLandingPage() {
       const reorderedNotes = arrayMove(discoveryNotes, oldIndex, newIndex)
       setDiscoveryNotes(reorderedNotes)
       
-      // Save to database
-      if (currentCase) {
+      if (isTrialMode) {
+        // Save to session storage for trial mode
+        saveToTrial('trial-discovery-notes', reorderedNotes)
+      } else if (currentCase) {
+        // Save to database for authenticated users
         await supabaseCaseStorage.updateCase(currentCase.id, { discoveryNotes: reorderedNotes })
       }
     }
   }
 
+  // Get the effective case ID for links
+  const effectiveCaseId = isTrialMode ? trialCaseId : caseId
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
         <Header />
+        <TrialModeBanner />
         <div className="flex items-center justify-center h-64">
           <div className="text-gray-600">Loading...</div>
         </div>
+        <Footer />
+      </div>
+    )
+  }
+
+  // Trial mode - show case input form if no case data
+  if (isTrialMode && (!currentCase || isEditingTrialCase)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
+        <Header />
+        <TrialModeBanner />
+        <Toaster position="top-right" />
+        
+        <section className="py-12">
+          <div className="max-w-2xl mx-auto px-4">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+              <div className="text-center mb-6">
+                <div className="text-4xl mb-3">📋</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  {isEditingTrialCase ? 'Edit Case Information' : 'Enter Your Case Information'}
+                </h2>
+                <p className="text-gray-600">
+                  Your data is saved in your browser only and will be cleared when you close the browser.
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Case Name *</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.caseName}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, caseName: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., Smith v. ABC Corporation"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Case Number</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.caseNumber}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, caseNumber: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., 24STCV12345"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Court/County</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.court}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, court: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., Los Angeles"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Plaintiff Name</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.plaintiffName}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, plaintiffName: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., John Smith"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Defendant Name</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.defendantName}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, defendantName: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., ABC Corporation"
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={handleSaveTrialCase}
+                    disabled={!trialCaseForm.caseName.trim()}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isEditingTrialCase ? 'Save Changes' : 'Continue to Discovery'}
+                  </button>
+                  {isEditingTrialCase && (
+                    <button
+                      onClick={() => setIsEditingTrialCase(false)}
+                      className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <p className="text-xs text-gray-500 text-center mt-6">
+                <Link href="/login" className="text-blue-600 hover:underline">Sign up</Link> to save your work permanently across sessions.
+              </p>
+            </div>
+          </div>
+        </section>
+        
         <Footer />
       </div>
     )
@@ -265,6 +490,7 @@ export default function DiscoveryLandingPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
         <Header />
+        <TrialModeBanner />
         <div className="max-w-4xl mx-auto px-4 py-12 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Case Not Found</h1>
           <Link href="/dashboard" className="text-blue-600 hover:underline">
@@ -281,7 +507,7 @@ export default function DiscoveryLandingPage() {
     {
       title: 'Form Interrogatories',
       description: 'Generate California Judicial Council Form Interrogatories (DISC-001) with selectable standard questions.',
-      href: `/services/discovery/form-interrogatories?caseId=${caseId}`,
+      href: `/services/discovery/form-interrogatories?caseId=${effectiveCaseId}`,
       icon: ListChecks,
       color: 'from-indigo-500 to-indigo-600',
       bgColor: 'bg-indigo-50',
@@ -291,7 +517,7 @@ export default function DiscoveryLandingPage() {
     {
       title: 'Special Interrogatories',
       description: 'Draft interrogatories with California-compliant formatting, definitions, and categorized questions.',
-      href: `/dashboard/cases/${caseId}/discovery/interrogatories`,
+      href: `/dashboard/cases/${effectiveCaseId}/discovery/interrogatories`,
       icon: FileText,
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-50',
@@ -301,7 +527,7 @@ export default function DiscoveryLandingPage() {
     {
       title: 'Requests for Production',
       description: 'Create document requests with proper definitions and organized categories for evidence gathering.',
-      href: `/dashboard/cases/${caseId}/discovery/rfp`,
+      href: `/dashboard/cases/${effectiveCaseId}/discovery/rfp`,
       icon: ClipboardList,
       color: 'from-emerald-500 to-emerald-600',
       bgColor: 'bg-emerald-50',
@@ -311,7 +537,7 @@ export default function DiscoveryLandingPage() {
     {
       title: 'Requests for Admission',
       description: 'Generate admission requests to establish undisputed facts and streamline trial preparation.',
-      href: `/dashboard/cases/${caseId}/discovery/rfa`,
+      href: `/dashboard/cases/${effectiveCaseId}/discovery/rfa`,
       icon: CheckSquare,
       color: 'from-amber-500 to-amber-600',
       bgColor: 'bg-amber-50',
@@ -326,7 +552,7 @@ export default function DiscoveryLandingPage() {
       title: 'Form Interrogatories',
       shortTitle: 'FROG',
       description: 'Respond to California Judicial Council Form Interrogatories with AI-generated objections and answers.',
-      href: `/dashboard/cases/${caseId}/discovery/responses?type=frog`,
+      href: `/dashboard/cases/${effectiveCaseId}/discovery/responses?type=frog`,
       icon: ListChecks,
       color: 'from-violet-500 to-violet-600',
       bgColor: 'bg-violet-50',
@@ -336,7 +562,7 @@ export default function DiscoveryLandingPage() {
       title: 'Special Interrogatories',
       shortTitle: 'SROG',
       description: 'Generate responses to special interrogatories with proper objections and substantive answers.',
-      href: `/dashboard/cases/${caseId}/discovery/responses?type=srog`,
+      href: `/dashboard/cases/${effectiveCaseId}/discovery/responses?type=srog`,
       icon: FileText,
       color: 'from-purple-500 to-purple-600',
       bgColor: 'bg-purple-50',
@@ -346,7 +572,7 @@ export default function DiscoveryLandingPage() {
       title: 'Requests for Production',
       shortTitle: 'RFP',
       description: 'Respond to document requests with appropriate objections and production statements.',
-      href: `/dashboard/cases/${caseId}/discovery/responses?type=rfp`,
+      href: `/dashboard/cases/${effectiveCaseId}/discovery/responses?type=rfp`,
       icon: ClipboardList,
       color: 'from-rose-500 to-rose-600',
       bgColor: 'bg-rose-50',
@@ -356,7 +582,7 @@ export default function DiscoveryLandingPage() {
       title: 'Requests for Admission',
       shortTitle: 'RFA',
       description: 'Craft strategic responses to admission requests with admit, deny, or qualified responses.',
-      href: `/dashboard/cases/${caseId}/discovery/responses?type=rfa`,
+      href: `/dashboard/cases/${effectiveCaseId}/discovery/responses?type=rfa`,
       icon: CheckSquare,
       color: 'from-fuchsia-500 to-fuchsia-600',
       bgColor: 'bg-fuchsia-50',
@@ -367,32 +593,64 @@ export default function DiscoveryLandingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
       <Header />
+      <TrialModeBanner />
+      <Toaster position="top-right" />
       
       {/* Case Header Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <Link 
-                href={`/dashboard/cases/${currentCase.id}`}
-                className="hover:opacity-80 transition-opacity"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </Link>
-              <div>
-                <h2 className="text-xl font-bold">{currentCase.caseName}</h2>
-                <p className="text-sm text-blue-100">Case #: {currentCase.caseNumber}</p>
+      {isTrialMode ? (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Link 
+                  href="/services/discovery"
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Link>
+                <div>
+                  <h2 className="text-xl font-bold">{currentCase.caseName}</h2>
+                  {currentCase.caseNumber && (
+                    <p className="text-sm text-amber-100">Case #: {currentCase.caseNumber}</p>
+                  )}
+                </div>
               </div>
+              <button
+                onClick={handleEditTrialCase}
+                className="text-sm flex items-center gap-1 bg-white/20 px-3 py-1.5 rounded-lg hover:bg-white/30 transition-colors"
+              >
+                <Edit2 className="h-4 w-4" />
+                Edit Case
+              </button>
             </div>
-            <Link
-              href={`/dashboard/cases/${currentCase.id}`}
-              className="text-sm hover:underline text-blue-100"
-            >
-              Back to Case
-            </Link>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-4 shadow-md">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <Link 
+                  href={`/dashboard/cases/${currentCase.id}`}
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </Link>
+                <div>
+                  <h2 className="text-xl font-bold">{currentCase.caseName}</h2>
+                  <p className="text-sm text-blue-100">Case #: {currentCase.caseNumber}</p>
+                </div>
+              </div>
+              <Link
+                href={`/dashboard/cases/${currentCase.id}`}
+                className="text-sm hover:underline text-blue-100"
+              >
+                Back to Case
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -635,8 +893,10 @@ export default function DiscoveryLandingPage() {
             <div>
               <h4 className="font-medium text-amber-800">Case-Scoped Security</h4>
               <p className="text-sm text-amber-700 mt-1">
-                All discovery documents are isolated to this case. The AI assistant only has access to 
-                this case's facts and parties — it cannot access other cases, attorneys, or global data.
+                {isTrialMode 
+                  ? 'Your data is saved in your browser only (session storage). Sign up to save permanently.'
+                  : 'All discovery documents are isolated to this case. The AI assistant only has access to this case\'s facts and parties — it cannot access other cases, attorneys, or global data.'
+                }
               </p>
             </div>
           </div>
@@ -647,26 +907,3 @@ export default function DiscoveryLandingPage() {
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

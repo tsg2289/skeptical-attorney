@@ -96,11 +96,12 @@ interface DiscoveryResponse {
 interface DiscoveryResponseGeneratorProps {
   caseData: CaseData;
   onSave?: () => void;
+  isTrialMode?: boolean;
 }
 
 type Step = 'upload' | 'processing' | 'generating' | 'editing';
 
-export function DiscoveryResponseGenerator({ caseData, onSave }: DiscoveryResponseGeneratorProps) {
+export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = false }: DiscoveryResponseGeneratorProps) {
   // Workflow state
   const [step, setStep] = useState<Step>('upload');
   const [discoveryType, setDiscoveryType] = useState<DiscoveryResponseType>('interrogatories');

@@ -17,9 +17,10 @@ import { getCategoriesForCaseType } from '@/lib/data/discoveryCategories'
 interface Props {
   caseData: CaseFrontend
   onCaseUpdate: (updatedCase: CaseFrontend) => void
+  isTrialMode?: boolean
 }
 
-export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
+export default function RFPCanvas({ caseData, onCaseUpdate, isTrialMode = false }: Props) {
   // Get dynamic categories based on case type - SECURITY: uses verified caseType from caseData
   const defaultCategories = useMemo(() => {
     return getCategoriesForCaseType(caseData.caseType)
@@ -282,17 +283,30 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
         }
       }
 
-      const result = await supabaseCaseStorage.updateCase(caseData.id, {
+      const updatedCase: CaseFrontend = {
+        ...caseData,
         discoveryDocuments: {
           ...(caseData.discoveryDocuments || {}),
           rfp: updatedDocument
         }
-      })
+      }
 
-      if (result) {
+      if (isTrialMode) {
+        // In trial mode, just call onCaseUpdate (which saves to session storage)
         setSaveSuccess(true)
-        onCaseUpdate(result)
+        onCaseUpdate(updatedCase)
         setTimeout(() => setSaveSuccess(false), 3000)
+      } else {
+        // Authenticated mode - save to database
+        const result = await supabaseCaseStorage.updateCase(caseData.id, {
+          discoveryDocuments: updatedCase.discoveryDocuments
+        })
+
+        if (result) {
+          setSaveSuccess(true)
+          onCaseUpdate(result)
+          setTimeout(() => setSaveSuccess(false), 3000)
+        }
       }
     } catch (error) {
       console.error('Error saving:', error)
@@ -303,6 +317,12 @@ export default function RFPCanvas({ caseData, onCaseUpdate }: Props) {
 
   // Save to AI Document Repository
   const handleSaveToRepository = async () => {
+    if (isTrialMode) {
+      // In trial mode, show message that this feature requires login
+      alert('Save to Repository is available after signing up. Your work is saved in your browser session.')
+      return
+    }
+    
     setSavingToRepo(true)
     setRepoSaveSuccess(false)
 

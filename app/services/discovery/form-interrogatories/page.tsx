@@ -10,7 +10,7 @@ import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
 import { useTrialMode } from '@/lib/contexts/TrialModeContext'
 import { STANDARD_INTERROGATORIES } from '@/lib/pdf-form-filler'
-import { FileText, Download, CheckSquare, Square, ArrowLeft, Loader2, Users, Scale } from 'lucide-react'
+import { FileText, Download, CheckSquare, Square, ArrowLeft, Loader2, Users, Scale, Edit2 } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 
 export default function FormInterrogatoriesPage() {
@@ -36,10 +36,20 @@ function LoadingState() {
 
 function FormInterrogatoriesPageContent() {
   const searchParams = useSearchParams()
-  const { isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId } = useTrialMode()
+  const { isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId, loadFromTrial, saveToTrial } = useTrialMode()
   const [currentCaseId, setCurrentCaseId] = useState<string | null>(null)
   const [currentCase, setCurrentCase] = useState<CaseFrontend | null>(null)
   const [loading, setLoading] = useState(true)
+  
+  // Trial mode case editing state
+  const [isEditingTrialCase, setIsEditingTrialCase] = useState(false)
+  const [trialCaseForm, setTrialCaseForm] = useState({
+    caseName: '',
+    caseNumber: '',
+    court: '',
+    plaintiffName: '',
+    defendantName: '',
+  })
   
   // Form state
   const [propoundingParty, setPropoundingParty] = useState<'plaintiff' | 'defendant'>('plaintiff')
@@ -83,13 +93,20 @@ function FormInterrogatoriesPageContent() {
         }
       } else if (isTrialMode) {
         setCurrentCaseId(trialCaseId)
+        
+        // Load saved trial case data from session storage
+        const savedTrialCase = loadFromTrial<CaseFrontend | null>('trial-case-data', null)
+        if (savedTrialCase) {
+          setCurrentCase(savedTrialCase)
+        }
+        // If no saved case, currentCase stays null and we show the input form
       }
       
       setLoading(false)
     }
     
     loadCase()
-  }, [searchParams, isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId])
+  }, [searchParams, isTrialMode, trialCaseId, canAccessDatabase, isTrialCaseId, loadFromTrial])
 
   const toggleInterrogatory = (num: string) => {
     setSelectedInterrogatories(prev => 
@@ -114,6 +131,49 @@ function FormInterrogatoriesPageContent() {
     // Common interrogatories for personal injury cases
     const common = ['1', '2', '6', '6.1', '6.2', '6.3', '6.5', '6.6', '7', '10', '10.1', '12.1', '12.4', '17']
     setSelectedInterrogatories(common)
+  }
+
+  // Save trial case data to session storage
+  const handleSaveTrialCase = () => {
+    if (!trialCaseForm.caseName.trim()) {
+      toast.error('Please enter a case name')
+      return
+    }
+    
+    const newCase: CaseFrontend = {
+      id: trialCaseId,
+      caseName: trialCaseForm.caseName.trim(),
+      caseNumber: trialCaseForm.caseNumber.trim() || undefined,
+      court: trialCaseForm.court.trim() || undefined,
+      plaintiffs: trialCaseForm.plaintiffName.trim() 
+        ? [{ id: 'trial-p-1', name: trialCaseForm.plaintiffName.trim(), type: 'individual' as const }] 
+        : [],
+      defendants: trialCaseForm.defendantName.trim() 
+        ? [{ id: 'trial-d-1', name: trialCaseForm.defendantName.trim(), type: 'individual' as const }] 
+        : [],
+      deadlines: [],
+      createdAt: new Date().toISOString(),
+      userId: 'trial-user',
+    }
+    
+    saveToTrial('trial-case-data', newCase)
+    setCurrentCase(newCase)
+    setIsEditingTrialCase(false)
+    toast.success('Case information saved!')
+  }
+
+  // Start editing trial case
+  const handleEditTrialCase = () => {
+    if (currentCase) {
+      setTrialCaseForm({
+        caseName: currentCase.caseName || '',
+        caseNumber: currentCase.caseNumber || '',
+        court: currentCase.court || '',
+        plaintiffName: currentCase.plaintiffs?.[0]?.name || '',
+        defendantName: currentCase.defendants?.[0]?.name || '',
+      })
+    }
+    setIsEditingTrialCase(true)
   }
 
   const handleGenerate = async () => {
@@ -230,7 +290,103 @@ function FormInterrogatoriesPageContent() {
         </div>
       </section>
 
-      {!currentCase ? (
+      {/* Trial Mode Case Input Form */}
+      {isTrialMode && (!currentCase || isEditingTrialCase) ? (
+        <section className="py-12">
+          <div className="max-w-2xl mx-auto px-4">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+              <div className="text-center mb-6">
+                <div className="text-4xl mb-3">📋</div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  {isEditingTrialCase ? 'Edit Case Information' : 'Enter Your Case Information'}
+                </h2>
+                <p className="text-gray-600">
+                  Your data is saved in your browser only and will be cleared when you close the browser.
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Case Name *</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.caseName}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, caseName: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., Smith v. ABC Corporation"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Case Number</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.caseNumber}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, caseNumber: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., 24STCV12345"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Court/County</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.court}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, court: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., Los Angeles"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Plaintiff Name</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.plaintiffName}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, plaintiffName: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., John Smith"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Defendant Name</label>
+                  <input
+                    type="text"
+                    value={trialCaseForm.defendantName}
+                    onChange={(e) => setTrialCaseForm(prev => ({ ...prev, defendantName: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                    placeholder="e.g., ABC Corporation"
+                  />
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={handleSaveTrialCase}
+                    disabled={!trialCaseForm.caseName.trim()}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isEditingTrialCase ? 'Save Changes' : 'Continue to Form Interrogatories'}
+                  </button>
+                  {isEditingTrialCase && (
+                    <button
+                      onClick={() => setIsEditingTrialCase(false)}
+                      className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <p className="text-xs text-gray-500 text-center mt-6">
+                <Link href="/login" className="text-blue-600 hover:underline">Sign up</Link> to save your work permanently across sessions.
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : !currentCase ? (
         <section className="py-12">
           <div className="max-w-2xl mx-auto px-4 text-center">
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
@@ -258,10 +414,21 @@ function FormInterrogatoriesPageContent() {
                 
                 {/* Case Info Card */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-blue-600" />
-                    Case Information
-                  </h3>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-blue-600" />
+                      Case Information
+                    </h3>
+                    {isTrialMode && (
+                      <button
+                        onClick={handleEditTrialCase}
+                        className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                        Edit
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-3 text-sm">
                     <div>
                       <span className="text-gray-500">Case Name:</span>
