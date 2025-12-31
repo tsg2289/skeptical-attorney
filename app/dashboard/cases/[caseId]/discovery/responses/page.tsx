@@ -96,7 +96,7 @@ export default function DiscoveryResponsesPage() {
           case_number: savedTrialCase.caseNumber || '',
           court_name: savedTrialCase.court,
           case_type: savedTrialCase.caseType,
-          case_description: savedTrialCase.caseDescription,
+          case_description: savedTrialCase.description,
           plaintiffs: savedTrialCase.plaintiffs?.map(p => ({ name: p.name, type: p.type })),
           defendants: savedTrialCase.defendants?.map(d => ({ name: d.name, type: d.type })),
         });
