@@ -85,7 +85,7 @@ export default function InterrogatoriesPage() {
     const newCase: CaseFrontend = {
       id: trialCaseId,
       caseName: trialCaseForm.caseName.trim(),
-      caseNumber: trialCaseForm.caseNumber.trim() || undefined,
+      caseNumber: trialCaseForm.caseNumber.trim() || '',
       court: trialCaseForm.court.trim() || undefined,
       plaintiffs: trialCaseForm.plaintiffName.trim() 
         ? [{ id: 'trial-p-1', name: trialCaseForm.plaintiffName.trim(), type: 'individual' as const }] 
