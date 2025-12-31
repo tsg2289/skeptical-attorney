@@ -85,13 +85,13 @@ export default function RFPPage() {
     const newCase: CaseFrontend = {
       id: trialCaseId,
       caseName: trialCaseForm.caseName.trim(),
-      caseNumber: trialCaseForm.caseNumber.trim() || undefined,
+      caseNumber: trialCaseForm.caseNumber.trim() || '',
       court: trialCaseForm.court.trim() || undefined,
       plaintiffs: trialCaseForm.plaintiffName.trim() 
-        ? [{ id: 'trial-p-1', name: trialCaseForm.plaintiffName.trim(), type: 'individual' as const }] 
+        ? [{ id: 'trial-p-1', name: trialCaseForm.plaintiffName.trim(), type: 'individual' as const, attorneys: [] }] 
         : [],
       defendants: trialCaseForm.defendantName.trim() 
-        ? [{ id: 'trial-d-1', name: trialCaseForm.defendantName.trim(), type: 'individual' as const }] 
+        ? [{ id: 'trial-d-1', name: trialCaseForm.defendantName.trim(), type: 'individual' as const, attorneys: [] }] 
         : [],
       deadlines: [],
       createdAt: new Date().toISOString(),
