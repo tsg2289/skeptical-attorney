@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, FileText, ClipboardList, CheckSquare, ListChecks, Layers, Upload, StickyNote, Plus, Edit2, Trash2, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, FileText, ClipboardList, CheckSquare, ListChecks, Layers, Upload, StickyNote, Plus, Edit2, Trash2, GripVertical, ChevronDown, ChevronUp, Mail } from 'lucide-react'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import TrialModeBanner from '@/components/TrialModeBanner'
@@ -779,6 +779,51 @@ export default function DiscoveryLandingPage() {
             </div>
             <span className="ml-auto text-purple-600 group-hover:translate-x-1 transition-transform">→</span>
           </button>
+        </div>
+
+        {/* Meet and Confer Section - Coming Soon */}
+        <div className="mb-10">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Meet and Confer
+          </h2>
+          <div className="p-6 rounded-2xl border-2 border-teal-200 bg-teal-50 relative overflow-hidden">
+            {/* Coming Soon Badge */}
+            <div className="absolute top-4 right-4">
+              <span className="px-3 py-1 bg-teal-600 text-white text-sm font-medium rounded-full">
+                Coming Soon
+              </span>
+            </div>
+            
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 text-white">
+                <Mail className="w-6 h-6" />
+              </div>
+              <div className="flex-1 pr-24">
+                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  Meet and Confer Letter Generator
+                </h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  Upload discovery response documents to get AI-powered summaries and 
+                  automatically generate professional meet and confer letters based on 
+                  California discovery law requirements.
+                </p>
+                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-teal-500 rounded-full" />
+                    <span>Upload PDF responses</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-teal-500 rounded-full" />
+                    <span>AI-powered deficiency analysis</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-teal-500 rounded-full" />
+                    <span>Generate meet and confer letters</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Discovery Notes Section */}

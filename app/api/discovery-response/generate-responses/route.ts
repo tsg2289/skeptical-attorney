@@ -22,6 +22,7 @@ import {
   DISCOVERY_RESERVATION,
   DEFINITIONS_OBJECTION_INTERROGATORY,
   DEFINITIONS_OBJECTION_RFA,
+  DEFINITIONS_OBJECTION_FROG,
   type DiscoveryResponseType,
 } from '@/lib/data/californiaObjections';
 
@@ -72,13 +73,17 @@ function buildSystemPrompt(discoveryType: DiscoveryResponseType, caseContext: st
   
   const discoveryTypeLabel = discoveryType === 'interrogatories' 
     ? 'Special Interrogatories' 
-    : discoveryType === 'rfp' 
-      ? 'Requests for Production of Documents' 
-      : 'Requests for Admission';
+    : discoveryType === 'frog'
+      ? 'Form Interrogatories - General (DISC-001)'
+      : discoveryType === 'rfp' 
+        ? 'Requests for Production of Documents' 
+        : 'Requests for Admission';
 
   const definitionsObjection = discoveryType === 'rfa' 
     ? DEFINITIONS_OBJECTION_RFA 
-    : DEFINITIONS_OBJECTION_INTERROGATORY;
+    : discoveryType === 'frog'
+      ? DEFINITIONS_OBJECTION_FROG
+      : DEFINITIONS_OBJECTION_INTERROGATORY;
 
   return `You are an expert California litigation attorney preparing responses to ${discoveryTypeLabel}.
 

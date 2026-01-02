@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateFormInterrogatoriesPdf, type FormInterrogatoriesData } from '@/lib/pdf-form-filler'
 import { fillDISC001Form, getDISC001FieldNames, type DISC001FormData } from '@/lib/fill-disc001'
+import { fillDISC002Form, type DISC002FormData } from '@/lib/fill-disc002'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,6 +16,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { 
       caseId, 
+      formType = 'disc001', // 'disc001' or 'disc002'
       propoundingParty, 
       selectedInterrogatories, 
       setNumber = 1,
@@ -64,63 +66,124 @@ export async function POST(request: NextRequest) {
     const zip = cityStateZipMatch?.[3] || ''
 
     let pdfBytes: Uint8Array
+    const formCode = formType === 'disc002' ? 'DISC-002' : 'DISC-001'
 
     if (useOfficialForm) {
-      // Fill the official DISC-001 form
-      const disc001Data: DISC001FormData = {
-        attorneyName: attorney.name || '',
-        barNumber: attorney.barNumber || '',
-        firmName: attorney.firm || undefined,
-        streetAddress: streetAddress,
-        city: city,
-        state: state,
-        zip: zip,
-        phone: attorney.phone || '',
-        fax: attorney.fax || undefined,
-        email: attorney.email || undefined,
-        attorneyFor: propoundingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant',
-        
-        county: caseData.court_county || caseData.court || '',
-        
-        plaintiffName,
-        defendantName,
-        caseNumber: caseData.case_number || '',
-        
-        askingPartyName: propoundingParty === 'plaintiff' ? plaintiffName : defendantName,
-        answeringPartyName: propoundingParty === 'plaintiff' ? defendantName : plaintiffName,
-        setNumber: setNumber,
-        
-        selectedSections: selectedInterrogatories
-      }
-
-      try {
-        pdfBytes = await fillDISC001Form(disc001Data)
-      } catch (officialFormError) {
-        console.error('Failed to fill official form, falling back to generated:', officialFormError)
-        // Fall back to generated form
-        const formData: FormInterrogatoriesData = {
-          attorneyName: attorney.name || 'Attorney Name',
-          barNumber: attorney.barNumber || '000000',
+      if (formType === 'disc002') {
+        // Fill the official DISC-002 form (Employment Law)
+        const disc002Data: DISC002FormData = {
+          attorneyName: attorney.name || '',
+          barNumber: attorney.barNumber || '',
           firmName: attorney.firm || undefined,
-          address: attorney.address || 'Address',
-          cityStateZip: cityStateZip || 'City, CA 00000',
-          phone: attorney.phone || '(000) 000-0000',
+          streetAddress: streetAddress,
+          city: city,
+          state: state,
+          zip: zip,
+          phone: attorney.phone || '',
           fax: attorney.fax || undefined,
           email: attorney.email || undefined,
           attorneyFor: propoundingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant',
-          county: caseData.court_county || caseData.court || 'Los Angeles',
+          
+          county: caseData.court_county || caseData.court || '',
+          
           plaintiffName,
           defendantName,
-          caseNumber: caseData.case_number || 'CASE NUMBER',
-          propoundingParty: propoundingParty as 'plaintiff' | 'defendant',
-          respondingParty: propoundingParty === 'plaintiff' ? 'defendant' : 'plaintiff',
+          caseNumber: caseData.case_number || '',
+          
+          askingPartyName: propoundingParty === 'plaintiff' ? plaintiffName : defendantName,
+          answeringPartyName: propoundingParty === 'plaintiff' ? defendantName : plaintiffName,
           setNumber: setNumber,
-          selectedInterrogatories: selectedInterrogatories
+          
+          // DISC-002 specific: Employee is typically the plaintiff in employment cases
+          employeeName: propoundingParty === 'plaintiff' ? plaintiffName : defendantName,
+          employerName: propoundingParty === 'plaintiff' ? defendantName : plaintiffName,
+          
+          selectedSections: selectedInterrogatories
         }
-        pdfBytes = await generateFormInterrogatoriesPdf(formData)
+
+        try {
+          pdfBytes = await fillDISC002Form(disc002Data)
+        } catch (officialFormError) {
+          console.error('Failed to fill official DISC-002 form, falling back to generated:', officialFormError)
+          // Fall back to generated form
+          const formData: FormInterrogatoriesData = {
+            attorneyName: attorney.name || 'Attorney Name',
+            barNumber: attorney.barNumber || '000000',
+            firmName: attorney.firm || undefined,
+            address: attorney.address || 'Address',
+            cityStateZip: cityStateZip || 'City, CA 00000',
+            phone: attorney.phone || '(000) 000-0000',
+            fax: attorney.fax || undefined,
+            email: attorney.email || undefined,
+            attorneyFor: propoundingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant',
+            county: caseData.court_county || caseData.court || 'Los Angeles',
+            plaintiffName,
+            defendantName,
+            caseNumber: caseData.case_number || 'CASE NUMBER',
+            propoundingParty: propoundingParty as 'plaintiff' | 'defendant',
+            respondingParty: propoundingParty === 'plaintiff' ? 'defendant' : 'plaintiff',
+            setNumber: setNumber,
+            selectedInterrogatories: selectedInterrogatories
+          }
+          pdfBytes = await generateFormInterrogatoriesPdf(formData)
+        }
+      } else {
+        // Fill the official DISC-001 form (General)
+        const disc001Data: DISC001FormData = {
+          attorneyName: attorney.name || '',
+          barNumber: attorney.barNumber || '',
+          firmName: attorney.firm || undefined,
+          streetAddress: streetAddress,
+          city: city,
+          state: state,
+          zip: zip,
+          phone: attorney.phone || '',
+          fax: attorney.fax || undefined,
+          email: attorney.email || undefined,
+          attorneyFor: propoundingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant',
+          
+          county: caseData.court_county || caseData.court || '',
+          
+          plaintiffName,
+          defendantName,
+          caseNumber: caseData.case_number || '',
+          
+          askingPartyName: propoundingParty === 'plaintiff' ? plaintiffName : defendantName,
+          answeringPartyName: propoundingParty === 'plaintiff' ? defendantName : plaintiffName,
+          setNumber: setNumber,
+          
+          selectedSections: selectedInterrogatories
+        }
+
+        try {
+          pdfBytes = await fillDISC001Form(disc001Data)
+        } catch (officialFormError) {
+          console.error('Failed to fill official form, falling back to generated:', officialFormError)
+          // Fall back to generated form
+          const formData: FormInterrogatoriesData = {
+            attorneyName: attorney.name || 'Attorney Name',
+            barNumber: attorney.barNumber || '000000',
+            firmName: attorney.firm || undefined,
+            address: attorney.address || 'Address',
+            cityStateZip: cityStateZip || 'City, CA 00000',
+            phone: attorney.phone || '(000) 000-0000',
+            fax: attorney.fax || undefined,
+            email: attorney.email || undefined,
+            attorneyFor: propoundingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant',
+            county: caseData.court_county || caseData.court || 'Los Angeles',
+            plaintiffName,
+            defendantName,
+            caseNumber: caseData.case_number || 'CASE NUMBER',
+            propoundingParty: propoundingParty as 'plaintiff' | 'defendant',
+            respondingParty: propoundingParty === 'plaintiff' ? 'defendant' : 'plaintiff',
+            setNumber: setNumber,
+            selectedInterrogatories: selectedInterrogatories
+          }
+          pdfBytes = await generateFormInterrogatoriesPdf(formData)
+        }
       }
     } else {
-      // Generate custom form
+      // Generate custom form (same for both DISC-001 and DISC-002)
       const formData: FormInterrogatoriesData = {
         attorneyName: attorney.name || 'Attorney Name',
         barNumber: attorney.barNumber || '000000',
@@ -144,7 +207,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log for audit trail
-    console.log(`[AUDIT] User ${user.id} generated Form Interrogatories for case ${caseId}, Set ${setNumber}, ${selectedInterrogatories.length} interrogatories, official=${useOfficialForm}`)
+    console.log(`[AUDIT] User ${user.id} generated ${formCode} for case ${caseId}, Set ${setNumber}, ${selectedInterrogatories.length} interrogatories, official=${useOfficialForm}`)
 
     // Return as base64 encoded PDF
     const base64Pdf = Buffer.from(pdfBytes).toString('base64')
@@ -152,7 +215,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       pdf: base64Pdf,
-      filename: `DISC-001_Set${setNumber}_${caseData.case_number?.replace(/[^a-zA-Z0-9]/g, '_') || 'case'}.pdf`
+      filename: `${formCode}_Set${setNumber}_${caseData.case_number?.replace(/[^a-zA-Z0-9]/g, '_') || 'case'}.pdf`
     })
 
   } catch (error) {

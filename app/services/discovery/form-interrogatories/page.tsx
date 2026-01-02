@@ -10,7 +10,8 @@ import { supabaseCaseStorage, CaseFrontend } from '@/lib/supabase/caseStorage'
 import { createClient } from '@/lib/supabase/client'
 import { useTrialMode } from '@/lib/contexts/TrialModeContext'
 import { STANDARD_INTERROGATORIES } from '@/lib/pdf-form-filler'
-import { FileText, Download, CheckSquare, Square, ArrowLeft, Loader2, Users, Scale, Edit2 } from 'lucide-react'
+import { DISC002_INTERROGATORIES } from '@/lib/data/disc002Interrogatories'
+import { FileText, Download, CheckSquare, Square, ArrowLeft, Loader2, Users, Scale, Edit2, Briefcase } from 'lucide-react'
 import toast, { Toaster } from 'react-hot-toast'
 
 export default function FormInterrogatoriesPage() {
@@ -52,21 +53,31 @@ function FormInterrogatoriesPageContent() {
   })
   
   // Form state
+  const [formType, setFormType] = useState<'disc001' | 'disc002'>('disc001')
   const [propoundingParty, setPropoundingParty] = useState<'plaintiff' | 'defendant'>('plaintiff')
   const [setNumber, setSetNumber] = useState(1)
   const [selectedInterrogatories, setSelectedInterrogatories] = useState<string[]>([])
   const [isGenerating, setIsGenerating] = useState(false)
   const [useOfficialForm, setUseOfficialForm] = useState(true)
 
-  // Group interrogatories by category
-  const interrogatoryCategories = Object.entries(STANDARD_INTERROGATORIES).reduce((acc, [num, data]) => {
-    const category = data.category
-    if (!acc[category]) {
-      acc[category] = []
-    }
-    acc[category].push({ num: num, ...data })
-    return acc
-  }, {} as Record<string, Array<{ num: string; category: string; text: string }>>)
+  // Group interrogatories by category based on form type
+  const interrogatoryCategories = formType === 'disc001'
+    ? Object.entries(STANDARD_INTERROGATORIES).reduce((acc, [num, data]) => {
+        const category = data.category
+        if (!acc[category]) {
+          acc[category] = []
+        }
+        acc[category].push({ num: num, ...data })
+        return acc
+      }, {} as Record<string, Array<{ num: string; category: string; text: string }>>)
+    : Object.entries(DISC002_INTERROGATORIES).reduce((acc, [num, data]) => {
+        const category = data.category
+        if (!acc[category]) {
+          acc[category] = []
+        }
+        acc[category].push({ num: num, ...data })
+        return acc
+      }, {} as Record<string, Array<{ num: string; category: string; text: string }>>)
 
   useEffect(() => {
     const loadCase = async () => {
@@ -128,9 +139,33 @@ function FormInterrogatoriesPageContent() {
   }
 
   const selectAllCommon = () => {
-    // Common interrogatories for personal injury cases
-    const common = ['1', '2', '6', '6.1', '6.2', '6.3', '6.5', '6.6', '7', '10', '10.1', '12.1', '12.4', '17']
-    setSelectedInterrogatories(common)
+    if (formType === 'disc001') {
+      // Common interrogatories for personal injury cases (DISC-001)
+      const common = ['1', '2', '6', '6.1', '6.2', '6.3', '6.5', '6.6', '7', '10', '10.1', '12.1', '12.4', '17']
+      setSelectedInterrogatories(common)
+    } else {
+      // Common interrogatories for employment cases (DISC-002)
+      const common = ['200.1', '200.3', '201.1', '201.2', '201.4', '202.1', '207.1', '207.2', '210.1', '212.1', '215.1', '216.1']
+      setSelectedInterrogatories(common)
+    }
+  }
+
+  const selectAllDiscrimination = () => {
+    // Discrimination-focused interrogatories (DISC-002)
+    const discrimination = ['200.1', '201.1', '201.4', '202.1', '202.2', '203.1', '207.1', '207.2', '208.1', '210.1', '212.1', '215.1', '216.1']
+    setSelectedInterrogatories(discrimination)
+  }
+
+  const selectAllWrongfulTermination = () => {
+    // Wrongful termination interrogatories (DISC-002)
+    const wrongfulTerm = ['200.1', '200.2', '200.3', '201.1', '201.2', '201.3', '201.4', '201.5', '205.1', '207.1', '207.2', '210.1', '210.6', '212.1', '215.1', '216.1']
+    setSelectedInterrogatories(wrongfulTerm)
+  }
+
+  // Clear selections when switching form types
+  const handleFormTypeChange = (newFormType: 'disc001' | 'disc002') => {
+    setFormType(newFormType)
+    setSelectedInterrogatories([])
   }
 
   // Save trial case data to session storage
@@ -195,6 +230,7 @@ function FormInterrogatoriesPageContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           caseId: currentCaseId,
+          formType,
           propoundingParty,
           selectedInterrogatories,
           setNumber,
@@ -277,14 +313,20 @@ function FormInterrogatoriesPageContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-3 mb-4">
-              <Scale className="h-10 w-10 text-blue-600" />
+              {formType === 'disc001' ? (
+                <Scale className="h-10 w-10 text-blue-600" />
+              ) : (
+                <Briefcase className="h-10 w-10 text-blue-600" />
+              )}
               <h1 className="text-4xl md:text-5xl font-bold">
                 <span className="gradient-text">Form Interrogatories</span>
               </h1>
             </div>
             <p className="text-lg md:text-xl text-gray-600 leading-relaxed">
-              Generate California Judicial Council Form Interrogatories (DISC-001) 
-              with your case data automatically populated.
+              {formType === 'disc001' 
+                ? 'Generate California Judicial Council Form Interrogatories - General (DISC-001) with your case data automatically populated.'
+                : 'Generate California Judicial Council Form Interrogatories - Employment Law (DISC-002) with your case data automatically populated.'
+              }
             </p>
           </div>
         </div>
@@ -459,6 +501,54 @@ function FormInterrogatoriesPageContent() {
                   </div>
                 </div>
 
+                {/* Form Type Selector */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                    Form Type
+                  </h3>
+                  <div className="space-y-3">
+                    <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      formType === 'disc001' 
+                        ? 'border-blue-300 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        checked={formType === 'disc001'}
+                        onChange={() => handleFormTypeChange('disc001')}
+                        className="mt-1"
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900 flex items-center gap-2">
+                          <Scale className="h-4 w-4 text-blue-600" />
+                          DISC-001 - General
+                        </p>
+                        <p className="text-xs text-gray-500">Personal injury, property damage, general civil</p>
+                      </div>
+                    </label>
+                    <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                      formType === 'disc002' 
+                        ? 'border-blue-300 bg-blue-50' 
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }`}>
+                      <input
+                        type="radio"
+                        checked={formType === 'disc002'}
+                        onChange={() => handleFormTypeChange('disc002')}
+                        className="mt-1"
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900 flex items-center gap-2">
+                          <Briefcase className="h-4 w-4 text-blue-600" />
+                          DISC-002 - Employment Law
+                        </p>
+                        <p className="text-xs text-gray-500">Wrongful termination, discrimination, harassment</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
                 {/* Settings Card */}
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
@@ -508,7 +598,7 @@ function FormInterrogatoriesPageContent() {
                         className="mt-1"
                       />
                       <div>
-                        <p className="font-medium text-gray-900">Official DISC-001</p>
+                        <p className="font-medium text-gray-900">Official {formType === 'disc001' ? 'DISC-001' : 'DISC-002'}</p>
                         <p className="text-xs text-gray-500">Fill the official California Judicial Council form</p>
                       </div>
                     </label>
@@ -531,12 +621,35 @@ function FormInterrogatoriesPageContent() {
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                   <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Select</h3>
                   <div className="space-y-2">
-                    <button
-                      onClick={selectAllCommon}
-                      className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
-                    >
-                      Common Personal Injury Set
-                    </button>
+                    {formType === 'disc001' ? (
+                      <button
+                        onClick={selectAllCommon}
+                        className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                      >
+                        Common Personal Injury Set
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={selectAllCommon}
+                          className="w-full px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors text-sm font-medium"
+                        >
+                          Common Employment Set
+                        </button>
+                        <button
+                          onClick={selectAllDiscrimination}
+                          className="w-full px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors text-sm font-medium"
+                        >
+                          Discrimination Claims
+                        </button>
+                        <button
+                          onClick={selectAllWrongfulTermination}
+                          className="w-full px-4 py-2 bg-orange-50 text-orange-700 rounded-lg hover:bg-orange-100 transition-colors text-sm font-medium"
+                        >
+                          Wrongful Termination
+                        </button>
+                      </>
+                    )}
                     <button
                       onClick={() => setSelectedInterrogatories([])}
                       className="w-full px-4 py-2 bg-gray-50 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium"

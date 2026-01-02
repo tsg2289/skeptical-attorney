@@ -6,7 +6,7 @@
  * Requests for Production (RFP), and Requests for Admission (RFA)
  */
 
-export type DiscoveryResponseType = 'interrogatories' | 'rfp' | 'rfa';
+export type DiscoveryResponseType = 'interrogatories' | 'rfp' | 'rfa' | 'frog' | 'frog-employment';
 
 export type ObjectionCategory = 
   | 'general'
@@ -39,9 +39,11 @@ export const GENERAL_OBJECTIONS_HEADER = `GENERAL OBJECTIONS
 
 Responding Party incorporates by reference all General Objections set forth above in the General Objections. Discovery is continuing and Responding Party reserves the right to amend this response upon discovery of additional facts and information.`;
 
-export const DEFINITIONS_OBJECTION_INTERROGATORY = `Responding Party objects to Propounding Party's prefatory definitions to the extent they are in violation of Code of Civil Procedure § 2030.060(d).`;
+export const DEFINITIONS_OBJECTION_INTERROGATORY = `Responding Party objects to Propounding Party's prefatory definitions to the extent they are in violation of Code of Civil Procedure ? 2030.060(d).`;
 
 export const DEFINITIONS_OBJECTION_RFA = `Responding Party objects to Propounding Party's prefatory "Definitions" to the extent they are in violation of the California Code of Civil Procedure.`;
+
+export const DEFINITIONS_OBJECTION_FROG = `Responding Party objects to the Form Interrogatories to the extent they seek information protected by the attorney-client privilege, work product doctrine, or other applicable privileges.`;
 
 export const DISCOVERY_RESERVATION = `Discovery in this matter is ongoing, and Responding Party reserves the right to supplement or amend this response as this matter progresses.`;
 
@@ -81,20 +83,20 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
   {
     id: 'int_not_full_complete',
     title: 'Not Full and Complete',
-    shortForm: 'Not full and complete in violation of CCP § 2030.060',
-    fullText: 'Responding Party objects to the interrogatory on the grounds that the interrogatory is not full and complete in and of itself, in violation of Code of Civil Procedure § 2030.060(c)-(d) and Catanese v. Sup.Ct. (Ray) (1996) 46 Cal.App.4th 1159, 1164.',
+    shortForm: 'Not full and complete in violation of CCP ? 2030.060',
+    fullText: 'Responding Party objects to the interrogatory on the grounds that the interrogatory is not full and complete in and of itself, in violation of Code of Civil Procedure ? 2030.060(c)-(d) and Catanese v. Sup.Ct. (Ray) (1996) 46 Cal.App.4th 1159, 1164.',
     applicableTo: ['interrogatories'],
     category: 'procedural',
-    citation: 'CCP § 2030.060(c)-(d); Catanese v. Sup.Ct. (1996) 46 Cal.App.4th 1159',
+    citation: 'CCP ? 2030.060(c)-(d); Catanese v. Sup.Ct. (1996) 46 Cal.App.4th 1159',
   },
   {
     id: 'int_compound',
     title: 'Compound Question',
     shortForm: 'Impermissibly compound',
-    fullText: 'Responding Party objects to the interrogatory on the grounds that it is impermissibly compound in violation of Code of Civil Procedure § 2030.060(f).',
+    fullText: 'Responding Party objects to the interrogatory on the grounds that it is impermissibly compound in violation of Code of Civil Procedure ? 2030.060(f).',
     applicableTo: ['interrogatories'],
     category: 'procedural',
-    citation: 'CCP § 2030.060(f)',
+    citation: 'CCP ? 2030.060(f)',
   },
   {
     id: 'int_exceeds_max',
@@ -103,7 +105,7 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to this interrogatory on the grounds that it is burdensome, harassing, and oppressive in that this interrogatory exceeds the maximum number of 35 without good cause in violation of Code of Civil Procedure sections 2030.030(a)(1) and 2030.040(a).',
     applicableTo: ['interrogatories'],
     category: 'procedural',
-    citation: 'CCP §§ 2030.030(a)(1), 2030.040(a)',
+    citation: 'CCP ?? 2030.030(a)(1), 2030.040(a)',
   },
 
   // SCOPE / BURDEN
@@ -154,10 +156,10 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     id: 'int_not_calculated',
     title: 'Not Calculated to Lead to Discovery',
     shortForm: 'Not calculated to lead to admissible evidence',
-    fullText: 'Responding Party objects to the interrogatory on the grounds that it is not calculated to lead to the discovery of admissible evidence in violation of Code of Civil Procedure § 2017.010.',
+    fullText: 'Responding Party objects to the interrogatory on the grounds that it is not calculated to lead to the discovery of admissible evidence in violation of Code of Civil Procedure ? 2017.010.',
     applicableTo: ['interrogatories'],
     category: 'relevance',
-    citation: 'CCP § 2017.010',
+    citation: 'CCP ? 2017.010',
   },
   {
     id: 'int_cumulative',
@@ -166,7 +168,7 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to the interrogatory on the grounds that it is cumulative and duplicative of prior discovery in violation of Code of Civil Procedure section 2019.030.',
     applicableTo: ['interrogatories'],
     category: 'relevance',
-    citation: 'CCP § 2019.030',
+    citation: 'CCP ? 2019.030',
   },
   {
     id: 'int_remedial_measures',
@@ -175,7 +177,7 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to the interrogatory on the grounds that it impermissibly seeks evidence of remedial or precautionary measures in violation of Evidence Code section 1151.',
     applicableTo: ['interrogatories'],
     category: 'relevance',
-    citation: 'Evidence Code § 1151',
+    citation: 'Evidence Code ? 1151',
   },
   {
     id: 'int_unrelated_negligent',
@@ -219,7 +221,7 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to the interrogatory on the grounds that the documents speak for themselves, and the interrogatory impermissibly seeks testimony regarding the contents of a writing in violation of Evidence Code section 1523.',
     applicableTo: ['interrogatories'],
     category: 'scope',
-    citation: 'Evidence Code § 1523',
+    citation: 'Evidence Code ? 1523',
   },
 
   // PREMATURE
@@ -237,10 +239,10 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     id: 'int_attorney_client',
     title: 'Attorney-Client Privilege',
     shortForm: 'Attorney-client privilege and work product',
-    fullText: 'Responding Party objects to the interrogatory on the grounds that it seeks to violate the attorney-client privilege and attorney work product doctrine in violation of Code of Civil Procedure §§ 2017.010 and 2018.030, and Evidence Code § 950.',
+    fullText: 'Responding Party objects to the interrogatory on the grounds that it seeks to violate the attorney-client privilege and attorney work product doctrine in violation of Code of Civil Procedure ?? 2017.010 and 2018.030, and Evidence Code ? 950.',
     applicableTo: ['interrogatories'],
     category: 'privilege',
-    citation: 'CCP §§ 2017.010, 2018.030; Evidence Code § 950',
+    citation: 'CCP ?? 2017.010, 2018.030; Evidence Code ? 950',
   },
 
   // PRIVACY
@@ -248,25 +250,25 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     id: 'int_privacy',
     title: 'Privacy - Responding Party',
     shortForm: 'Invasion of privacy',
-    fullText: 'Responding Party objects to the interrogatory on the grounds that it is an impermissible invasion of Responding Party\'s constitutional right to privacy. (Cal. Const. Art. 1, § 1.)',
+    fullText: 'Responding Party objects to the interrogatory on the grounds that it is an impermissible invasion of Responding Party\'s constitutional right to privacy. (Cal. Const. Art. 1, ? 1.)',
     applicableTo: ['interrogatories'],
     category: 'privacy',
-    citation: 'Cal. Const. Art. 1, § 1',
+    citation: 'Cal. Const. Art. 1, ? 1',
   },
   {
     id: 'int_privacy_third',
     title: 'Privacy - Third Parties',
     shortForm: 'Invasion of third-party privacy',
-    fullText: 'Responding Party objects to the interrogatory on the grounds that it is an impermissible invasion of Responding Party\'s and third parties\' constitutional right to privacy. (Cal. Const. Art. 1, § 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526; Roberts v. Gulf Oil Corp. (1983) 147 Cal.App.3d 770, 798.)',
+    fullText: 'Responding Party objects to the interrogatory on the grounds that it is an impermissible invasion of Responding Party\'s and third parties\' constitutional right to privacy. (Cal. Const. Art. 1, ? 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526; Roberts v. Gulf Oil Corp. (1983) 147 Cal.App.3d 770, 798.)',
     applicableTo: ['interrogatories'],
     category: 'privacy',
-    citation: 'Cal. Const. Art. 1, § 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526',
+    citation: 'Cal. Const. Art. 1, ? 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526',
   },
   {
     id: 'int_personnel_files',
     title: 'Confidential Personnel Files',
     shortForm: 'Seeks confidential personnel files',
-    fullText: 'Responding Party objects to the interrogatory on the grounds that it impermissibly seeks confidential personnel files at a person\'s place of employment. (Board of Trustees of Leland Stanford Jr. Univ. v. Sup.Ct. (Dong) (1981) 119 Cal.App.3d 516, 528–530.)',
+    fullText: 'Responding Party objects to the interrogatory on the grounds that it impermissibly seeks confidential personnel files at a person\'s place of employment. (Board of Trustees of Leland Stanford Jr. Univ. v. Sup.Ct. (Dong) (1981) 119 Cal.App.3d 516, 528?530.)',
     applicableTo: ['interrogatories'],
     category: 'privacy',
     citation: 'Board of Trustees v. Sup.Ct. (1981) 119 Cal.App.3d 516',
@@ -278,7 +280,7 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to the interrogatory on the grounds that it impermissibly asks Responding Party to disclose trade secrets in violation of Civil Code sections 3426-3426.11, also known as the Uniform Trade Secrets Act, and Evidence Code section 1060.',
     applicableTo: ['interrogatories'],
     category: 'privilege',
-    citation: 'Civil Code §§ 3426-3426.11; Evidence Code § 1060',
+    citation: 'Civil Code ?? 3426-3426.11; Evidence Code ? 1060',
   },
   {
     id: 'int_tax_returns',
@@ -306,6 +308,333 @@ export const INTERROGATORY_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to the interrogatory on the grounds that it prematurely seeks disclosure of experts and expert testimony.',
     applicableTo: ['interrogatories'],
     category: 'expert',
+  },
+];
+
+// =============================================================================
+// OBJECTION TEMPLATES - FORM INTERROGATORIES (FROG)
+// =============================================================================
+
+export const FROG_OBJECTIONS: ObjectionTemplate[] = [
+  // Form Interrogatories are Judicial Council approved, so objections are more limited
+  // However, certain objections still apply
+  
+  // PRIVILEGE
+  {
+    id: 'frog_attorney_client',
+    title: 'Attorney-Client Privilege',
+    shortForm: 'Attorney-client privilege and work product',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks to violate the attorney-client privilege and attorney work product doctrine in violation of Code of Civil Procedure §§ 2017.010 and 2018.030, and Evidence Code § 950.',
+    applicableTo: ['frog'],
+    category: 'privilege',
+    citation: 'CCP §§ 2017.010, 2018.030; Evidence Code § 950',
+  },
+
+  // PRIVACY
+  {
+    id: 'frog_privacy',
+    title: 'Privacy - Responding Party',
+    shortForm: 'Invasion of privacy',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is an impermissible invasion of Responding Party\'s constitutional right to privacy. (Cal. Const. Art. 1, § 1.)',
+    applicableTo: ['frog'],
+    category: 'privacy',
+    citation: 'Cal. Const. Art. 1, § 1',
+  },
+  {
+    id: 'frog_privacy_third',
+    title: 'Privacy - Third Parties',
+    shortForm: 'Invasion of third-party privacy',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is an impermissible invasion of third parties\' constitutional right to privacy. (Cal. Const. Art. 1, § 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526.)',
+    applicableTo: ['frog'],
+    category: 'privacy',
+    citation: 'Cal. Const. Art. 1, § 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526',
+  },
+  {
+    id: 'frog_medical_privacy',
+    title: 'Medical Privacy',
+    shortForm: 'Seeks protected medical information',
+    fullText: 'Responding Party objects to this interrogatory to the extent it seeks information protected by the physician-patient privilege (Evidence Code § 994) and the right to privacy in medical records.',
+    applicableTo: ['frog'],
+    category: 'privacy',
+    citation: 'Evidence Code § 994',
+  },
+
+  // BURDEN
+  {
+    id: 'frog_burdensome',
+    title: 'Burdensome',
+    shortForm: 'Burdensome, oppressive, and harassing',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is burdensome, oppressive, and harassing given the scope of information requested.',
+    applicableTo: ['frog'],
+    category: 'burden',
+  },
+  {
+    id: 'frog_equally_available',
+    title: 'Equally Available',
+    shortForm: 'Information equally available to propounding party',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that the information requested is equally available to the Propounding Party.',
+    applicableTo: ['frog'],
+    category: 'burden',
+  },
+
+  // RELEVANCE
+  {
+    id: 'frog_not_relevant',
+    title: 'Not Relevant',
+    shortForm: 'Not relevant to claims or defenses',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks information not relevant to any claim or defense in this action.',
+    applicableTo: ['frog'],
+    category: 'relevance',
+  },
+  {
+    id: 'frog_not_applicable',
+    title: 'Not Applicable',
+    shortForm: 'Interrogatory not applicable to this case',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is not applicable to the facts and circumstances of this case.',
+    applicableTo: ['frog'],
+    category: 'relevance',
+  },
+
+  // PREMATURE
+  {
+    id: 'frog_premature',
+    title: 'Premature',
+    shortForm: 'Premature - investigation ongoing',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is premature as Responding Party has not had sufficient opportunity to complete its investigation and discovery.',
+    applicableTo: ['frog'],
+    category: 'premature',
+  },
+
+  // SCOPE
+  {
+    id: 'frog_outside_control',
+    title: 'Outside Possession/Control',
+    shortForm: 'Outside responding party\'s possession, custody or control',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks the discovery of information outside of Responding Party\'s possession, custody or control.',
+    applicableTo: ['frog'],
+    category: 'scope',
+  },
+  {
+    id: 'frog_calls_speculation',
+    title: 'Calls for Speculation',
+    shortForm: 'Calls for speculation',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it calls for speculation.',
+    applicableTo: ['frog'],
+    category: 'scope',
+  },
+
+  // EXPERT
+  {
+    id: 'frog_expert_lay',
+    title: 'Expert Testimony from Lay Witness',
+    shortForm: 'Seeks expert testimony from lay witness',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it improperly seeks expert testimony from a lay witness.',
+    applicableTo: ['frog'],
+    category: 'expert',
+  },
+  {
+    id: 'frog_premature_expert',
+    title: 'Premature Expert Disclosure',
+    shortForm: 'Premature expert disclosure',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it prematurely seeks disclosure of experts and expert testimony.',
+    applicableTo: ['frog'],
+    category: 'expert',
+  },
+];
+
+// =============================================================================
+// OBJECTION TEMPLATES - FORM INTERROGATORIES EMPLOYMENT LAW (DISC-002)
+// =============================================================================
+
+export const FROG_EMPLOYMENT_OBJECTIONS: ObjectionTemplate[] = [
+  // Employment Form Interrogatories are Judicial Council approved, but have employment-specific objections
+  
+  // PRIVILEGE
+  {
+    id: 'frog_emp_attorney_client',
+    title: 'Attorney-Client Privilege',
+    shortForm: 'Attorney-client privilege and work product',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks to violate the attorney-client privilege and attorney work product doctrine in violation of Code of Civil Procedure §§ 2017.010 and 2018.030, and Evidence Code § 950.',
+    applicableTo: ['frog-employment'],
+    category: 'privilege',
+    citation: 'CCP §§ 2017.010, 2018.030; Evidence Code § 950',
+  },
+
+  // PRIVACY - General
+  {
+    id: 'frog_emp_privacy',
+    title: 'Privacy - Responding Party',
+    shortForm: 'Invasion of privacy',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is an impermissible invasion of Responding Party\'s constitutional right to privacy. (Cal. Const. Art. 1, § 1.)',
+    applicableTo: ['frog-employment'],
+    category: 'privacy',
+    citation: 'Cal. Const. Art. 1, § 1',
+  },
+  {
+    id: 'frog_emp_privacy_third',
+    title: 'Privacy - Third Parties',
+    shortForm: 'Invasion of third-party privacy',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is an impermissible invasion of third parties\' constitutional right to privacy. (Cal. Const. Art. 1, § 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526.)',
+    applicableTo: ['frog-employment'],
+    category: 'privacy',
+    citation: 'Cal. Const. Art. 1, § 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526',
+  },
+
+  // PRIVACY - Employment Specific
+  {
+    id: 'frog_emp_personnel_records',
+    title: 'Personnel Records Privacy',
+    shortForm: 'Seeks confidential personnel records',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks confidential personnel records protected by Labor Code sections 1198.5 and 432, and the constitutional right to privacy. (Board of Trustees of Leland Stanford Jr. Univ. v. Sup.Ct. (Dong) (1981) 119 Cal.App.3d 516, 528–530.)',
+    applicableTo: ['frog-employment'],
+    category: 'privacy',
+    citation: 'Labor Code §§ 1198.5, 432; Board of Trustees v. Sup.Ct. (1981) 119 Cal.App.3d 516',
+  },
+  {
+    id: 'frog_emp_medical_privacy',
+    title: 'Medical Privacy',
+    shortForm: 'Seeks protected medical information',
+    fullText: 'Responding Party objects to this interrogatory to the extent it seeks information protected by the physician-patient privilege (Evidence Code § 994), the Confidentiality of Medical Information Act (Civil Code § 56 et seq.), and the right to privacy in medical records.',
+    applicableTo: ['frog-employment'],
+    category: 'privacy',
+    citation: 'Evidence Code § 994; Civil Code § 56 et seq.',
+  },
+  {
+    id: 'frog_emp_hipaa',
+    title: 'HIPAA Protected Information',
+    shortForm: 'Seeks HIPAA protected health information',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks protected health information subject to the Health Insurance Portability and Accountability Act (HIPAA), 45 C.F.R. Parts 160 and 164.',
+    applicableTo: ['frog-employment'],
+    category: 'privacy',
+    citation: '45 C.F.R. Parts 160, 164 (HIPAA)',
+  },
+
+  // BURDEN
+  {
+    id: 'frog_emp_burdensome',
+    title: 'Burdensome',
+    shortForm: 'Burdensome, oppressive, and harassing',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is burdensome, oppressive, and harassing given the scope of information requested.',
+    applicableTo: ['frog-employment'],
+    category: 'burden',
+  },
+  {
+    id: 'frog_emp_equally_available',
+    title: 'Equally Available',
+    shortForm: 'Information equally available to propounding party',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that the information requested is equally available to the Propounding Party.',
+    applicableTo: ['frog-employment'],
+    category: 'burden',
+  },
+
+  // RELEVANCE
+  {
+    id: 'frog_emp_not_relevant',
+    title: 'Not Relevant',
+    shortForm: 'Not relevant to claims or defenses',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks information not relevant to any claim or defense in this action.',
+    applicableTo: ['frog-employment'],
+    category: 'relevance',
+  },
+  {
+    id: 'frog_emp_not_applicable',
+    title: 'Not Applicable',
+    shortForm: 'Interrogatory not applicable to this case',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is not applicable to the facts and circumstances of this case.',
+    applicableTo: ['frog-employment'],
+    category: 'relevance',
+  },
+
+  // PREMATURE
+  {
+    id: 'frog_emp_premature',
+    title: 'Premature',
+    shortForm: 'Premature - investigation ongoing',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it is premature as Responding Party has not had sufficient opportunity to complete its investigation and discovery.',
+    applicableTo: ['frog-employment'],
+    category: 'premature',
+  },
+
+  // SCOPE
+  {
+    id: 'frog_emp_outside_control',
+    title: 'Outside Possession/Control',
+    shortForm: 'Outside responding party\'s possession, custody or control',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks the discovery of information outside of Responding Party\'s possession, custody or control.',
+    applicableTo: ['frog-employment'],
+    category: 'scope',
+  },
+  {
+    id: 'frog_emp_calls_speculation',
+    title: 'Calls for Speculation',
+    shortForm: 'Calls for speculation',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it calls for speculation.',
+    applicableTo: ['frog-employment'],
+    category: 'scope',
+  },
+  {
+    id: 'frog_emp_overbroad_timeframe',
+    title: 'Overbroad Time Period',
+    shortForm: 'Overbroad as to time period (10 years)',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that the ten-year time period is overbroad, unduly burdensome, and not reasonably calculated to lead to the discovery of admissible evidence.',
+    applicableTo: ['frog-employment'],
+    category: 'scope',
+  },
+
+  // EXPERT
+  {
+    id: 'frog_emp_expert_lay',
+    title: 'Expert Testimony from Lay Witness',
+    shortForm: 'Seeks expert testimony from lay witness',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it improperly seeks expert testimony from a lay witness.',
+    applicableTo: ['frog-employment'],
+    category: 'expert',
+  },
+  {
+    id: 'frog_emp_premature_expert',
+    title: 'Premature Expert Disclosure',
+    shortForm: 'Premature expert disclosure',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it prematurely seeks disclosure of experts and expert testimony.',
+    applicableTo: ['frog-employment'],
+    category: 'expert',
+  },
+
+  // EMPLOYMENT-SPECIFIC PRIVILEGE
+  {
+    id: 'frog_emp_settlement_discussions',
+    title: 'Settlement Discussions',
+    shortForm: 'Seeks privileged settlement discussions',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks information regarding settlement discussions protected by Evidence Code section 1152.',
+    applicableTo: ['frog-employment'],
+    category: 'privilege',
+    citation: 'Evidence Code § 1152',
+  },
+  {
+    id: 'frog_emp_eeoc_mediation',
+    title: 'EEOC/DFEH Mediation Communications',
+    shortForm: 'Seeks protected mediation communications',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks communications made during mediation proceedings before the EEOC or DFEH, which are confidential under Evidence Code section 1119 and applicable federal and state laws.',
+    applicableTo: ['frog-employment'],
+    category: 'privilege',
+    citation: 'Evidence Code § 1119',
+  },
+  {
+    id: 'frog_emp_investigation_privilege',
+    title: 'Internal Investigation Privilege',
+    shortForm: 'Seeks privileged investigation materials',
+    fullText: 'Responding Party objects to this interrogatory to the extent it seeks information protected by the attorney-client privilege and work product doctrine as it relates to internal investigations conducted in anticipation of litigation.',
+    applicableTo: ['frog-employment'],
+    category: 'privilege',
+  },
+
+  // FEHA SPECIFIC
+  {
+    id: 'frog_emp_feha_irrelevant_comparators',
+    title: 'Irrelevant Comparator Evidence',
+    shortForm: 'Seeks information about non-similarly situated employees',
+    fullText: 'Responding Party objects to this interrogatory on the grounds that it seeks information about employees who are not similarly situated to the EMPLOYEE and therefore is not relevant to any claim or defense in this FEHA action.',
+    applicableTo: ['frog-employment'],
+    category: 'relevance',
   },
 ];
 
@@ -357,7 +686,7 @@ export const RFA_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to this request on the grounds that it is not full and complete in and of itself in violation of Code of Civil Procedure section 2033.060(d) because the document referenced in the request for admission is not attached.',
     applicableTo: ['rfa'],
     category: 'procedural',
-    citation: 'CCP § 2033.060(d)',
+    citation: 'CCP ? 2033.060(d)',
   },
   {
     id: 'rfa_exceeds_max',
@@ -366,7 +695,7 @@ export const RFA_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to this request on the grounds that it is burdensome, harassing, and oppressive in that this request exceeds the maximum number of 35 without good cause in violation of Code of Civil Procedure sections 2033.030 and 2033.050.',
     applicableTo: ['rfa'],
     category: 'procedural',
-    citation: 'CCP §§ 2033.030, 2033.050',
+    citation: 'CCP ?? 2033.030, 2033.050',
   },
 
   // Burden
@@ -395,7 +724,7 @@ export const RFA_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to this request on the grounds that it is not calculated to lead to the discovery of admissible evidence in violation of Code of Civil Procedure section 2017.010.',
     applicableTo: ['rfa'],
     category: 'relevance',
-    citation: 'CCP § 2017.010',
+    citation: 'CCP ? 2017.010',
   },
   {
     id: 'rfa_cumulative',
@@ -404,7 +733,7 @@ export const RFA_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to this request on the grounds that it is cumulative and duplicative of prior discovery in violation of Code of Civil Procedure section 2019.030.',
     applicableTo: ['rfa'],
     category: 'relevance',
-    citation: 'CCP § 2019.030',
+    citation: 'CCP ? 2019.030',
   },
 
   // Substantive
@@ -439,7 +768,7 @@ export const RFA_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to the request on the grounds that the documents speak for themselves, and the request impermissibly seeks testimony regarding the contents of a writing in violation of Evidence Code section 1523.',
     applicableTo: ['rfa'],
     category: 'scope',
-    citation: 'Evidence Code § 1523',
+    citation: 'Evidence Code ? 1523',
   },
 
   // Expert
@@ -470,7 +799,7 @@ export const RFA_OBJECTIONS: ObjectionTemplate[] = [
     fullText: 'Responding Party objects to this request on the grounds that it seeks to violate the attorney-client privilege and attorney work product doctrine in violation of Code of Civil Procedure sections 2017.010 and 2018.030, and Evidence Code section 950.',
     applicableTo: ['rfa'],
     category: 'privilege',
-    citation: 'CCP §§ 2017.010, 2018.030; Evidence Code § 950',
+    citation: 'CCP ?? 2017.010, 2018.030; Evidence Code ? 950',
   },
 ];
 
@@ -523,28 +852,28 @@ export const RFP_OBJECTIONS: ObjectionTemplate[] = [
     id: 'rfp_not_calculated',
     title: 'Not Calculated',
     shortForm: 'Not calculated to lead to admissible evidence',
-    fullText: 'Responding Party objects to this request on the grounds that it is not calculated to lead to the discovery of admissible evidence in violation of Code of Civil Procedure § 2017.010.',
+    fullText: 'Responding Party objects to this request on the grounds that it is not calculated to lead to the discovery of admissible evidence in violation of Code of Civil Procedure ? 2017.010.',
     applicableTo: ['rfp'],
     category: 'relevance',
-    citation: 'CCP § 2017.010',
+    citation: 'CCP ? 2017.010',
   },
   {
     id: 'rfp_cumulative',
     title: 'Cumulative',
     shortForm: 'Cumulative and duplicative',
-    fullText: 'Responding Party objects to this request on the grounds that it is cumulative and duplicative of prior discovery in violation of Code of Civil Procedure § 2019.030.',
+    fullText: 'Responding Party objects to this request on the grounds that it is cumulative and duplicative of prior discovery in violation of Code of Civil Procedure ? 2019.030.',
     applicableTo: ['rfp'],
     category: 'relevance',
-    citation: 'CCP § 2019.030',
+    citation: 'CCP ? 2019.030',
   },
   {
     id: 'rfp_remedial',
     title: 'Remedial Measures',
     shortForm: 'Seeks evidence of remedial measures',
-    fullText: 'Responding Party objects to this request on the grounds that it impermissibly seeks evidence of remedial or precautionary measures in violation of Evidence Code § 1151.',
+    fullText: 'Responding Party objects to this request on the grounds that it impermissibly seeks evidence of remedial or precautionary measures in violation of Evidence Code ? 1151.',
     applicableTo: ['rfp'],
     category: 'relevance',
-    citation: 'Evidence Code § 1151',
+    citation: 'Evidence Code ? 1151',
   },
   {
     id: 'rfp_unrelated_negligent',
@@ -571,16 +900,16 @@ export const RFP_OBJECTIONS: ObjectionTemplate[] = [
     id: 'rfp_privacy',
     title: 'Privacy',
     shortForm: 'Invasion of privacy',
-    fullText: 'Responding Party objects to this request on the grounds that it is an impermissible invasion of Responding Party\'s and third parties\' constitutional right to privacy. (Cal. Const. Art. 1, § 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526; Roberts v. Gulf Oil Corp. (1983) 147 Cal.App.3d 770, 798.)',
+    fullText: 'Responding Party objects to this request on the grounds that it is an impermissible invasion of Responding Party\'s and third parties\' constitutional right to privacy. (Cal. Const. Art. 1, ? 1; Garstang v. Superior Court (1995) 39 Cal.App.4th 526; Roberts v. Gulf Oil Corp. (1983) 147 Cal.App.3d 770, 798.)',
     applicableTo: ['rfp'],
     category: 'privacy',
-    citation: 'Cal. Const. Art. 1, § 1',
+    citation: 'Cal. Const. Art. 1, ? 1',
   },
   {
     id: 'rfp_personnel_files',
     title: 'Personnel Files',
     shortForm: 'Seeks confidential personnel files',
-    fullText: 'Responding Party objects to this request on the grounds that it impermissibly seeks confidential personnel files at a person\'s place of employment. (Board of Trustees of Leland Stanford Jr. Univ. v. Sup.Ct. (Dong) (1981) 119 Cal.App.3d 516, 528–530.)',
+    fullText: 'Responding Party objects to this request on the grounds that it impermissibly seeks confidential personnel files at a person\'s place of employment. (Board of Trustees of Leland Stanford Jr. Univ. v. Sup.Ct. (Dong) (1981) 119 Cal.App.3d 516, 528?530.)',
     applicableTo: ['rfp'],
     category: 'privacy',
     citation: 'Board of Trustees v. Sup.Ct. (1981) 119 Cal.App.3d 516',
@@ -591,10 +920,10 @@ export const RFP_OBJECTIONS: ObjectionTemplate[] = [
     id: 'rfp_trade_secrets',
     title: 'Trade Secrets',
     shortForm: 'Seeks trade secrets',
-    fullText: 'Responding Party objects to this request on the grounds that it impermissibly asks Responding Party to disclose trade secrets in violation of Civil Code §§ 3426-3426.11, also known as the Uniform Trade Secrets Act, and Evidence Code section 1060.',
+    fullText: 'Responding Party objects to this request on the grounds that it impermissibly asks Responding Party to disclose trade secrets in violation of Civil Code ?? 3426-3426.11, also known as the Uniform Trade Secrets Act, and Evidence Code section 1060.',
     applicableTo: ['rfp'],
     category: 'privilege',
-    citation: 'Civil Code §§ 3426-3426.11; Evidence Code § 1060',
+    citation: 'Civil Code ?? 3426-3426.11; Evidence Code ? 1060',
   },
   {
     id: 'rfp_tax_returns',
@@ -609,10 +938,10 @@ export const RFP_OBJECTIONS: ObjectionTemplate[] = [
     id: 'rfp_attorney_client',
     title: 'Attorney-Client Privilege',
     shortForm: 'Attorney-client privilege and work product',
-    fullText: 'Responding Party objects to this request on the grounds that it seeks to violate the attorney-client privilege and attorney work product doctrine in violation of Code of Civil Procedure § 2017.010 and 2018.030, and Evidence Code § 950.',
+    fullText: 'Responding Party objects to this request on the grounds that it seeks to violate the attorney-client privilege and attorney work product doctrine in violation of Code of Civil Procedure ? 2017.010 and 2018.030, and Evidence Code ? 950.',
     applicableTo: ['rfp'],
     category: 'privilege',
-    citation: 'CCP §§ 2017.010, 2018.030; Evidence Code § 950',
+    citation: 'CCP ?? 2017.010, 2018.030; Evidence Code ? 950',
   },
 
   // Expert
@@ -661,7 +990,7 @@ export const RFP_ANSWER_TEMPLATES = {
  * Get all objections applicable to a specific discovery type
  */
 export function getObjectionsForType(type: DiscoveryResponseType): ObjectionTemplate[] {
-  const allObjections = [...INTERROGATORY_OBJECTIONS, ...RFA_OBJECTIONS, ...RFP_OBJECTIONS];
+  const allObjections = [...INTERROGATORY_OBJECTIONS, ...FROG_OBJECTIONS, ...FROG_EMPLOYMENT_OBJECTIONS, ...RFA_OBJECTIONS, ...RFP_OBJECTIONS];
   return allObjections.filter(obj => obj.applicableTo.includes(type));
 }
 
@@ -788,7 +1117,7 @@ export function suggestObjections(
  * Get objection by ID
  */
 export function getObjectionById(id: string): ObjectionTemplate | undefined {
-  const allObjections = [...INTERROGATORY_OBJECTIONS, ...RFA_OBJECTIONS, ...RFP_OBJECTIONS];
+  const allObjections = [...INTERROGATORY_OBJECTIONS, ...FROG_OBJECTIONS, ...FROG_EMPLOYMENT_OBJECTIONS, ...RFA_OBJECTIONS, ...RFP_OBJECTIONS];
   return allObjections.find(obj => obj.id === id);
 }
 

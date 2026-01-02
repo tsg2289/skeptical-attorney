@@ -845,6 +845,14 @@ export default function RFACanvas({ caseData, onCaseUpdate, isTrialMode = false 
             ? caseData.defendants?.[0]?.attorneys?.[0]?.email
             : caseData.plaintiffs?.[0]?.attorneys?.[0]?.email
         }
+        fax={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.fax
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.fax
+        }
+        county={caseData.courtCounty || 'Los Angeles'}
+        judgeName={caseData.judgeName}
+        departmentNumber={caseData.departmentNumber}
       />
     </div>
   )

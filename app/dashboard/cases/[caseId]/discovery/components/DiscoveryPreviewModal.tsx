@@ -34,8 +34,11 @@ interface PreviewModalProps {
   lawFirmName?: string
   address?: string
   phone?: string
+  fax?: string
   email?: string
   county?: string
+  judgeName?: string
+  departmentNumber?: string
 }
 
 const TYPE_TITLES: Record<string, string> = {
@@ -71,8 +74,11 @@ export default function DiscoveryPreviewModal({
   lawFirmName,
   address,
   phone,
+  fax,
   email,
-  county = 'Los Angeles'
+  county = 'Los Angeles',
+  judgeName,
+  departmentNumber
 }: PreviewModalProps) {
   const [isGenerating, setIsGenerating] = useState(false)
 
@@ -159,40 +165,72 @@ export default function DiscoveryPreviewModal({
 
           {/* Preview Content */}
           <div className="flex-1 overflow-y-auto p-8 bg-gray-50">
-            <div className="max-w-3xl mx-auto bg-white p-8 shadow-lg rounded-lg">
-              {/* Document Header */}
-              <div className="text-center mb-8 pb-6 border-b-2 border-gray-200">
-                <p className="text-sm text-gray-600 mb-2">SUPERIOR COURT OF THE STATE OF CALIFORNIA</p>
-                <p className="text-sm text-gray-600 mb-4">COUNTY OF {county.toUpperCase()}</p>
-                
-                <div className="my-4 text-left">
-                  <p className="text-sm">{plaintiffName}, <span className="text-gray-500">Plaintiff,</span></p>
-                  <p className="text-sm text-center my-2">vs.</p>
-                  <p className="text-sm">{defendantName}, <span className="text-gray-500">Defendant.</span></p>
+            <div className="max-w-3xl mx-auto bg-white shadow-lg font-serif text-black p-8">
+              {/* Attorney Header - Left Aligned (Pleading Paper Style) */}
+              <div className="mb-6 space-y-0 text-sm leading-6">
+                <div className="text-black">
+                  <p>{attorneyName || '[ATTORNEY NAME]'}, State Bar No. {stateBarNumber || '[BAR NUMBER]'}</p>
+                  <p>{lawFirmName || '[LAW FIRM]'}</p>
+                  <p>{address || '[ADDRESS]'}</p>
+                  <p>Telephone: {phone || '[PHONE]'}</p>
+                  <p>Facsimile: {fax || '[Fax Number]'}</p>
+                  <p>{email || '[EMAIL]'}</p>
                 </div>
-
-                <p className="text-sm font-semibold mt-4">Case No.: {caseNumber}</p>
-              </div>
-
-              {/* Document Title */}
-              <div className="text-center mb-8">
-                <h1 className="text-xl font-bold text-gray-900 uppercase tracking-wide">
-                  {TYPE_TITLES[discoveryType].toUpperCase()}
-                </h1>
-                <p className="text-sm text-gray-600 mt-2">
-                  SET {SET_NUMBER_WORDS[setNumber - 1] || setNumber}
+                <p className="mt-2 text-black">
+                  Attorney for {propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'} {propoundingPartyName}
                 </p>
               </div>
 
-              {/* Party Info */}
+              {/* Court Header */}
+              <div className="text-center mb-8 uppercase font-bold text-black">
+                <p>SUPERIOR COURT OF THE STATE OF CALIFORNIA</p>
+                <p>COUNTY OF {county.toUpperCase()}</p>
+              </div>
+
+              {/* Case Caption Table */}
+              <div className="mb-8 border-2 border-black">
+                <div className="flex">
+                  {/* Left side - Parties */}
+                  <div className="w-1/2 p-4 border-r-2 border-black">
+                    <div className="mb-4">
+                      <p className="text-sm text-black">{plaintiffName},</p>
+                      <p className="text-sm indent-8 text-black">Plaintiff(s),</p>
+                    </div>
+                    <p className="text-sm my-4 text-black">vs.</p>
+                    <div>
+                      <p className="text-sm text-black">{defendantName},</p>
+                      <p className="text-sm indent-8 text-black">Defendant(s).</p>
+                    </div>
+                  </div>
+                  
+                  {/* Right side - Case Info */}
+                  <div className="w-1/2 p-4 space-y-2">
+                    <p className="text-sm text-black">Case No.: {caseNumber || '[CASE NUMBER]'}</p>
+                    {judgeName && (
+                      <p className="text-sm text-black">Honorable {judgeName}</p>
+                    )}
+                    {departmentNumber && (
+                      <p className="text-sm text-black">Dept. {departmentNumber}</p>
+                    )}
+                    <p className="text-sm font-bold text-black mt-4 uppercase">
+                      {TYPE_TITLES[discoveryType].toUpperCase()}
+                    </p>
+                    <p className="text-sm text-black">
+                      SET {SET_NUMBER_WORDS[setNumber - 1] || setNumber}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Party Info Box */}
               <div className={`${colors.bg} ${colors.border} border rounded-lg p-4 mb-6 text-sm font-mono`}>
-                <p><strong>PROPOUNDING PARTY:</strong> {propoundingParty.toUpperCase()}</p>
-                <p><strong>RESPONDING PARTY:</strong> {respondingParty.toUpperCase()}</p>
-                <p><strong>SET NO.:</strong> {SET_NUMBER_WORDS[setNumber - 1] || setNumber}</p>
+                <p className="text-black"><strong>PROPOUNDING PARTY:</strong> {propoundingParty.toUpperCase()}</p>
+                <p className="text-black"><strong>RESPONDING PARTY:</strong> {respondingParty.toUpperCase()}</p>
+                <p className="text-black"><strong>SET NO.:</strong> {SET_NUMBER_WORDS[setNumber - 1] || setNumber}</p>
               </div>
 
               {/* Introduction */}
-              <p className="text-sm text-gray-700 mb-6 leading-relaxed">
+              <p className="text-sm text-black mb-6 leading-relaxed">
                 {propoundingPartyName} ("{propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'}") requests, 
                 pursuant to California Code of Civil Procedure section {
                   discoveryType === 'interrogatories' ? '2030.030' : 
@@ -208,10 +246,10 @@ export default function DiscoveryPreviewModal({
               {/* Definitions (for interrogatories and RFP) */}
               {(discoveryType === 'interrogatories' || discoveryType === 'rfp' || discoveryType === 'rfa') && definitions.length > 0 && (
                 <div className="mb-8">
-                  <h3 className="text-sm font-bold text-gray-900 uppercase mb-4 border-b border-gray-200 pb-2">
-                    Definitions
+                  <h3 className="text-sm font-bold text-black uppercase mb-4 border-b border-black pb-2">
+                    DEFINITIONS
                   </h3>
-                  <ol className="list-decimal list-inside space-y-2 text-xs text-gray-700">
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-black">
                     {definitions.map((def, i) => (
                       <li key={i} className="leading-relaxed">{def}</li>
                     ))}
@@ -221,26 +259,26 @@ export default function DiscoveryPreviewModal({
 
               {/* Discovery Items */}
               <div>
-                <h3 className="text-sm font-bold text-gray-900 uppercase mb-4 border-b border-gray-200 pb-2">
-                  {discoveryType === 'interrogatories' ? 'Special Interrogatories' : 
-                   discoveryType === 'rfp' ? 'Requests for Production' : 'Requests for Admission'}
+                <h3 className="text-sm font-bold text-black uppercase mb-4 border-b border-black pb-2">
+                  {discoveryType === 'interrogatories' ? 'SPECIAL INTERROGATORIES' : 
+                   discoveryType === 'rfp' ? 'REQUESTS FOR PRODUCTION' : 'REQUESTS FOR ADMISSION'}
                 </h3>
 
                 {/* Categorized Items */}
                 {categories && categories.map(category => (
                   category.items.length > 0 && (
                     <div key={category.title} className="mb-6">
-                      <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3 italic">
+                      <h4 className="text-xs font-semibold text-black uppercase tracking-wide mb-3 italic">
                         {category.title}
                       </h4>
                       <div className="space-y-4">
                         {category.items.map(item => (
-                          <div key={item.number} className="pl-4 border-l-2 border-gray-200">
-                            <p className="text-sm font-semibold text-gray-900">
+                          <div key={item.number} className="pl-4 border-l-2 border-black">
+                            <p className="text-sm font-semibold text-black">
                               {discoveryType === 'interrogatories' ? 'SPECIAL INTERROGATORY' : 
                                discoveryType === 'rfp' ? 'REQUEST FOR PRODUCTION' : 'REQUEST FOR ADMISSION'} NO. {item.number}:
                             </p>
-                            <p className="text-sm text-gray-700 mt-1 leading-relaxed whitespace-pre-wrap">
+                            <p className="text-sm text-black mt-1 leading-relaxed whitespace-pre-wrap">
                               {cleanContent(item.content)}
                             </p>
                           </div>
@@ -254,11 +292,11 @@ export default function DiscoveryPreviewModal({
                 {items && items.length > 0 && (
                   <div className="space-y-4">
                     {items.map(item => (
-                      <div key={item.number} className="pl-4 border-l-2 border-amber-200">
-                        <p className="text-sm font-semibold text-gray-900">
+                      <div key={item.number} className="pl-4 border-l-2 border-black">
+                        <p className="text-sm font-semibold text-black">
                           REQUEST FOR ADMISSION NO. {item.number}:
                         </p>
-                        <p className="text-sm text-gray-700 mt-1 leading-relaxed whitespace-pre-wrap">
+                        <p className="text-sm text-black mt-1 leading-relaxed whitespace-pre-wrap">
                           {cleanContent(item.content)}
                         </p>
                       </div>
@@ -276,15 +314,15 @@ export default function DiscoveryPreviewModal({
               </div>
 
               {/* Signature Block */}
-              <div className="mt-12 pt-6 border-t border-gray-200">
-                <p className="text-sm text-gray-600 mb-2">Dated: ________________</p>
-                <p className="text-sm text-gray-600 mb-8">Respectfully submitted,</p>
+              <div className="mt-12 pt-6 border-t border-black">
+                <p className="text-sm text-black mb-2">Dated: ________________</p>
+                <p className="text-sm text-black mb-8">Respectfully submitted,</p>
                 <div className="space-y-1">
-                  <p className="text-sm text-gray-600">{lawFirmName || '[Law Firm Name]'}</p>
-                  <p className="text-sm text-gray-600 mt-8">_________________________________</p>
-                  <p className="text-sm text-gray-600">{attorneyName || '[Attorney Name]'}</p>
-                  {stateBarNumber && <p className="text-sm text-gray-600">State Bar No. {stateBarNumber}</p>}
-                  <p className="text-sm text-gray-600">Attorney for {propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'}</p>
+                  <p className="text-sm text-black">{lawFirmName || '[Law Firm Name]'}</p>
+                  <p className="text-sm text-black mt-8">_________________________________</p>
+                  <p className="text-sm text-black">{attorneyName || '[Attorney Name]'}</p>
+                  {stateBarNumber && <p className="text-sm text-black">State Bar No. {stateBarNumber}</p>}
+                  <p className="text-sm text-black">Attorney for {propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'}</p>
                 </div>
               </div>
             </div>

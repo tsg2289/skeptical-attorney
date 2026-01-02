@@ -88,6 +88,7 @@ interface DiscoveryResponse {
   originalRequest: string;
   objections: string[];
   objectionTexts: string[];
+  customObjections: string[]; // Custom objections added by user
   answer: string;
   suggestedObjectionIds: string[];
   status: 'draft' | 'reviewed' | 'final';
@@ -146,6 +147,7 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
 
   /**
    * Process uploaded document
+   * Uses different endpoints for FROG (DISC-001 PDF form) vs other discovery types
    */
   const handleProcessDocument = useCallback(async () => {
     if (!uploadedFile) return;
@@ -160,7 +162,14 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
       formData.append('caseId', caseData.id);
       formData.append('discoveryType', discoveryType);
 
-      const response = await fetch('/api/discovery-response/process-document', {
+      // Use specific endpoints for Form Interrogatories (reads PDF form fields)
+      const endpoint = discoveryType === 'frog'
+        ? '/api/discovery-response/process-frog'
+        : discoveryType === 'frog-employment'
+        ? '/api/discovery-response/process-frog-employment'
+        : '/api/discovery-response/process-document';
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -174,7 +183,9 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
       setExtractedRequests(result.requests);
       setDocumentInfo({
         fileName: result.documentInfo.fileName,
-        totalRequests: result.documentInfo.totalRequests,
+        totalRequests: (discoveryType === 'frog' || discoveryType === 'frog-employment')
+          ? result.documentInfo.selectedCount 
+          : result.documentInfo.totalRequests,
       });
 
       // Auto-generate responses after extraction
@@ -216,7 +227,12 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
         throw new Error(result.error || 'Failed to generate responses');
       }
 
-      setResponses(result.responses);
+      // Ensure customObjections is initialized for each response
+      const responsesWithCustom = result.responses.map((r: DiscoveryResponse) => ({
+        ...r,
+        customObjections: r.customObjections || [],
+      }));
+      setResponses(responsesWithCustom);
       setStep('editing');
 
     } catch (err) {
@@ -249,6 +265,47 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
         : r.objections.filter(id => id !== objectionId);
       
       return { ...r, objections: newObjections };
+    }));
+  }, []);
+
+  /**
+   * Add a custom objection to a response
+   */
+  const handleAddCustomObjection = useCallback((responseId: string, customText: string) => {
+    setResponses(prev => prev.map(r => {
+      if (r.id !== responseId) return r;
+      
+      const currentCustom = r.customObjections || [];
+      return { 
+        ...r, 
+        customObjections: [...currentCustom, customText] 
+      };
+    }));
+  }, []);
+
+  /**
+   * Edit a custom objection's text
+   */
+  const handleEditObjectionText = useCallback((responseId: string, index: number, newText: string) => {
+    setResponses(prev => prev.map(r => {
+      if (r.id !== responseId) return r;
+      
+      const currentCustom = [...(r.customObjections || [])];
+      currentCustom[index] = newText;
+      return { ...r, customObjections: currentCustom };
+    }));
+  }, []);
+
+  /**
+   * Remove a custom objection
+   */
+  const handleRemoveCustomObjection = useCallback((responseId: string, index: number) => {
+    setResponses(prev => prev.map(r => {
+      if (r.id !== responseId) return r;
+      
+      const currentCustom = [...(r.customObjections || [])];
+      currentCustom.splice(index, 1);
+      return { ...r, customObjections: currentCustom };
     }));
   }, []);
 
@@ -424,6 +481,8 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
                 className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-3 text-white appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="interrogatories">Special Interrogatories</option>
+                <option value="frog">Form Interrogatories - General (DISC-001)</option>
+                <option value="frog-employment">Form Interrogatories - Employment (DISC-002)</option>
                 <option value="rfp">Requests for Production</option>
                 <option value="rfa">Requests for Admission</option>
               </select>
@@ -434,12 +493,29 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
           {/* File Upload */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Upload Document (PDF, DOCX, or TXT)
+              {discoveryType === 'frog' 
+                ? 'Upload DISC-001 Form (PDF only)'
+                : discoveryType === 'frog-employment'
+                ? 'Upload DISC-002 Form (PDF only)'
+                : 'Upload Document (PDF, DOCX, or TXT)'
+              }
             </label>
+            {discoveryType === 'frog' && (
+              <p className="text-xs text-slate-400 mb-2">
+                Upload the DISC-001 Form Interrogatories PDF received from opposing counsel. 
+                The system will automatically detect which interrogatories are selected.
+              </p>
+            )}
+            {discoveryType === 'frog-employment' && (
+              <p className="text-xs text-slate-400 mb-2">
+                Upload the DISC-002 Form Interrogatories (Employment Law) PDF received from opposing counsel. 
+                The system will automatically detect which interrogatories are selected.
+              </p>
+            )}
             <div className="relative">
               <input
                 type="file"
-                accept=".pdf,.docx,.txt"
+                accept={(discoveryType === 'frog' || discoveryType === 'frog-employment') ? '.pdf' : '.pdf,.docx,.txt'}
                 onChange={handleFileUpload}
                 className="hidden"
                 id="discovery-file-upload"
@@ -466,7 +542,14 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
                   <>
                     <Upload className="w-8 h-8 text-slate-400" />
                     <div className="text-left">
-                      <p className="text-slate-300">Drop your discovery document here</p>
+                      <p className="text-slate-300">
+                        {discoveryType === 'frog' 
+                          ? 'Drop your DISC-001 PDF here'
+                          : discoveryType === 'frog-employment'
+                          ? 'Drop your DISC-002 PDF here'
+                          : 'Drop your discovery document here'
+                        }
+                      </p>
                       <p className="text-sm text-slate-500">or click to browse</p>
                     </div>
                   </>
@@ -531,7 +614,7 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
       {/* Editing Section */}
       {step === 'editing' && responses.length > 0 && (
         <>
-          {/* Toolbar */}
+          {/* Top Info Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
             <div className="flex items-center gap-4">
               <div className="text-sm text-slate-400">
@@ -539,61 +622,8 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
                 <span className="mx-2">•</span>
                 <span>{responses.length} requests</span>
               </div>
-              <button
-                onClick={handleReset}
-                className="flex items-center gap-2 px-3 py-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Start Over
-              </button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowAIPanel(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 rounded-lg transition-all"
-              >
-                <MessageSquare className="w-4 h-4" />
-                AI Assistant
-              </button>
-              <button
-                onClick={() => setShowPreview(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white hover:bg-white/20 rounded-lg transition-all"
-              >
-                <Eye className="w-4 h-4" />
-                Preview
-              </button>
-              <button
-                onClick={handleDownloadDocx}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white hover:bg-white/20 rounded-lg transition-all"
-              >
-                <Download className="w-4 h-4" />
-                Download Word
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-lg transition-all disabled:opacity-50"
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : saveSuccess ? (
-                  <CheckCircle className="w-4 h-4" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {saving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Draft'}
-              </button>
             </div>
           </div>
-
-          {/* Error */}
-          {error && (
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-red-300">{error}</p>
-            </div>
-          )}
 
           {/* Response Cards */}
           <DndContext
@@ -615,6 +645,9 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
                     onSelect={() => setSelectedResponseId(response.id)}
                     onUpdate={(updates) => handleUpdateResponse(response.id, updates)}
                     onToggleObjection={(objId, enabled) => handleToggleObjection(response.id, objId, enabled)}
+                    onAddCustomObjection={(customText) => handleAddCustomObjection(response.id, customText)}
+                    onEditObjectionText={(index, newText) => handleEditObjectionText(response.id, index, newText)}
+                    onRemoveCustomObjection={(index) => handleRemoveCustomObjection(response.id, index)}
                     onOpenAI={() => {
                       setSelectedResponseId(response.id);
                       setShowAIPanel(true);
@@ -624,6 +657,85 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
               </div>
             </SortableContext>
           </DndContext>
+
+          {/* Bottom Action Bar */}
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 flex items-center gap-2 text-red-400 bg-red-500/10 px-4 py-2 rounded-lg border border-red-500/20">
+                <AlertCircle className="w-5 h-5" />
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-4 justify-end items-center flex-wrap">
+              {/* Start Over Button */}
+              <button
+                onClick={handleReset}
+                className="px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-white/10 border border-white/20 text-slate-300 hover:bg-white/20 hover:text-white"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Start Over</span>
+              </button>
+
+              {/* AI Assistant Button */}
+              <button
+                onClick={() => setShowAIPanel(true)}
+                className="px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>AI Assistant</span>
+              </button>
+
+              {/* Preview Button */}
+              <button
+                onClick={() => setShowPreview(true)}
+                className="px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-white/10 border border-white/20 text-white hover:bg-white/20"
+              >
+                <Eye className="w-4 h-4" />
+                <span>Preview</span>
+              </button>
+
+              {/* Download Word Button */}
+              <button
+                onClick={handleDownloadDocx}
+                className="px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 bg-white/10 border border-white/20 text-white hover:bg-white/20"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Word</span>
+              </button>
+
+              {/* Save Draft Button */}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className={`px-6 py-3 rounded-full font-semibold transition-all duration-300 flex items-center gap-2 ${
+                  saving ? 'opacity-50 cursor-not-allowed' : ''
+                } ${
+                  saveSuccess
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white'
+                }`}
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : saveSuccess ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>Saved!</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Draft</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </>
       )}
 
@@ -650,6 +762,7 @@ export function DiscoveryResponseGenerator({ caseData, onSave, isTrialMode = fal
           responses={responses}
           onClose={() => setShowPreview(false)}
           onDownload={handleDownloadDocx}
+          setNumber={1}
         />
       )}
     </div>

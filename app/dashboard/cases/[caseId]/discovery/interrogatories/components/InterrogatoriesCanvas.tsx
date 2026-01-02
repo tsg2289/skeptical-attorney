@@ -504,18 +504,6 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate, isTrialM
                 />
               </div>
             </div>
-            
-            {/* Formatted Header Preview */}
-            <div className="bg-gray-50 rounded-xl p-4 text-sm font-mono border border-gray-200 text-gray-800">
-              <p><strong>PROPOUNDING PARTY:</strong> {document.metadata.propoundingParty.toUpperCase()}</p>
-              <p><strong>RESPONDING PARTY:</strong> {document.metadata.respondingParty.toUpperCase()}</p>
-              <p><strong>SET NO.:</strong> {setNumberWords[document.metadata.setNumber - 1] || document.metadata.setNumber}</p>
-              <p className="mt-3 text-gray-700">
-                {getPropoundingPartyName()} ("{document.metadata.propoundingParty === 'defendant' ? 'Defendant' : 'Plaintiff'}") requests, 
-                pursuant to California Code of Civil Procedure section 2030.030, that {getRespondingPartyName()} ("{document.metadata.respondingParty === 'plaintiff' ? 'Plaintiff' : 'Defendant'}" or "Responding Party") 
-                answer under oath, and within the time provided by law, the following Special Interrogatories:
-              </p>
-            </div>
           </div>
 
           {/* Definitions Section */}
@@ -740,6 +728,14 @@ export default function InterrogatoriesCanvas({ caseData, onCaseUpdate, isTrialM
             ? caseData.defendants?.[0]?.attorneys?.[0]?.email
             : caseData.plaintiffs?.[0]?.attorneys?.[0]?.email
         }
+        fax={
+          document.metadata.propoundingParty === 'defendant'
+            ? caseData.defendants?.[0]?.attorneys?.[0]?.fax
+            : caseData.plaintiffs?.[0]?.attorneys?.[0]?.fax
+        }
+        county={caseData.courtCounty || 'Los Angeles'}
+        judgeName={caseData.judgeName}
+        departmentNumber={caseData.departmentNumber}
       />
     </div>
   )
