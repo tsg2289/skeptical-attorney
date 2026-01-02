@@ -75,6 +75,7 @@ interface ResponsePreviewModalProps {
 const TYPE_TITLES: Record<DiscoveryResponseType, string> = {
   interrogatories: 'Responses to Special Interrogatories',
   frog: 'Responses to Form Interrogatories - General',
+  'frog-employment': 'Responses to Form Interrogatories - Employment',
   rfp: 'Responses to Requests for Production of Documents',
   rfa: 'Responses to Requests for Admission',
 };
@@ -83,6 +84,7 @@ const TYPE_TITLES: Record<DiscoveryResponseType, string> = {
 const TYPE_COLORS: Record<DiscoveryResponseType, { gradient: string; bg: string; border: string }> = {
   interrogatories: { gradient: 'from-blue-600 to-blue-700', bg: 'bg-blue-50', border: 'border-blue-200' },
   frog: { gradient: 'from-indigo-600 to-indigo-700', bg: 'bg-indigo-50', border: 'border-indigo-200' },
+  'frog-employment': { gradient: 'from-purple-600 to-purple-700', bg: 'bg-purple-50', border: 'border-purple-200' },
   rfp: { gradient: 'from-emerald-600 to-emerald-700', bg: 'bg-emerald-50', border: 'border-emerald-200' },
   rfa: { gradient: 'from-amber-500 to-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
 };
