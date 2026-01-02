@@ -6,6 +6,7 @@ export interface Attorney {
   firm?: string
   email?: string
   phone?: string
+  fax?: string
   address?: string
   barNumber?: string
 }
