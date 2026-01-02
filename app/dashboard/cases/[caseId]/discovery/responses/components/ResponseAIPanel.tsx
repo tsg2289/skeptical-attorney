@@ -90,6 +90,8 @@ const discoveryTypeLabels: Record<DiscoveryResponseType, string> = {
   interrogatories: 'Special Interrogatory',
   rfp: 'Request for Production',
   rfa: 'Request for Admission',
+  frog: 'Form Interrogatory',
+  'frog-employment': 'Form Interrogatory (Employment)',
 };
 
 export function ResponseAIPanel({
