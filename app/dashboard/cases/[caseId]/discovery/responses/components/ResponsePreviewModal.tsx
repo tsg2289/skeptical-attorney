@@ -94,6 +94,7 @@ const SET_NUMBER_WORDS = ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX', 'SEVEN',
 const discoveryTypeLabels: Record<DiscoveryResponseType, string> = {
   interrogatories: 'SPECIAL INTERROGATORIES',
   frog: 'FORM INTERROGATORIES - GENERAL',
+  'frog-employment': 'FORM INTERROGATORIES - EMPLOYMENT',
   rfp: 'REQUESTS FOR PRODUCTION OF DOCUMENTS',
   rfa: 'REQUESTS FOR ADMISSION',
 };
@@ -101,6 +102,7 @@ const discoveryTypeLabels: Record<DiscoveryResponseType, string> = {
 const requestLabels: Record<DiscoveryResponseType, string> = {
   interrogatories: 'INTERROGATORY NO.',
   frog: 'FORM INTERROGATORY NO.',
+  'frog-employment': 'FORM INTERROGATORY NO.',
   rfp: 'REQUEST FOR PRODUCTION NO.',
   rfa: 'REQUEST FOR ADMISSION NO.',
 };
